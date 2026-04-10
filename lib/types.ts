@@ -15,12 +15,16 @@ export interface Balita {
   nama: string;
   tanggal_lahir: string;
   jenis_kelamin: 'Laki-laki' | 'Perempuan';
-  anak_ke: number | null;
+  anak_ke?: number | null;
   nama_ortu: string;
   alamat: string;
   rt: number;
-  bb_lahir: number | null;
-  tb_lahir: number | null;
+  tempat_lahir?: string;
+  nama_ayah?: string;
+  nama_ibu?: string;
+  penyakit_bawaan?: string[];
+  bb_lahir?: number | null;
+  tb_lahir?: number | null;
   created_at: string;
   posyandu?: Posyandu;
   penimbangans?: Penimbangan[];
@@ -55,7 +59,8 @@ export interface Lansia {
   jenis_kelamin: 'Laki-laki' | 'Perempuan';
   alamat: string | null;
   rt: number | null;
-  penyakit_bawaan: string[];
+  penyuluhan_lansia?: string;
+  penyakit_bawaan?: string[];
   created_at: string;
   posyandu?: Posyandu;
   pemeriksaan_lansias?: PemeriksaanLansia[];
@@ -79,33 +84,65 @@ export interface PemeriksaanLansia {
   lansia?: Lansia;
 }
 
-export interface WhoReference {
-  sd_minus_3: number;
-  sd_minus_2: number;
-  sd_minus_1: number;
-  median: number;
-  sd_plus_1: number;
-  sd_plus_2: number;
-  sd_plus_3: number;
-}
+// --- Nutrition & Risk Types ---
+
+export type NutritionStatus = 
+  | 'Gizi Buruk' 
+  | 'Gizi Kurang' 
+  | 'Gizi Baik' 
+  | 'Gizi Lebih' 
+  | 'Obesitas'
+  | 'Sangat Pendek (SP)'
+  | 'Pendek (P)'
+  | 'Normal (N)'
+  | 'Tinggi (T)'
+  | 'BB Sangat Kurang (SK)'
+  | 'BB Kurang (K)'
+  | 'BB Normal (N)'
+  | 'Resiko BB Lebih (RL)'
+  | 'Tidak dapat ditentukan';
+
+export type RiskLevel = 'Risiko Sangat Rendah' | 'Risiko Rendah' | 'Risiko Sedang' | 'Risiko Tinggi' | 'Tidak ada data';
+export type RiskColor = 'green' | 'yellow' | 'orange' | 'red' | 'gray';
 
 export interface ZScoreResult {
   zscore: number;
-  status: string;
-  bmi?: number;
+  status: NutritionStatus;
+  indicator: 'IMT/U' | 'TB/U' | 'BB/U';
 }
 
-export interface RiskPrediction {
+export interface RiskBreakdownItem {
+  label: string;
+  score: number;
+  status: string;
+  zscore?: number;
+  weight: string;
+}
+
+export interface RiskCalculationResult {
   overall_score: number | null;
-  risk_level: string;
-  risk_color: string;
+  risk_level: RiskLevel;
+  risk_color: RiskColor;
   breakdown: {
-    stunting: { label: string; score: number; status: string; zscore: number | null; weight: string };
-    wasting: { label: string; score: number; status: string; zscore: number | null; weight: string };
-    underweight: { label: string; score: number; status: string; zscore: number | null; weight: string };
-    trend: { label: string; score: number; status: string; weight: string };
+    stunting: RiskBreakdownItem;
+    wasting: RiskBreakdownItem;
+    underweight: RiskBreakdownItem;
+    trend: RiskBreakdownItem;
   };
   recommendations: string[];
   usia_bulan: number;
-  last_measurement_date: string;
+}
+
+export interface WHOReferenceRow {
+  sex: 'L' | 'P';
+  measurement: number;
+  median: number;
+  minus_3sd: number;
+  minus_2sd: number;
+  minus_1sd: number;
+  plus_1sd: number;
+  plus_2sd: number;
+  plus_3sd: number;
+  indicator?: string;
+  measure_type?: string;
 }
