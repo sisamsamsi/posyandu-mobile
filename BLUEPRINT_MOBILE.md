@@ -1078,17 +1078,17 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 **Durasi**: 1 minggu
 
 **Tasks:**
-- [ ] Init Expo project: `npx create-expo-app@latest ./`
-- [ ] Install dependencies: `@supabase/supabase-js`, `@react-native-async-storage/async-storage`, `expo-router`, `date-fns`, `zustand`
-- [ ] Buat `lib/supabase.ts`
-- [ ] Buat `lib/types.ts` (semua interfaces dari Section 2.3)
-- [ ] Buat `.env` dengan `EXPO_PUBLIC_SUPABASE_URL` dan `EXPO_PUBLIC_SUPABASE_ANON_KEY`
-- [ ] Setup Supabase project → jalankan SQL schema dari Section 2.2
-- [ ] Buat `app/_layout.tsx` (root layout + auth check)
-- [ ] Buat `app/login.tsx`
-- [ ] Buat `app/(tabs)/_layout.tsx` (bottom tab 5 tabs)
-- [ ] Buat placeholder screen untuk setiap tab
-- [ ] Test login → masuk ke tab view
+- [x] Init Expo project: `npx create-expo-app@latest ./`
+- [x] Install dependencies: `@supabase/supabase-js`, `@react-native-async-storage/async-storage`, `expo-router`, `date-fns`, `zustand`
+- [x] Buat `lib/supabase.ts`
+- [x] Buat `lib/types.ts` (semua interfaces dari Section 2.3)
+- [x] Buat `.env` dengan `EXPO_PUBLIC_SUPABASE_URL` dan `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- [x] Setup Supabase project → jalankan SQL schema dari Section 2.2
+- [x] Buat `app/_layout.tsx` (root layout + auth check)
+- [x] Buat `app/login.tsx`
+- [x] Buat `app/(tabs)/_layout.tsx` (bottom tab 5 tabs)
+- [x] Buat placeholder screen untuk setiap tab
+- [x] Test login → masuk ke tab view
 
 **Files:**
 ```
@@ -1108,13 +1108,12 @@ stores/auth-store.ts
 **Durasi**: 1-2 minggu
 
 **Tasks:**
-- [ ] Export data WHO dari MySQL web ke 6 file JSON
-- [ ] Buat `lib/who-data/` folder + 6 JSON files
-- [ ] Buat `services/bmi-calculator.ts`
-- [ ] Buat `services/zscore-engine.ts` (semua fungsi dari Section 3.2)
-- [ ] Buat `services/risk-prediction.ts` (dari Section 3.3)
-- [ ] Seed data WHO ke Supabase (INSERT statements)
-- [ ] Test: hitung Z-Score dengan nilai yang sudah diketahui hasilnya
+- [x] Export data WHO dari MySQL web ke 6 file JSON
+- [x] Buat `assets/data/` folder + JSON files
+- [x] Buat `services/bmi-calculator.ts`
+- [x] Buat `services/zscore-engine.ts` (semua fungsi dari Section 3.2)
+- [x] Buat `services/risk-prediction.ts` (dari Section 3.3)
+- [x] Test: hitung Z-Score dengan nilai yang sudah diketahui hasilnya
 
 **Files:**
 ```
