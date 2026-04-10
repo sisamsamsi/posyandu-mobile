@@ -31,11 +31,29 @@ export const usePosyandu = () => {
     }
   };
 
+  const getAllPosyandus = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('posyandus')
+        .select('*')
+        .order('nama_posyandu', { ascending: true });
+
+      if (error) throw error;
+      return data as Posyandu[];
+    } catch (err: any) {
+      setError(err.message);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (user) {
       fetchPosyandu();
     }
   }, [user]);
 
-  return { posyandu, loading, error, refresh: fetchPosyandu };
+  return { posyandu, loading, error, refresh: fetchPosyandu, getAllPosyandus };
 };

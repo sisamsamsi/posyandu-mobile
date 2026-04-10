@@ -75,10 +75,11 @@ export interface PemeriksaanLansia {
   tinggi_badan: number | null;
   berat_badan: number | null;
   lingkar_perut: number | null;
-  lingkar_kepala: number | null;
+  lingkar_lengan: number | null;
   kolesterol: number | null;
   gula_darah: number | null;
   asam_urat: number | null;
+  trigliserida: number | null;
   catatan_tambahan: string | null;
   created_at: string;
   lansia?: Lansia;
