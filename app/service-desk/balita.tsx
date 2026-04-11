@@ -211,45 +211,61 @@ export default function BalitaServiceDesk() {
                <TouchableOpacity onPress={() => setStep('search')}><Text style={styles.changeLink}>Ganti</Text></TouchableOpacity>
             </View>
 
-            <Text style={styles.sectionLabel}>Data Penimbangan</Text>
+            <Text style={styles.sectionLabel}>Data Penimbangan & Pengukuran</Text>
             <View style={styles.form}>
-              <View style={styles.inputGroup}>
-                <Scale size={18} color="#64748B" />
-                <TextInput 
-                  style={styles.input} 
-                  placeholder="Berat Badan (kg)" 
-                  keyboardType="numeric"
-                  value={berat}
-                  onChangeText={setBerat}
-                />
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>Berat Badan (kg)</Text>
+                <View style={styles.inputGroup}>
+                  <Scale size={18} color="#0D9488" />
+                  <TextInput 
+                    style={styles.input} 
+                    placeholder="Contoh: 8.5" 
+                    keyboardType="numeric"
+                    value={berat}
+                    onChangeText={setBerat}
+                  />
+                </View>
               </View>
-              <View style={styles.inputGroup}>
-                <Ruler size={18} color="#64748B" />
-                <TextInput 
-                  style={styles.input} 
-                  placeholder="Tinggi Badan (cm)" 
-                  keyboardType="numeric"
-                  value={tinggi}
-                  onChangeText={setTinggi}
-                />
+
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>Tinggi / Panjang Badan (cm)</Text>
+                <View style={styles.inputGroup}>
+                  <Ruler size={18} color="#0D9488" />
+                  <TextInput 
+                    style={styles.input} 
+                    placeholder="Contoh: 75.2" 
+                    keyboardType="numeric"
+                    value={tinggi}
+                    onChangeText={setTinggi}
+                  />
+                </View>
               </View>
-              <View style={styles.inputGroup}>
-                <Brain size={18} color="#64748B" />
-                <TextInput 
-                  style={styles.input} 
-                  placeholder="Lingkar Kepala (cm)" 
-                  keyboardType="numeric"
-                  value={lica}
-                  onChangeText={setLica}
-                />
+
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>Lingkar Kepala (cm)</Text>
+                <View style={styles.inputGroup}>
+                  <Brain size={18} color="#0D9488" />
+                  <TextInput 
+                    style={styles.input} 
+                    placeholder="Masukkan lingkar kepala..." 
+                    keyboardType="numeric"
+                    value={lica}
+                    onChangeText={setLica}
+                  />
+                </View>
               </View>
-              <View style={styles.inputGroup}>
-                <Calendar size={18} color="#64748B" />
-                <TextInput 
-                  style={styles.input} 
-                  value={tanggal}
-                  onChangeText={setTanggal}
-                />
+
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>Tanggal Penimbangan</Text>
+                <View style={styles.inputGroup}>
+                  <Calendar size={18} color="#64748B" />
+                  <TextInput 
+                    style={styles.input} 
+                    value={tanggal}
+                    onChangeText={setTanggal}
+                    placeholder="YYYY-MM-DD"
+                  />
+                </View>
               </View>
             </View>
 
@@ -465,6 +481,16 @@ const styles = StyleSheet.create({
   form: {
     gap: 16,
     marginBottom: 32,
+  },
+  fieldContainer: {
+    marginBottom: 4,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: 8,
+    marginLeft: 4,
   },
   inputGroup: {
     flexDirection: 'row',

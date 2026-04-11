@@ -27,15 +27,15 @@ export class DashboardService {
       supabase.from('lansias').select('*', { count: 'exact', head: true }),
       supabase.from('penimbangans').select('*', { count: 'exact', head: true }).gte('tanggal', start).lte('tanggal', end),
       supabase.from('pemeriksaan_lansias').select('*', { count: 'exact', head: true }).gte('tanggal_periksa', start).lte('tanggal_periksa', end),
-      supabase.from('penimbangans').select('status_gizi'),
+      supabase.from('penimbangans').select('status_bb_u'),
       supabase.from('pemeriksaan_lansias').select('tekanan_darah, gula_darah, kolesterol, asam_urat')
     ]);
 
     // Aggregate nutrition stats
     const nutritionCounts: Record<string, number> = {};
     nutritionData?.forEach(p => {
-      if (p.status_gizi) {
-        nutritionCounts[p.status_gizi] = (nutritionCounts[p.status_gizi] || 0) + 1;
+      if (p.status_bb_u) {
+        nutritionCounts[p.status_bb_u] = (nutritionCounts[p.status_bb_u] || 0) + 1;
       }
     });
 

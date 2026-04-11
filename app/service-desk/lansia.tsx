@@ -176,55 +176,88 @@ export default function LansiaServiceDesk() {
 
             <Text style={styles.sectionLabel}>Vital & Fisik</Text>
             <View style={styles.row}>
-               <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-                  <Heart size={18} color="#64748B" />
-                  <TextInput style={styles.input} placeholder="Sistolik" keyboardType="numeric" value={tdSistolik} onChangeText={setTdSistolik} />
+               <View style={styles.fieldContainerHalf}>
+                  <Text style={styles.fieldLabel}>Sistolik (Atas)</Text>
+                  <View style={styles.inputGroup}>
+                     <Heart size={18} color="#EF4444" />
+                     <TextInput style={styles.input} placeholder="120" keyboardType="numeric" value={tdSistolik} onChangeText={setTdSistolik} />
+                  </View>
                </View>
-               <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Heart size={18} color="#64748B" />
-                  <TextInput style={styles.input} placeholder="Diastolik" keyboardType="numeric" value={tdDiastolik} onChangeText={setTdDiastolik} />
-               </View>
-            </View>
-
-            <View style={styles.row}>
-               <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-                  <Activity size={18} color="#64748B" />
-                  <TextInput style={styles.input} placeholder="BB (kg)" keyboardType="numeric" value={berat} onChangeText={setBerat} />
-               </View>
-               <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Activity size={18} color="#64748B" />
-                  <TextInput style={styles.input} placeholder="TB (cm)" keyboardType="numeric" value={tinggi} onChangeText={setTinggi} />
+               <View style={styles.fieldContainerHalf}>
+                  <Text style={styles.fieldLabel}>Diastolik (Bawah)</Text>
+                  <View style={styles.inputGroup}>
+                     <Heart size={18} color="#EF4444" />
+                     <TextInput style={styles.input} placeholder="80" keyboardType="numeric" value={tdDiastolik} onChangeText={setTdDiastolik} />
+                  </View>
                </View>
             </View>
 
             <View style={styles.row}>
-               <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-                  <Activity size={18} color="#64748B" />
-                  <TextInput style={styles.input} placeholder="L. Perut (cm)" keyboardType="numeric" value={lingkarPerut} onChangeText={setLingkarPerut} />
+               <View style={styles.fieldContainerHalf}>
+                  <Text style={styles.fieldLabel}>Berat Badan (kg)</Text>
+                  <View style={styles.inputGroup}>
+                     <Activity size={18} color="#0D9488" />
+                     <TextInput style={styles.input} placeholder="Kg" keyboardType="numeric" value={berat} onChangeText={setBerat} />
+                  </View>
                </View>
-               <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Activity size={18} color="#64748B" />
-                  <TextInput style={styles.input} placeholder="LiLA (cm)" keyboardType="numeric" value={lila} onChangeText={setLila} />
+               <View style={styles.fieldContainerHalf}>
+                  <Text style={styles.fieldLabel}>Tinggi Badan (cm)</Text>
+                  <View style={styles.inputGroup}>
+                     <Activity size={18} color="#0D9488" />
+                     <TextInput style={styles.input} placeholder="Cm" keyboardType="numeric" value={tinggi} onChangeText={setTinggi} />
+                  </View>
+               </View>
+            </View>
+
+            <View style={styles.row}>
+               <View style={styles.fieldContainerHalf}>
+                  <Text style={styles.fieldLabel}>L. Perut (cm)</Text>
+                  <View style={styles.inputGroup}>
+                     <Activity size={18} color="#64748B" />
+                     <TextInput style={styles.input} placeholder="Cm" keyboardType="numeric" value={lingkarPerut} onChangeText={setLingkarPerut} />
+                  </View>
+               </View>
+               <View style={styles.fieldContainerHalf}>
+                  <Text style={styles.fieldLabel}>LiLA (cm)</Text>
+                  <View style={styles.inputGroup}>
+                     <Activity size={18} color="#64748B" />
+                     <TextInput style={styles.input} placeholder="Cm" keyboardType="numeric" value={lila} onChangeText={setLila} />
+                  </View>
                </View>
             </View>
 
             <Text style={styles.sectionLabel}>Pemeriksaan Darah (Opsional)</Text>
             <View style={styles.form}>
-              <View style={styles.inputGroup}>
-                <Droplet size={18} color="#EF4444" />
-                <TextInput style={styles.input} placeholder="Gula Darah (mg/dL)" keyboardType="numeric" value={gulaDarah} onChangeText={setGulaDarah} />
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>Gula Darah (mg/dL)</Text>
+                <View style={styles.inputGroup}>
+                  <Droplet size={18} color="#EF4444" />
+                  <TextInput style={styles.input} placeholder="Gula Darah" keyboardType="numeric" value={gulaDarah} onChangeText={setGulaDarah} />
+                </View>
               </View>
-              <View style={styles.inputGroup}>
-                <Thermometer size={18} color="#F59E0B" />
-                <TextInput style={styles.input} placeholder="Asam Urat (mg/dL)" keyboardType="numeric" value={asamUrat} onChangeText={setAsamUrat} />
+
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>Asam Urat (mg/dL)</Text>
+                <View style={styles.inputGroup}>
+                  <Thermometer size={18} color="#F59E0B" />
+                  <TextInput style={styles.input} placeholder="Asam Urat" keyboardType="numeric" value={asamUrat} onChangeText={setAsamUrat} />
+                </View>
               </View>
-              <View style={styles.inputGroup}>
-                <Activity size={18} color="#3B82F6" />
-                <TextInput style={styles.input} placeholder="Kolesterol (mg/dL)" keyboardType="numeric" value={kolesterol} onChangeText={setKolesterol} />
+
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>Kolesterol (mg/dL)</Text>
+                <View style={styles.inputGroup}>
+                  <Activity size={18} color="#3B82F6" />
+                  <TextInput style={styles.input} placeholder="Kolesterol" keyboardType="numeric" value={kolesterol} onChangeText={setKolesterol} />
+                </View>
               </View>
-              <View style={styles.inputGroup}>
-                <Activity size={18} color="#8B5CF6" />
-                <TextInput style={styles.input} placeholder="Trigliserida (mg/dL)" keyboardType="numeric" value={trigliserida} onChangeText={setTrigliserida} />
+
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>Trigliserida (mg/dL)</Text>
+                <View style={styles.inputGroup}>
+                  <Activity size={18} color="#8B5CF6" />
+                  <TextInput style={styles.input} placeholder="Trigliserida" keyboardType="numeric" value={trigliserida} onChangeText={setTrigliserida} />
+                </View>
               </View>
             </View>
 
@@ -433,6 +466,20 @@ const styles = StyleSheet.create({
   form: {
     gap: 12,
     marginBottom: 32,
+  },
+  fieldContainer: {
+    marginBottom: 4,
+  },
+  fieldContainerHalf: {
+    flex: 1,
+    marginRight: 8,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: 8,
+    marginLeft: 4,
   },
   inputGroup: {
     flexDirection: 'row',

@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import { Balita, Lansia } from '../lib/types';
 
 // Bypass missing type definitions for some expo-file-system versions
-const { cacheDirectory, readAsStringAsync, writeAsStringAsync } = FileSystem as any;
+const { cacheDirectory, readAsStringAsync, writeAsStringAsync, EncodingType } = FileSystem as any;
 
 export class ImportService {
   /**
@@ -32,43 +32,57 @@ export class ImportService {
    * Generates and shares a template Excel file
    */
   static async downloadTemplate(type: 'balita' | 'lansia') {
-    const data = type === 'balita' ? [
-      {
-        nik: '1234567890123456',
-        nama: 'Nama Balita',
-        tanggal_lahir: '2023-01-01',
-        jenis_kelamin: 'Laki-laki',
-        nama_ortu: 'Nama Ibu/Ayah',
-        alamat: 'Nama Jalan/Dusun',
-        rt: 1,
-        bb_lahir: 3.2,
-        tb_lahir: 50,
-        anak_ke: 1
-      }
-    ] : [
-      {
-        nik: '1234567890123456',
-        nama: 'Nama Lansia',
-        tanggal_lahir: '1960-01-01',
-        jenis_kelamin: 'Perempuan',
-        alamat: 'Nama Jalan/Dusun',
-        rt: 1,
-        penyakit_bawaan: 'Hipertensi, Diabetes'
-      }
-    ];
+    try {
+      const data = type === 'balita' ? [
+        {
+          nik: '1234567890123456',
+          nama: 'Ananda Bagus',
+          tanggal_lahir: '2023-01-01',
+          jenis_kelamin: 'Laki-laki',
+          nama_ortu: 'Siti Aminah',
+          alamat: 'Jl. Merdeka No. 10',
+          rt: 1,
+          bb_lahir: 3.2,
+          tb_lahir: 50,
+          anak_ke: 1
+        }
+      ] : [
+        {
+          nik: '1234567890123456',
+          nama: 'Bapak Ahmad',
+          tanggal_lahir: '1960-05-15',
+          jenis_kelamin: 'Laki-laki',
+          alamat: 'Jl. Mawar No. 5',
+          rt: 2,
+          penyakit_bawaan: 'Hipertensi'
+        }
+      ];
 
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Template');
-    
-    const wbout = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
-    const uri = (cacheDirectory || '') + `template_${type}.xlsx`;
-    
-    await writeAsStringAsync(uri, wbout, {
-      encoding: 'base64',
-    });
+      const worksheet = XLSX.utils.json_to_sheet(data);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Template');
+      
+      const wbout = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
+      const filename = `template_${type}_${Date.now()}.xlsx`;
+      const uri = (cacheDirectory || '') + filename;
+      
+      await writeAsStringAsync(uri, wbout, {
+        encoding: EncodingType.Base64,
+      });
 
-    await Sharing.shareAsync(uri);
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          dialogTitle: `Unduh Template ${type}`,
+          UTI: 'com.microsoft.excel.xlsx'
+        });
+      } else {
+        throw new Error('Fitur berbagi tidak tersedia di perangkat ini');
+      }
+    } catch (error: any) {
+      console.error('Download error:', error);
+      throw error;
+    }
   }
 
   /**

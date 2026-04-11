@@ -17,12 +17,12 @@ function RootLayoutNav() {
   useEffect(() => {
     if (!initialized) return;
 
-    const inAuthGroup = segments[0] === '(tabs)';
+    const isLoginScreen = segments[0] === 'login';
 
-    if (!session && inAuthGroup) {
-      // Redirect to login if not logged in and trying to access tabs
+    if (!session && !isLoginScreen) {
+      // Redirect to login if not logged in and not on login screen
       router.replace('/login');
-    } else if (session && !inAuthGroup) {
+    } else if (session && isLoginScreen) {
       // Redirect to home if logged in and trying to access login
       router.replace('/(tabs)');
     }

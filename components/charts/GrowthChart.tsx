@@ -17,8 +17,8 @@ const screenWidth = Dimensions.get('window').width;
 export const GrowthChart: React.FC<GrowthChartProps> = ({ standards, data, indicator, title, birthDate }) => {
   if (standards.length === 0) return <Text style={styles.loading}>Memuat standar referensi...</Text>;
 
-  // Labels for X-axis (Months 0-60, sampled every 6 months)
-  const labels = standards.filter((_, i) => i % 6 === 0).map(s => `${s.measurement}bln`);
+  // Labels for X-axis (Months 0-60, sampled every 12 months for better spacing)
+  const labels = standards.filter((_, i) => i % 12 === 0).map(s => `${s.measurement}bln`);
   
   const getLine = (key: keyof WHOReferenceRow) => {
     return standards.map(s => s[key] as number);
@@ -76,8 +76,8 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({ standards, data, indic
       },
       {
         data: balitaData,
-        color: (opacity = 1) => `rgba(13, 148, 136, ${opacity})`, // Main Teal Line for Balita
-        strokeWidth: 3,
+        color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`, // Black Line for Balita (High Contrast)
+        strokeWidth: 4,
         withDots: true,
       },
     ],
@@ -96,7 +96,7 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({ standards, data, indic
           backgroundGradientFrom: '#ffffff',
           backgroundGradientTo: '#ffffff',
           decimalPlaces: 1,
-          color: (opacity = 1) => `rgba(13, 148, 136, ${opacity})`,
+          color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
           labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
           style: {
             borderRadius: 16,
@@ -106,8 +106,10 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({ standards, data, indic
             strokeWidth: '2',
             stroke: '#ffffff',
           },
+          fillShadowGradient: '#ffffff',
+          fillShadowGradientOpacity: 0,
         }}
-        bezier
+        withShadow={false}
         style={styles.chart}
         withInnerLines={false}
         withOuterLines={true}
@@ -119,7 +121,7 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({ standards, data, indic
         <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#22c55e' }]} /><Text style={styles.legendText}>Ideal</Text></View>
         <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#f59e0b' }]} /><Text style={styles.legendText}>Normal</Text></View>
         <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#ef4444' }]} /><Text style={styles.legendText}>Risiko</Text></View>
-        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#0D9488' }]} /><Text style={styles.legendText}>Balita</Text></View>
+        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#000000' }]} /><Text style={styles.legendText}>Balita</Text></View>
       </View>
     </View>
   );

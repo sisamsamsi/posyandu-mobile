@@ -1132,11 +1132,11 @@ lib/who-data/bb-u-boys.json, lib/who-data/bb-u-girls.json
 **Durasi**: 1-2 minggu
 
 **Tasks:**
-- [ ] Buat `hooks/useBalita.ts`, `hooks/useLansia.ts`, `hooks/usePosyandu.ts`
-- [ ] Buat komponen UI: `SearchBar`, `Card`, `Badge`, `EmptyState`
-- [ ] Buat CRUD screens: `app/balita/index.tsx`, `create.tsx`, `[id].tsx`, `[id]/edit.tsx`
-- [ ] Buat CRUD screens: `app/lansia/index.tsx`, `create.tsx`, `[id].tsx`, `[id]/edit.tsx`
-- [ ] Update `app/(tabs)/data.tsx` — hub menu
+- [ ] Buat hooks/useBalita.ts, hooks/useLansia.ts, hooks/usePosyandu.ts
+- [x] Buat komponen UI: SearchBar, Card, Badge, EmptyState
+- [x] Buat CRUD screens: app/balita/index.tsx, create.tsx, [id].tsx, [id]/edit.tsx
+- [x] Buat CRUD screens: app/lansia/index.tsx, create.tsx, [id].tsx, [id]/edit.tsx
+- [x] Update app/(tabs)/data.tsx — hub menu
 
 **Done when:** CRUD Balita & Lansia berfungsi penuh, search & filter bekerja, NIK validasi 16 digit.
 
@@ -1147,12 +1147,12 @@ lib/who-data/bb-u-boys.json, lib/who-data/bb-u-girls.json
 **Durasi**: 1-2 minggu
 
 **Tasks:**
-- [ ] Buat `app/service-desk/balita.tsx` — 3-step wizard (Search → Input → Hasil)
-- [ ] Integrasi Z-Score Engine di Step 3
-- [ ] Integrasi Risk Prediction
-- [ ] Buat `components/forms/PenimbanganForm.tsx`, `components/ui/StatCard.tsx`
-- [ ] Implementasi warning ranges
-- [ ] Update `app/(tabs)/service-desk.tsx` — hub pilih Balita/Lansia
+- [x] Buat `app/service-desk/balita.tsx` — 3-step wizard (Search → Input → Hasil)
+- [x] Integrasi Z-Score Engine di Step 3
+- [x] Integrasi Risk Prediction
+- [x] Buat `components/forms/PenimbanganForm.tsx`, `components/ui/StatCard.tsx`
+- [x] Implementasi warning ranges
+- [x] Update `app/(tabs)/service-desk.tsx` — hub pilih Balita/Lansia
 
 **Done when:** Input penimbangan tersimpan, Z-Score 3 indikator tampil, Risk Prediction tampil, flow smooth.
 
@@ -1163,9 +1163,10 @@ lib/who-data/bb-u-boys.json, lib/who-data/bb-u-girls.json
 **Durasi**: 1 minggu
 
 **Tasks:**
-- [ ] Buat `app/service-desk/lansia.tsx` — 3-step wizard
-- [ ] Implementasi health check alerts (hipertensi, gula, kolesterol, asam urat)
-- [ ] Simpan ke `pemeriksaan_lansias`
+- [x] Buat `app/service-desk/lansia.tsx` — 3-step wizard
+- [x] Implementasi health check alerts (hipertensi, gula, kolesterol, asam urat)
+- [x] Simpan ke `pemeriksaan_lansias`
+- [x] **Bonus**: Fitur Import Excel Balita & Lansia
 
 **Done when:** Input pemeriksaan tersimpan, alert kondisi ditampilkan otomatis.
 
@@ -1176,11 +1177,11 @@ lib/who-data/bb-u-boys.json, lib/who-data/bb-u-girls.json
 **Durasi**: 1-2 minggu
 
 **Tasks:**
-- [ ] Install chart library
-- [ ] Buat `hooks/useDashboard.ts`
-- [ ] Buat chart components: `StatusDistributionChart`, `TrendChart`
-- [ ] Buat `services/alert-service.ts`
-- [ ] Update `app/(tabs)/index.tsx` — dashboard penuh (balita + lansia tabs, cards, charts, alerts, tabel berisiko, filter)
+- [x] Install chart library
+- [x] Buat `hooks/useDashboard.ts`
+- [x] Buat chart components: `StatusDistributionChart`, `TrendChart`
+- [x] Buat `services/alert-service.ts`
+- [x] Update `app/(tabs)/index.tsx` — dashboard penuh (balita + lansia tabs, cards, charts, alerts, tabel berisiko, filter)
 
 **Done when:** Statistik akurat, charts render, alerts tampil, filter bulan/tahun berfungsi.
 
@@ -1205,11 +1206,11 @@ lib/who-data/bb-u-boys.json, lib/who-data/bb-u-girls.json
 **Durasi**: 1-2 minggu
 
 **Tasks:**
-- [ ] Buat `app/analisis/balita.tsx` — summary cards, charts, tabel + filter, tap → detail
-- [ ] Buat `app/analisis/lansia.tsx` — summary cards, charts, multi-condition, tabel + filter
-- [ ] Buat `app/analisis/detail-balita/[id].tsx` — grafik tren longitudinal
-- [ ] Buat `app/analisis/detail-lansia/[id].tsx` — tren TD, gula, kolesterol, asam urat
-- [ ] Buat `components/charts/GrowthChart.tsx`
+- [/] Buat `app/analisis/balita.tsx` — summary cards, charts, tabel + filter, tap → detail
+- [/] Buat `app/analisis/lansia.tsx` — summary cards, charts, multi-condition, tabel + filter
+- [x] Buat `app/analisis/detail-balita/[id].tsx` — grafik tren longitudinal
+- [x] Buat `app/analisis/detail-lansia/[id].tsx` — tren TD, gula, kolesterol, asam urat
+- [x] Buat `components/charts/GrowthChart.tsx`
 
 **Done when:** Summary cards akurat, charts render, filter multi-kombinasi berfungsi, detail tren tampil.
 
@@ -1220,11 +1221,11 @@ lib/who-data/bb-u-boys.json, lib/who-data/bb-u-girls.json
 **Durasi**: 1-2 minggu
 
 **Tasks:**
-- [ ] Install `expo-print`, `expo-sharing`
-- [ ] Buat `services/report-generator.ts` — HTML templates untuk setiap laporan
-- [ ] Buat `app/laporan/index.tsx` — menu pilih jenis + filter
-- [ ] Buat `app/laporan/preview.tsx` — preview + share
-- [ ] Implementasi minimal 3 laporan: Penimbangan Bulanan, Dinas (SKDN), Rapor Anak
+- [x] Install `expo-print`, `expo-sharing`
+- [x] Buat `services/report-generator.ts` — HTML templates untuk setiap laporan
+- [x] Buat `app/laporan/index.tsx` — menu pilih jenis + filter (Sekarang di `app/admin/reports.tsx`)
+- [x] Buat `app/laporan/preview.tsx` — preview + share
+- [x] Implementasi laporan: Penimbangan Bulanan, SKDN
 
 **Cara generate PDF:**
 ```typescript
