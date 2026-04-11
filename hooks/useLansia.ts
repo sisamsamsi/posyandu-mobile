@@ -60,9 +60,12 @@ export const useLansia = () => {
   const upsertLansia = async (lansia: Partial<Lansia>) => {
     try {
       setLoading(true);
+      // Strip related objects that aren't columns
+      const { posyandu, pemeriksaan_lansias, ...cleanData } = lansia as any;
+
       const { data, error } = await supabase
         .from('lansias')
-        .upsert(lansia)
+        .upsert(cleanData)
         .select()
         .single();
 

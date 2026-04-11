@@ -10,7 +10,8 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  ScrollView
+  ScrollView,
+  Pressable
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -33,6 +34,7 @@ import { Card } from '../../components/ui/Card';
 import { QuickTransition } from '../../components/ui/QuickTransition';
 import { format } from 'date-fns';
 import { supabase } from '../../lib/supabase';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 type Step = 'search' | 'input' | 'confirm' | 'success';
 
@@ -58,6 +60,7 @@ export default function LansiaServiceDesk() {
   const [lingkarPerut, setLingkarPerut] = useState('');
   const [lila, setLila] = useState('');
   const [tanggal, setTanggal] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const { getLansias, loading } = useLansia();
   const { addToHistory } = useServiceStore();
@@ -111,6 +114,13 @@ export default function LansiaServiceDesk() {
       setStep('success');
     } catch (err: any) {
       Alert.alert('Error', err.message);
+    }
+  };
+
+  const onDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setTanggal(format(selectedDate, 'yyyy-MM-dd'));
     }
   };
 
@@ -228,6 +238,27 @@ export default function LansiaServiceDesk() {
 
             <Text style={styles.sectionLabel}>Pemeriksaan Darah (Opsional)</Text>
             <View style={styles.form}>
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>Tanggal Pemeriksaan</Text>
+                <Pressable onPress={() => setShowDatePicker(true)}>
+                  <View style={styles.inputGroup}>
+                    <Calendar size={18} color="#64748B" />
+                    <Text style={[styles.input, { textAlignVertical: 'center', paddingTop: 14 }]}>
+                      {format(new Date(tanggal), 'dd MMMM yyyy')}
+                    </Text>
+                  </View>
+                </Pressable>
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={new Date(tanggal)}
+                    mode="date"
+                    display="default"
+                    onChange={onDateChange}
+                    maximumDate={new Date()}
+                  />
+                )}
+              </View>
+
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>Gula Darah (mg/dL)</Text>
                 <View style={styles.inputGroup}>

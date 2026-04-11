@@ -123,7 +123,7 @@ export const LansiaForm: React.FC<LansiaFormProps> = ({
         <Text style={styles.label}>Alamat</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
-          value={formData.alamat}
+          value={formData.alamat || ''}
           onChangeText={(val) => handleChange('alamat', val)}
           placeholder="Alamat Lengkap"
           multiline

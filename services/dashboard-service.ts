@@ -69,6 +69,10 @@ export class DashboardService {
 
   private static getNutritionColor(status: string): string {
     const colors: Record<string, string> = {
+      'BB Sangat Kurang (SK)': '#EF4444',
+      'BB Kurang (K)': '#F59E0B',
+      'BB Normal (N)': '#22C55E',
+      'Resiko BB Lebih (RL)': '#3B82F6',
       'Gizi Buruk': '#EF4444',
       'Gizi Kurang': '#F59E0B',
       'Gizi Baik': '#22C55E',

@@ -102,8 +102,8 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({ standards, data, indic
             borderRadius: 16,
           },
           propsForDots: {
-            r: '5',
-            strokeWidth: '2',
+            r: '3',
+            strokeWidth: '1',
             stroke: '#ffffff',
           },
           fillShadowGradient: '#ffffff',

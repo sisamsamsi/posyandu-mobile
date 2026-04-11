@@ -60,12 +60,15 @@ export const useBalita = () => {
   const upsertBalita = async (balita: Partial<Balita>) => {
     try {
       setLoading(true);
+      // Strip related objects that aren't columns
+      const { posyandu, penimbangans, ...cleanData } = balita as any;
+      
       const { data, error } = await supabase
         .from('balitas')
-        .upsert(balita)
+        .upsert(cleanData)
         .select()
         .single();
-
+ 
       if (error) throw error;
       return data as Balita;
     } catch (err: any) {

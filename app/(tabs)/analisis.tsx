@@ -65,7 +65,7 @@ export default function AnalysisTabScreen() {
           <Card style={[styles.miniCard, { backgroundColor: '#FEF2F2' }]}>
              <Heart size={20} color="#EF4444" />
              <Text style={styles.miniLabel}>Risiko Gizi</Text>
-             <Text style={styles.miniValue}>{stats?.nutritionStats.find(s => s.label === 'Gizi Buruk')?.count || 0} Anak</Text>
+             <Text style={styles.miniValue}>{stats?.nutritionStats.find(s => s.label === 'BB Sangat Kurang (SK)' || s.label === 'Gizi Buruk')?.count || 0} Anak</Text>
           </Card>
         </View>
 
