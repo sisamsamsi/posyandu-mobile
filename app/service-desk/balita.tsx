@@ -10,7 +10,8 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  ScrollView
+  ScrollView,
+  Share
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -34,6 +35,7 @@ import { format } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import { ZScoreEngine } from '../../services/zscore-engine';
 import { whoService } from '../../services/who-service';
+import { ReportService } from '../../services/report-service';
 
 type Step = 'search' | 'input' | 'confirm' | 'success';
 
@@ -97,6 +99,8 @@ export default function BalitaServiceDesk() {
     setStep('confirm');
   };
 
+  const [lastSavedStatus, setLastSavedStatus] = useState('');
+
   const confirmSave = async () => {
     if (!selectedBalita) return;
     
@@ -113,6 +117,8 @@ export default function BalitaServiceDesk() {
       const bbResult = ZScoreEngine.calculate(bbStd, selectedBalita.jenis_kelamin === 'Laki-laki' ? 'L' : 'P', ageMonths, parseFloat(berat), 'BB/U');
       const tbResult = ZScoreEngine.calculate(tbStd, selectedBalita.jenis_kelamin === 'Laki-laki' ? 'L' : 'P', ageMonths, parseFloat(tinggi), 'TB/U');
       
+      setLastSavedStatus(bbResult.status);
+
       const res = await supabase.from('penimbangans').insert({
         balita_id: selectedBalita.id,
         tanggal: tanggal,
@@ -139,10 +145,20 @@ export default function BalitaServiceDesk() {
     }
   };
 
-  const calculateAgeMonths = (birthDate: string, measureDate: string): number => {
-    const birth = new Date(birthDate);
-    const measure = new Date(measureDate);
-    return (measure.getFullYear() - birth.getFullYear()) * 12 + (measure.getMonth() - birth.getMonth());
+  const handleShareWA = async () => {
+    if (!selectedBalita) return;
+    
+    const sensitive = ReportService.getSensitiveStatus(lastSavedStatus);
+    
+    const message = `*LAPORAN HASIL PENIMBANGAN* 👶\n\nHalo Ayah/Bunda dari *${selectedBalita.nama}*, berikut hasil pemeriksaan hari ini:\n- BB: *${berat} kg*\n- TB: *${tinggi} cm*\n- Kondisi: *${sensitive.label}*\n\nNasihat: ${sensitive.advice}\n\n*Mari terus pantau tumbuh kembang si kecil di Posyandu!*`;
+
+    try {
+      await Share.share({
+        message,
+      });
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    }
   };
 
   const renderContent = () => {
@@ -277,19 +293,29 @@ export default function BalitaServiceDesk() {
             <CheckCircle2 size={64} color="#22C55E" />
             <Text style={styles.successTitle}>Data Berhasil Disimpan!</Text>
             <Text style={styles.successDesc}>Penimbangan untuk {selectedBalita?.nama} telah dicatat.</Text>
+            
             <TouchableOpacity 
-              style={styles.primaryButton} 
+              style={[styles.primaryButton, { width: '100%', backgroundColor: '#25D366' }]} 
+              onPress={handleShareWA}
+            >
+              <Text style={styles.primaryButtonText}>Bagikan ke WhatsApp</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.primaryButton, { width: '100%' }]} 
               onPress={() => router.replace('/(tabs)/service-desk')}
             >
               <Text style={styles.primaryButtonText}>Kembali ke Menu Utama</Text>
             </TouchableOpacity>
+            
             <TouchableOpacity 
-              style={styles.secondaryButton} 
+              style={[styles.secondaryButton, { width: '100%' }]} 
               onPress={() => {
                 setStep('search');
                 setSelectedBalita(null);
                 setBerat('');
                 setTinggi('');
+                setLica('');
               }}
             >
               <Text style={styles.secondaryButtonText}>Lanjut Balita Lain</Text>
@@ -297,6 +323,12 @@ export default function BalitaServiceDesk() {
           </View>
         );
     }
+  };
+
+  const calculateAgeMonths = (birthDate: string, measureDate: string): number => {
+    const birth = new Date(birthDate);
+    const measure = new Date(measureDate);
+    return (measure.getFullYear() - birth.getFullYear()) * 12 + (measure.getMonth() - birth.getMonth());
   };
 
   return (
