@@ -5,7 +5,9 @@ import {
   StyleSheet, 
   FlatList, 
   TouchableOpacity, 
-  ActivityIndicator 
+  ActivityIndicator,
+  Modal,
+  ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -23,6 +25,7 @@ export default function RiwayatPenimbanganScreen() {
   const [data, setData] = useState<Penimbangan[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [isPickerVisible, setIsPickerVisible] = useState(false);
 
   const fetchData = async () => {
     const results = await getPenimbangans(selectedMonth, selectedYear);
@@ -33,6 +36,9 @@ export default function RiwayatPenimbanganScreen() {
     fetchData();
   }, [selectedMonth, selectedYear]);
 
+  const years = [2024, 2025, 2026];
+  const months = Array.from({ length: 12 }, (_, i) => i);
+
   const renderItem = ({ item }: { item: Penimbangan }) => (
     <TouchableOpacity 
       onPress={() => router.push(`/balita/${item.balita_id}`)}
@@ -40,7 +46,7 @@ export default function RiwayatPenimbanganScreen() {
     >
       <Card style={styles.card}>
         <View style={styles.cardHeader}>
-          <View style={styles.avatar}>
+          <View style={[styles.avatar, { backgroundColor: '#F0FDFA' }]}>
             <Baby size={24} color="#0D9488" />
           </View>
           <View style={styles.info}>
@@ -78,18 +84,20 @@ export default function RiwayatPenimbanganScreen() {
           <ArrowLeft size={24} color="#1E293B" />
         </TouchableOpacity>
         <Text style={styles.title}>Riwayat Penimbangan</Text>
-        <TouchableOpacity style={styles.filterButton}>
-          <Filter size={20} color="#0D9488" />
-        </TouchableOpacity>
+        <View style={{ width: 32 }} />
       </View>
 
-      <View style={styles.filterBar}>
+      <TouchableOpacity 
+        style={styles.filterBar}
+        onPress={() => setIsPickerVisible(true)}
+      >
         <View style={styles.monthSelector}>
-          <Calendar size={18} color="#64748B" />
+          <Calendar size={18} color="#0D9488" />
           <Text style={styles.monthText}>{getIndoMonthName(selectedMonth)} {selectedYear}</Text>
+          <ChevronRight size={16} color="#94A3B8" />
         </View>
         <Text style={styles.countText}>{data.length} Kegiatan</Text>
-      </View>
+      </TouchableOpacity>
 
       {loading ? (
         <View style={styles.center}>
@@ -108,6 +116,50 @@ export default function RiwayatPenimbanganScreen() {
           )}
         />
       )}
+
+      {/* Simplified Month/Year Picker Modal */}
+      <Modal visible={isPickerVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Pilih Periode</Text>
+            
+            <Text style={styles.pickerSub}>Tahun</Text>
+            <View style={styles.yearRow}>
+               {years.map(y => (
+                 <TouchableOpacity 
+                   key={y} 
+                   onPress={() => setSelectedYear(y)}
+                   style={[styles.yearBtn, selectedYear === y && styles.activeYearBtn]}
+                 >
+                   <Text style={[styles.yearBtnText, selectedYear === y && styles.activeYearBtnText]}>{y}</Text>
+                 </TouchableOpacity>
+               ))}
+            </View>
+
+            <Text style={styles.pickerSub}>Bulan</Text>
+            <ScrollView contentContainerStyle={styles.monthGrid}>
+               {months.map(m => (
+                 <TouchableOpacity 
+                   key={m} 
+                   onPress={() => setSelectedMonth(m)}
+                   style={[styles.monthBtn, selectedMonth === m && styles.activeMonthBtn]}
+                 >
+                   <Text style={[styles.monthBtnText, selectedMonth === m && styles.activeMonthBtnText]}>
+                     {getIndoMonthName(m).substring(0, 3)}
+                   </Text>
+                 </TouchableOpacity>
+               ))}
+            </ScrollView>
+
+            <TouchableOpacity 
+              style={styles.closeBtn} 
+              onPress={() => setIsPickerVisible(false)}
+            >
+              <Text style={styles.closeBtnText}>Terapkan</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -231,5 +283,91 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: '#94A3B8',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1E293B',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  pickerSub: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  yearRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  yearBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    marginHorizontal: 4,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+  },
+  activeYearBtn: {
+    backgroundColor: '#0D9488',
+  },
+  yearBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  activeYearBtnText: {
+    color: '#FFFFFF',
+  },
+  monthGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  monthBtn: {
+    width: '31%',
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  activeMonthBtn: {
+    backgroundColor: '#0D9488',
+  },
+  monthBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  activeMonthBtnText: {
+    color: '#FFFFFF',
+  },
+  closeBtn: {
+    marginTop: 24,
+    backgroundColor: '#0D9488',
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  closeBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

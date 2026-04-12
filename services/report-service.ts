@@ -152,4 +152,38 @@ export class ReportService {
 
     return problematic;
   }
+
+  /**
+   * Safe language map for parent sharing
+   */
+  static getSensitiveStatus(status: string) {
+    const s = (status || '').toLowerCase();
+    
+    if (s.includes('buruk') || s.includes('sangat pendek') || s.includes('sangat kurang') || s.includes('severe')) {
+      return { 
+        label: 'Memerlukan Perhatian Khusus', 
+        advice: 'Segera lakukan konsultasi intensif dengan Bidan atau Puskesmas terdekat untuk mendapatkan pendampingan gizi.' 
+      };
+    }
+    
+    if (s.includes('kurang') || s.includes('pendek') || s.includes('waspada')) {
+      return { 
+        label: 'Perlu Peningkatan Gizi', 
+        advice: 'Disarankan menambah porsi protein hewani dan vitamin. Jangan lupa pantau nafsu makan si kecil.' 
+      };
+    }
+    
+    if (s.includes('lebih') || s.includes('obesitas')) {
+      return { 
+        label: 'Kelebihan Gizi', 
+        advice: 'Atur kembali pola makan dan kurangi asupan gula atau snacks berlebih. Perbanyak aktivitas fisik.' 
+      };
+    }
+
+    // Default Good Status
+    return { 
+      label: 'Kondisi Normal & Baik', 
+      advice: 'Pertahankan pola makan bergizi dan pola asuh saat ini. Terus rutin menimbang setiap bulan ya Bunda!' 
+    };
+  }
 }

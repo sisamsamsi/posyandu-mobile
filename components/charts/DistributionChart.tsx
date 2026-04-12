@@ -6,11 +6,33 @@ import { Card } from '../ui/Card';
 interface DistributionChartProps {
   title: string;
   data: { label: string; count: number; color: string }[];
+  color?: string;
 }
 
 const screenWidth = Dimensions.get('window').width;
 
-export function DistributionChart({ title, data }: DistributionChartProps) {
+// Label mapping for pruning
+const LABEL_MAP: Record<string, string> = {
+  'Gizi Buruk': 'Buruk',
+  'Gizi Kurang': 'Kurang',
+  'Gizi Baik': 'Baik',
+  'Gizi Lebih': 'Lebih',
+  'Obesitas': 'Obesitas',
+  'Sangat Pendek (SP)': 'SP (Sgt Pdk)',
+  'Pendek (P)': 'P (Pendek)',
+  'Normal (N)': 'Normal',
+  'Tinggi (T)': 'Tinggi',
+  'BB Sangat Kurang (SK)': 'Sgt Kurang',
+  'BB Kurang (K)': 'Kurang',
+  'BB Normal (N)': 'Normal',
+  'Resiko BB Lebih (RL)': 'Resiko LB',
+  'Gizi Buruk (Severely Wasted)': 'Buruk',
+  'Gizi Kurang (Wasted)': 'Kurus',
+  'Berisiko Gizi Lebih': 'Risiko LB',
+  'Gizi Lebih (Overweight)': 'Lebih',
+};
+
+export function DistributionChart({ title, data, color = '#0D9488' }: DistributionChartProps) {
   if (data.length === 0) {
     return (
       <Card style={styles.container}>
@@ -23,11 +45,7 @@ export function DistributionChart({ title, data }: DistributionChartProps) {
   }
 
   const chartData = {
-    labels: data.map(d => {
-       // Shorten labels for better fit
-       if (d.label.length > 8) return d.label.substring(0, 8) + '..';
-       return d.label;
-    }),
+    labels: data.map(d => LABEL_MAP[d.label] || (d.label.length > 10 ? d.label.substring(0, 8) + '..' : d.label)),
     datasets: [{
       data: data.map(d => d.count)
     }]
@@ -39,7 +57,7 @@ export function DistributionChart({ title, data }: DistributionChartProps) {
       <BarChart
         data={chartData}
         width={screenWidth - 72}
-        height={200}
+        height={220}
         yAxisLabel=""
         yAxisSuffix=""
         fromZero
@@ -48,15 +66,15 @@ export function DistributionChart({ title, data }: DistributionChartProps) {
           backgroundGradientFrom: '#ffffff',
           backgroundGradientTo: '#ffffff',
           decimalPlaces: 0,
-          color: (opacity = 1) => `rgba(13, 148, 136, ${opacity})`,
-          labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
-          barPercentage: 0.6,
+          color: (opacity = 1) => color === '#0D9488' ? `rgba(13, 148, 136, ${opacity})` : `rgba(99, 102, 241, ${opacity})`,
+          labelColor: (opacity = 1) => `rgba(71, 85, 105, ${opacity})`,
+          barPercentage: 0.7,
           propsForBackgroundLines: {
-            strokeDasharray: '5,5',
-            stroke: '#E2E8F0',
+            strokeDasharray: '4,4',
+            stroke: '#F1F5F9',
           }
         }}
-        verticalLabelRotation={30}
+        verticalLabelRotation={45}
         showValuesOnTopOfBars
         style={styles.chart}
       />

@@ -138,6 +138,8 @@ export interface RiskCalculationResult {
   };
   recommendations: string[];
   usia_bulan: number;
+  date?: string;
+  id?: string;
 }
 
 export interface WHOReferenceRow {

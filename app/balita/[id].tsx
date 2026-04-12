@@ -69,14 +69,16 @@ export default function BalitaDetail() {
         setWhoTB(tbStandards);
 
         // Calculate Risk if there is penimbangan data
-        if (data.penimbangans && data.penimbangans.length > 0) {
-          const latest = [...data.penimbangans].sort((a,b) => 
+          const validPenimbangans = (data.penimbangans || []).filter(p => new Date(p.tanggal).getTime() <= new Date().getTime());
+          const latest = [...validPenimbangans].sort((a,b) => 
             new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
           )[0];
-          const history = data.penimbangans.filter(p => p.id !== latest.id);
-          const risk = RiskPredictionService.calculate(data, latest, history);
-          setRiskResult(risk);
-        }
+          
+          if (latest) {
+            const history = validPenimbangans.filter(p => p.id !== latest.id);
+            const risk = RiskPredictionService.calculate(data, latest, history);
+            setRiskResult(risk);
+          }
       }
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -171,7 +173,7 @@ export default function BalitaDetail() {
                    <Text style={styles.summaryTitle}>Kondisi Terkini</Text>
                  </View>
                  <Text style={styles.summaryStatus}>{riskResult.risk_level}</Text>
-                 <Text style={styles.summaryDesc}>Berdasarkan data penimbangan terakhir : {format(new Date(balita.penimbangans?.[0]?.tanggal || new Date()), 'dd MMM yyyy')}</Text>
+                 <Text style={styles.summaryDesc}>Berdasarkan data penimbangan terakhir : {riskResult.date ? format(new Date(riskResult.date), 'dd MMM yyyy') : '-'}</Text>
                </Card>
             )}
           </View>

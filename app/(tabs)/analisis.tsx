@@ -18,6 +18,13 @@ const screenWidth = Dimensions.get('window').width;
 
 type AnalysisTab = 'balita' | 'lansia' | 'tren';
 
+// Category Colors
+const COLORS = {
+  balita: '#0D9488',
+  lansia: '#6366F1',
+  trend: '#F59E0B'
+};
+
 export default function AnalysisTabScreen() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<AnalysisTab>('balita');
@@ -59,14 +66,14 @@ export default function AnalysisTabScreen() {
     return (
       <View>
         <View style={styles.statsGrid}>
-          <Card style={styles.statCard}>
+          <Card style={[styles.statCard, { borderBottomWidth: 3, borderBottomColor: COLORS.balita }]}>
             <Text style={styles.statLabel}>Sasaran</Text>
-            <Text style={styles.statValue}>{balitaData.totalSasaran}</Text>
+            <Text style={[styles.statValue, { color: COLORS.balita }]}>{balitaData.totalSasaran}</Text>
           </Card>
-          <Card style={styles.statCard}>
+          <Card style={[styles.statCard, { borderBottomWidth: 3, borderBottomColor: COLORS.balita }]}>
             <Text style={styles.statLabel}>Hadir</Text>
             <View style={styles.row}>
-               <Text style={styles.statValue}>{balitaData.totalHadir}</Text>
+               <Text style={[styles.statValue, { color: COLORS.balita }]}>{balitaData.totalHadir}</Text>
                <Badge 
                  label={`${Math.round((balitaData.totalHadir / (balitaData.totalSasaran || 1)) * 100)}%`} 
                  variant="success" 
@@ -75,9 +82,9 @@ export default function AnalysisTabScreen() {
           </Card>
         </View>
 
-        <DistributionChart title="Distribusi Berat Badan (BB/U)" data={balitaData.stats_bb_u} />
-        <DistributionChart title="Distribusi Stunting (TB/U)" data={balitaData.stats_tb_u} />
-        <DistributionChart title="Distribusi Wasting (BB/TB)" data={balitaData.stats_bb_tb} />
+        <DistributionChart title="Distribusi Berat Badan (BB/U)" data={balitaData.stats_bb_u} color={COLORS.balita} />
+        <DistributionChart title="Distribusi Stunting (TB/U)" data={balitaData.stats_tb_u} color={COLORS.balita} />
+        <DistributionChart title="Distribusi Wasting (BB/TB)" data={balitaData.stats_bb_tb} color={COLORS.balita} />
       </View>
     );
   };
@@ -87,17 +94,17 @@ export default function AnalysisTabScreen() {
     return (
       <View>
         <View style={styles.statsGrid}>
-          <Card style={styles.statCard}>
+          <Card style={[styles.statCard, { borderBottomWidth: 3, borderBottomColor: COLORS.lansia }]}>
             <Text style={styles.statLabel}>Total Lansia</Text>
-            <Text style={styles.statValue}>{lansiaData.totalSasaran}</Text>
+            <Text style={[styles.statValue, { color: COLORS.lansia }]}>{lansiaData.totalSasaran}</Text>
           </Card>
-          <Card style={styles.statCard}>
+          <Card style={[styles.statCard, { borderBottomWidth: 3, borderBottomColor: COLORS.lansia }]}>
             <Text style={styles.statLabel}>Diperiksa</Text>
-            <Text style={styles.statValue}>{lansiaData.totalHadir}</Text>
+            <Text style={[styles.statValue, { color: COLORS.lansia }]}>{lansiaData.totalHadir}</Text>
           </Card>
         </View>
 
-        <DistributionChart title="Prevalensi Penyakit Lansia" data={lansiaData.stats_kondisi} />
+        <DistributionChart title="Prevalensi Penyakit Lansia" data={lansiaData.stats_kondisi} color={COLORS.lansia} />
 
         <Card style={styles.alertCard}>
            <Heart size={20} color="#EF4444" />
@@ -119,12 +126,12 @@ export default function AnalysisTabScreen() {
         {
           data: trendData.map(t => t.balita),
           color: (opacity = 1) => `rgba(13, 148, 136, ${opacity})`, // Teal
-          strokeWidth: 2
+          strokeWidth: 3
         },
         {
           data: trendData.map(t => t.lansia),
-          color: (opacity = 1) => `rgba(168, 85, 247, ${opacity})`, // Purple
-          strokeWidth: 2
+          color: (opacity = 1) => `rgba(99, 102, 241, ${opacity})`, // Indigo
+          strokeWidth: 3
         }
       ],
       legend: ['Balita', 'Lansia']
@@ -144,7 +151,7 @@ export default function AnalysisTabScreen() {
               decimalPlaces: 0,
               color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
               labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
-              propsForDots: { r: '4', strokeWidth: '2', stroke: '#fff' }
+              propsForDots: { r: '5', strokeWidth: '2', stroke: '#fff' }
             }}
             bezier
             style={styles.lineChart}
@@ -171,25 +178,28 @@ export default function AnalysisTabScreen() {
       <View style={styles.tabBar}>
         <TabButton 
           active={activeTab === 'balita'} 
-          icon={<Baby size={18} color={activeTab === 'balita' ? '#0D9488' : '#64748B'} />} 
+          icon={<Baby size={18} color={activeTab === 'balita' ? COLORS.balita : '#64748B'} />} 
           label="Balita" 
+          activeColor={COLORS.balita}
           onPress={() => setActiveTab('balita')} 
         />
         <TabButton 
           active={activeTab === 'lansia'} 
-          icon={<Users size={18} color={activeTab === 'lansia' ? '#0D9488' : '#64748B'} />} 
+          icon={<Users size={18} color={activeTab === 'lansia' ? COLORS.lansia : '#64748B'} />} 
           label="Lansia" 
+          activeColor={COLORS.lansia}
           onPress={() => setActiveTab('lansia')} 
         />
         <TabButton 
           active={activeTab === 'tren'} 
-          icon={<TrendingUp size={18} color={activeTab === 'tren' ? '#0D9488' : '#64748B'} />} 
+          icon={<TrendingUp size={18} color={activeTab === 'tren' ? COLORS.trend : '#64748B'} />} 
           label="Tren" 
+          activeColor={COLORS.trend}
           onPress={() => setActiveTab('tren')} 
         />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {loading ? (
           <View style={styles.loader}>
             <ActivityIndicator size="large" color="#0D9488" />
@@ -207,14 +217,17 @@ export default function AnalysisTabScreen() {
   );
 }
 
-function TabButton({ active, icon, label, onPress }: { active: boolean, icon: any, label: string, onPress: () => void }) {
+function TabButton({ active, icon, label, activeColor, onPress }: { active: boolean, icon: any, label: string, activeColor: string, onPress: () => void }) {
   return (
     <TouchableOpacity 
-      style={[styles.tabButton, active && styles.activeTabButton]} 
+      style={[
+        styles.tabButton, 
+        active && { backgroundColor: `${activeColor}15`, borderColor: activeColor, borderWidth: 1 }
+      ]} 
       onPress={onPress}
     >
       {icon}
-      <Text style={[styles.tabLabel, active && styles.activeTabLabel]}>{label}</Text>
+      <Text style={[styles.tabLabel, active && { color: activeColor, fontWeight: '800' }]}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -225,43 +238,37 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#FFF',
   },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#1E293B' },
+  headerTitle: { fontSize: 22, fontWeight: '900', color: '#1E293B', letterSpacing: -0.5 },
   tabBar: {
     flexDirection: 'row',
     backgroundColor: '#FFF',
     paddingHorizontal: 20,
-    paddingBottom: 12,
-    gap: 12,
+    paddingBottom: 16,
+    gap: 10,
   },
   tabButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingVertical: 12,
+    borderRadius: 14,
     backgroundColor: '#F1F5F9',
-    gap: 8,
-  },
-  activeTabButton: {
-    backgroundColor: '#F0FDFA',
-    borderWidth: 1,
-    borderColor: '#0D9488',
+    gap: 6,
   },
   tabLabel: { fontSize: 13, fontWeight: '600', color: '#64748B' },
-  activeTabLabel: { color: '#0D9488' },
   content: { padding: 20 },
   loader: { padding: 100, alignItems: 'center' },
   loadingText: { marginTop: 12, color: '#64748B', fontSize: 13 },
   statsGrid: { flexDirection: 'row', gap: 16, marginBottom: 20 },
   statCard: { flex: 1, padding: 16 },
-  statLabel: { fontSize: 12, color: '#64748B', marginBottom: 4 },
-  statValue: { fontSize: 20, fontWeight: 'bold', color: '#1E293B' },
+  statLabel: { fontSize: 12, color: '#64748B', marginBottom: 4, fontWeight: '600' },
+  statValue: { fontSize: 24, fontWeight: '900' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  alertCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' },
+  alertCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF2F2', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#FCA5A5', marginTop: 12 },
   alertTitle: { fontSize: 14, fontWeight: 'bold', color: '#991B1B' },
   alertText: { fontSize: 13, color: '#991B1B', marginTop: 2, lineHeight: 18 },
   chartContainer: { padding: 16 },
-  chartTitle: { fontSize: 14, fontWeight: 'bold', color: '#0F172A', marginBottom: 20 },
+  chartTitle: { fontSize: 15, fontWeight: '800', color: '#0F172A', marginBottom: 20 },
   lineChart: { borderRadius: 16, marginVertical: 8 }
 });

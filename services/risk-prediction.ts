@@ -78,7 +78,9 @@ export class RiskPredictionService {
         }
       },
       recommendations,
-      usia_bulan: ageMonths
+      usia_bulan: ageMonths,
+      date: currentPenimbangan.tanggal,
+      id: currentPenimbangan.id
     };
   }
 
