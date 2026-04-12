@@ -18,22 +18,16 @@ export default function LaporanTabScreen() {
 
   const reportItems = [
     {
-      title: 'Laporan Bulanan (SKDN)',
-      desc: 'Standar pelaporan Puskesmas (S, K, D, N)',
+      title: 'Laporan Bulanan Balita',
+      desc: 'SKDN, Prioritas Masalah Gizi & Daftar Penimbangan',
       icon: <FileText size={20} color="#0D9488" />,
-      route: '/admin/reports'
+      route: '/admin/reports?type=balita'
     },
     {
-      title: 'Daftar Balita Berisiko',
-      desc: 'Balita dengan status gizi buruk/kurang',
-      icon: <AlertCircle size={20} color="#EF4444" />,
-      route: '/admin/reports'
-    },
-    {
-      title: 'Riwayat Penimbangan',
-      desc: 'Seluruh data penimbangan bulan ini',
-      icon: <Calendar size={20} color="#3B82F6" />,
-      route: '/admin/reports'
+      title: 'Laporan Bulanan Lansia',
+      desc: 'Pemeriksaan Fisik, Vital & Hasil Laboratorium',
+      icon: <FileText size={20} color="#6366F1" />,
+      route: '/admin/reports?type=lansia'
     }
   ];
 

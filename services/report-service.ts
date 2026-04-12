@@ -16,6 +16,39 @@ export interface ProblematicBalita {
   status_detail: string;
 }
 
+export interface WeighingItem {
+  nama: string;
+  umur_bulan: number;
+  jenis_kelamin: string;
+  nama_ortu: string;
+  rt: number;
+  berat_badan: number;
+  tinggi_badan: number;
+}
+
+export interface NutritionSummary {
+  stunting: number;
+  wasting: number;
+  underweight: number;
+  dua_t: number;
+  gizi_buruk: number;
+}
+
+export interface LansiaReportItem {
+  nama: string;
+  umur: number;
+  rt: number;
+  berat_badan: number | null;
+  tinggi_badan: number | null;
+  bmi: number | null;
+  status_bmi: string | null;
+  tekanan_darah: string | null;
+  gula_darah: number | null;
+  asam_urat: number | null;
+  kolesterol: number | null;
+  status_pemeriksaan: string[];
+}
+
 export class ReportService {
   /**
    * Calculate SKDN indicators for a specific month
@@ -185,5 +218,123 @@ export class ReportService {
       label: 'Kondisi Normal & Baik', 
       advice: 'Pertahankan pola makan bergizi dan pola asuh saat ini. Terus rutin menimbang setiap bulan ya Bunda!' 
     };
+  }
+
+  /**
+   * Get full list of weighings for the month
+   */
+  static async getMonthlyWeighingList(posyanduId: string, month: number, year: number): Promise<WeighingItem[]> {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = endOfMonth(startDate);
+
+    const { data: visits } = await supabase
+      .from('penimbangans')
+      .select(`
+        berat_badan,
+        tinggi_badan,
+        balitas!inner(nama, tanggal_lahir, jenis_kelamin, nama_ortu, rt, posyandu_id)
+      `)
+      .eq('balitas.posyandu_id', posyanduId)
+      .gte('tanggal', startDate.toISOString())
+      .lte('tanggal', endDate.toISOString())
+      .order('tanggal', { ascending: true });
+
+    if (!visits) return [];
+
+    return visits.map(v => {
+      const b = v.balitas as any;
+      const ageMonths = (year - new Date(b.tanggal_lahir).getFullYear()) * 12 + (month - 1 - new Date(b.tanggal_lahir).getMonth());
+      return {
+        nama: b.nama,
+        umur_bulan: Math.max(0, ageMonths),
+        jenis_kelamin: b.jenis_kelamin === 'Laki-laki' ? 'L' : 'P',
+        nama_ortu: b.nama_ortu,
+        rt: b.rt,
+        berat_badan: v.berat_badan,
+        tinggi_badan: v.tinggi_badan
+      };
+    });
+  }
+
+  /**
+   * Get counts for validation summary
+   */
+  static async getNutritionSummary(posyanduId: string, month: number, year: number): Promise<NutritionSummary> {
+    const problems = await this.getProblematicGroups(posyanduId, month, year);
+    
+    // Also need Gizi Buruk specifically if not caught by getProblematicGroups
+    // Actually getProblematicGroups should catch it in issues list.
+    
+    return {
+      stunting: problems.filter(p => p.jenis_masalah.some(m => m.includes('Stunting'))).length,
+      wasting: problems.filter(p => p.jenis_masalah.some(m => m.includes('Wasting'))).length,
+      underweight: problems.filter(p => p.jenis_masalah.some(m => m.includes('Underweight'))).length,
+      dua_t: problems.filter(p => p.jenis_masalah.some(m => m.includes('2T'))).length,
+      gizi_buruk: problems.filter(p => p.jenis_masalah.some(m => m.toLowerCase().includes('buruk'))).length,
+    };
+  }
+
+  /**
+   * Get Lansia report data
+   */
+  static async getLansiaReportData(posyanduId: string, month: number, year: number): Promise<LansiaReportItem[]> {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = endOfMonth(startDate);
+
+    const { data: checks } = await supabase
+      .from('pemeriksaan_lansias')
+      .select(`
+        berat_badan,
+        tinggi_badan,
+        tekanan_darah,
+        gula_darah,
+        asam_urat,
+        kolesterol,
+        lansias!inner(nama, tanggal_lahir, rt, posyandu_id)
+      `)
+      .eq('lansias.posyandu_id', posyanduId)
+      .gte('tanggal_periksa', startDate.toISOString())
+      .lte('tanggal_periksa', endDate.toISOString())
+      .order('tanggal_periksa', { ascending: true });
+
+    if (!checks) return [];
+
+    return checks.map(c => {
+      const l = c.lansias as any;
+      const age = year - new Date(l.tanggal_lahir).getFullYear();
+      
+      const bmi = (c.berat_badan && c.tinggi_badan) ? c.berat_badan / Math.pow(c.tinggi_badan / 100, 2) : null;
+      let statusBmi = '-';
+      if (bmi) {
+        if (bmi < 18.5) statusBmi = 'Kurus';
+        else if (bmi < 25) statusBmi = 'Normal';
+        else if (bmi < 30) statusBmi = 'Overweight';
+        else statusBmi = 'Obesitas';
+      }
+
+      const issues: string[] = [];
+      if (c.tekanan_darah) {
+        const [sys, dia] = c.tekanan_darah.split('/').map(Number);
+        if (sys >= 140 || dia >= 90) issues.push('Hipertensi');
+      }
+      if (c.gula_darah && c.gula_darah > 200) issues.push('Gula Darah Tinggi');
+      if (c.asam_urat && c.asam_urat > 7) issues.push('Asam Urat Tinggi');
+      if (c.kolesterol && c.kolesterol > 200) issues.push('Kolesterol Tinggi');
+
+      return {
+        nama: l.nama,
+        umur: age,
+        rt: l.rt,
+        berat_badan: c.berat_badan,
+        tinggi_badan: c.tinggi_badan,
+        bmi: bmi ? Math.round(bmi * 10) / 10 : null,
+        status_bmi: statusBmi,
+        tekanan_darah: c.tekanan_darah,
+        gula_darah: c.gula_darah,
+        asam_urat: c.asam_urat,
+        kolesterol: c.kolesterol,
+        status_pemeriksaan: issues
+      };
+    });
   }
 }
