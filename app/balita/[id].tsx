@@ -207,7 +207,12 @@ export default function BalitaDetail() {
                 <Card key={p.id} style={styles.historyCard}>
                    <View style={styles.historyHeader}>
                       <Text style={styles.historyDate}>{format(new Date(p.tanggal), 'dd MMMM yyyy', { locale: idLocale })}</Text>
-                      <Badge label={p.status_gizi_imt_u || 'Normal'} variant={p.status_gizi_imt_u?.includes('Buruk') ? 'danger' : 'success'} />
+                      <View style={{ flexDirection: 'row', gap: 4 }}>
+                        <Badge 
+                          label={p.status_bb_tb || 'N/A'} 
+                          variant={p.status_bb_tb?.includes('Gizi Buruk') || p.status_bb_tb?.includes('Gizi Kurang') ? 'danger' : 'success'} 
+                        />
+                      </View>
                    </View>
                    <View style={styles.historyStats}>
                       <View style={styles.hStat}>
@@ -219,8 +224,8 @@ export default function BalitaDetail() {
                         <Text style={styles.hValue}>{p.tinggi_badan} cm</Text>
                       </View>
                       <View style={styles.hStat}>
-                        <Text style={styles.hLabel}>IMT/U</Text>
-                        <Text style={styles.hValue}>{p.zscore_imt_u?.toFixed(2)}</Text>
+                        <Text style={styles.hLabel}>Z-BB/TB</Text>
+                        <Text style={styles.hValue}>{p.zscore_bb_tb?.toFixed(2) || '-'}</Text>
                       </View>
                    </View>
                 </Card>

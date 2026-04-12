@@ -111,14 +111,20 @@ export default function BalitaServiceDesk() {
     try {
       const ageMonths = calculateAgeMonths(selectedBalita.tanggal_lahir, tanggal);
       
-      const [bbStd, tbStd, imtStd] = await Promise.all([
+      const [bbStd, tbStd, imtStd, bbtbStd] = await Promise.all([
         whoService.getStandards('bb_u', selectedBalita.jenis_kelamin),
         whoService.getStandards('tb_u', selectedBalita.jenis_kelamin),
         whoService.getStandards('imt_u', selectedBalita.jenis_kelamin),
+        whoService.getStandards('bb_tb', selectedBalita.jenis_kelamin),
       ]);
 
-      const bbResult = ZScoreEngine.calculate(bbStd, selectedBalita.jenis_kelamin === 'Laki-laki' ? 'L' : 'P', ageMonths, parseFloat(berat), 'BB/U');
-      const tbResult = ZScoreEngine.calculate(tbStd, selectedBalita.jenis_kelamin === 'Laki-laki' ? 'L' : 'P', ageMonths, parseFloat(tinggi), 'TB/U');
+      const gender = selectedBalita.jenis_kelamin === 'Laki-laki' ? 'L' : 'P';
+      const bbResult = ZScoreEngine.calculate(bbStd, gender, ageMonths, parseFloat(berat), 'BB/U');
+      const tbResult = ZScoreEngine.calculate(tbStd, gender, ageMonths, parseFloat(tinggi), 'TB/U');
+      
+      // For BB/TB, the 'measurement' index is the height (tinggi)
+      const heightValue = parseFloat(tinggi);
+      const bbtbResult = ZScoreEngine.calculate(bbtbStd, gender, heightValue, parseFloat(berat), 'BB/TB');
       
       setLastSavedStatus(bbResult.status);
 
@@ -132,6 +138,8 @@ export default function BalitaServiceDesk() {
         status_bb_u: bbResult.status,
         zscore_tb_u: tbResult.zscore,
         status_tb_u: tbResult.status,
+        zscore_bb_tb: bbtbResult.zscore,
+        status_bb_tb: bbtbResult.status,
       });
 
       if (res.error) throw res.error;

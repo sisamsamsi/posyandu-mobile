@@ -1,0 +1,69 @@
+import { useState } from 'react';
+import { supabase } from '../lib/supabase';
+import { Penimbangan } from '../lib/types';
+import { startOfMonth, endOfMonth } from 'date-fns';
+
+export const usePenimbangan = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Get all penimbangans with optional month/year filter
+   */
+  const getPenimbangans = async (month?: number, year?: number) => {
+    try {
+      setLoading(true);
+      let query = supabase
+        .from('penimbangans')
+        .select(`
+          *,
+          balita:balitas(*)
+        `)
+        .order('tanggal', { ascending: false });
+
+      if (month !== undefined && year !== undefined) {
+        const date = new Date(year, month, 1);
+        const start = startOfMonth(date).toISOString();
+        const end = endOfMonth(date).toISOString();
+        query = query.gte('tanggal', start).lte('tanggal', end);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as Penimbangan[];
+    } catch (err: any) {
+      setError(err.message);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Get penimbangans for a specific month to check attendance
+   */
+  const getMonthlyAttendance = async (month: number, year: number) => {
+    try {
+      setLoading(true);
+      const date = new Date(year, month, 1);
+      const start = startOfMonth(date).toISOString();
+      const end = endOfMonth(date).toISOString();
+
+      const { data, error } = await supabase
+        .from('penimbangans')
+        .select('balita_id, tanggal')
+        .gte('tanggal', start)
+        .lte('tanggal', end);
+
+      if (error) throw error;
+      return data;
+    } catch (err: any) {
+      setError(err.message);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { getPenimbangans, getMonthlyAttendance, loading, error };
+};

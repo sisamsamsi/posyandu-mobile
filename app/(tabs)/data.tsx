@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Baby, Users, Settings, ChevronRight } from 'lucide-react-native';
+import { Baby, Users, Settings, ChevronRight, Calendar } from 'lucide-react-native';
 import { Card } from '../../components/ui/Card';
 
 export default function DataMasterScreen() {
@@ -11,21 +11,49 @@ export default function DataMasterScreen() {
     {
       title: 'Data Balita',
       subtitle: 'Kelola data anak dan bayi',
-      icon: <Baby size={32} color="#0D9488" />,
+      icon: <Baby size={28} color="#0D9488" />,
       route: '/balita',
       color: '#CCFBF1',
     },
     {
       title: 'Data Lansia',
       subtitle: 'Kelola data penduduk lansia',
-      icon: <Users size={32} color="#0D9488" />,
+      icon: <Users size={28} color="#0D9488" />,
       route: '/lansia',
       color: '#CCFBF1',
     },
     {
+      title: 'Riwayat Penimbangan',
+      subtitle: 'Log aktivitas penimbangan balita',
+      icon: <Calendar size={28} color="#0D9488" />,
+      route: '/penimbangan',
+      color: '#F0FDFA',
+    },
+    {
+      title: 'Riwayat Pemeriksaan',
+      subtitle: 'Log aktivitas pemeriksaan lansia',
+      icon: <Users size={28} color="#0D9488" />,
+      route: '/pemeriksaan',
+      color: '#F0FDFA',
+    },
+    {
+      title: 'Monitoring Balita',
+      subtitle: 'Pantau kehadiran balita bulan ini',
+      icon: <Baby size={28} color="#F59E0B" />,
+      route: '/monitoring/balita',
+      color: '#FEF3C7',
+    },
+    {
+      title: 'Monitoring Lansia',
+      subtitle: 'Pantau kehadiran lansia bulan ini',
+      icon: <Users size={28} color="#F59E0B" />,
+      route: '/monitoring/lansia',
+      color: '#FEF3C7',
+    },
+    {
       title: 'Pengaturan Posyandu',
       subtitle: 'Konfigurasi unit posyandu',
-      icon: <Settings size={32} color="#64748B" />,
+      icon: <Settings size={28} color="#64748B" />,
       route: '/settings',
       color: '#F1F5F9',
     },

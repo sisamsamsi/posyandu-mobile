@@ -1132,7 +1132,7 @@ lib/who-data/bb-u-boys.json, lib/who-data/bb-u-girls.json
 **Durasi**: 1-2 minggu
 
 **Tasks:**
-- [ ] Buat hooks/useBalita.ts, hooks/useLansia.ts, hooks/usePosyandu.ts
+- [x] Buat hooks/useBalita.ts, hooks/useLansia.ts, hooks/usePosyandu.ts
 - [x] Buat komponen UI: SearchBar, Card, Badge, EmptyState
 - [x] Buat CRUD screens: app/balita/index.tsx, create.tsx, [id].tsx, [id]/edit.tsx
 - [x] Buat CRUD screens: app/lansia/index.tsx, create.tsx, [id].tsx, [id]/edit.tsx
@@ -1192,10 +1192,10 @@ lib/who-data/bb-u-boys.json, lib/who-data/bb-u-girls.json
 **Durasi**: 1 minggu
 
 **Tasks:**
-- [ ] Buat `app/penimbangan/index.tsx` — riwayat penimbangan (filter bulan)
-- [ ] Buat `app/pemeriksaan/index.tsx` — riwayat pemeriksaan lansia
-- [ ] Buat `app/monitoring/balita.tsx` — sudah vs belum ditimbang
-- [ ] Buat `app/monitoring/lansia.tsx` — sudah vs belum diperiksa
+- [x] Buat `app/penimbangan/index.tsx` — riwayat penimbangan (filter bulan)
+- [x] Buat `app/pemeriksaan/index.tsx` — riwayat pemeriksaan lansia
+- [x] Buat `app/monitoring/balita.tsx` — sudah vs belum ditimbang
+- [x] Buat `app/monitoring/lansia.tsx` — sudah vs belum diperiksa
 
 **Done when:** Riwayat tampil terfilter, monitoring menunjukkan status kehadiran.
 

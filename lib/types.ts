@@ -45,6 +45,8 @@ export interface Penimbangan {
   status_tb_u: string | null;
   zscore_bb_u: number | null;
   status_bb_u: string | null;
+  zscore_bb_tb: number | null;
+  status_bb_tb: string | null;
   catatan: string | null;
   created_at: string;
   balita?: Balita;
@@ -101,6 +103,10 @@ export type NutritionStatus =
   | 'BB Kurang (K)'
   | 'BB Normal (N)'
   | 'Resiko BB Lebih (RL)'
+  | 'Gizi Buruk (Severely Wasted)'
+  | 'Gizi Kurang (Wasted)'
+  | 'Berisiko Gizi Lebih'
+  | 'Gizi Lebih (Overweight)'
   | 'Tidak dapat ditentukan';
 
 export type RiskLevel = 'Risiko Sangat Rendah' | 'Risiko Rendah' | 'Risiko Sedang' | 'Risiko Tinggi' | 'Tidak ada data';
@@ -109,7 +115,7 @@ export type RiskColor = 'green' | 'yellow' | 'orange' | 'red' | 'gray';
 export interface ZScoreResult {
   zscore: number;
   status: NutritionStatus;
-  indicator: 'IMT/U' | 'TB/U' | 'BB/U';
+  indicator: 'IMT/U' | 'TB/U' | 'BB/U' | 'BB/TB';
 }
 
 export interface RiskBreakdownItem {

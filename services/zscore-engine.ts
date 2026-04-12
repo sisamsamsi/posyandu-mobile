@@ -24,7 +24,7 @@ export class ZScoreEngine {
     sex: 'L' | 'P',
     ageMonths: number,
     value: number,
-    indicator: 'IMT/U' | 'TB/U' | 'BB/U'
+    indicator: 'IMT/U' | 'TB/U' | 'BB/U' | 'BB/TB'
   ): ZScoreResult {
     const ref = this.findReference(standards, sex, ageMonths);
     
@@ -73,7 +73,7 @@ export class ZScoreEngine {
   private static determineStatus(
     zscore: number, 
     sex: 'L' | 'P', 
-    indicator: 'IMT/U' | 'TB/U' | 'BB/U'
+    indicator: 'IMT/U' | 'TB/U' | 'BB/U' | 'BB/TB'
   ): NutritionStatus {
     if (indicator === 'IMT/U') {
       if (zscore <= -3) return 'Gizi Buruk';
@@ -95,6 +95,15 @@ export class ZScoreEngine {
       if (zscore <= -2) return 'BB Kurang (K)';
       if (zscore <= 1) return 'BB Normal (N)';
       return 'Resiko BB Lebih (RL)';
+    }
+
+    if (indicator === 'BB/TB') {
+      if (zscore <= -3) return 'Gizi Buruk (Severely Wasted)';
+      if (zscore <= -2) return 'Gizi Kurang (Wasted)';
+      if (zscore <= 1) return 'Gizi Baik';
+      if (zscore <= 2) return 'Berisiko Gizi Lebih';
+      if (zscore <= 3) return 'Gizi Lebih (Overweight)';
+      return 'Obesitas';
     }
 
     return 'Tidak dapat ditentukan';
