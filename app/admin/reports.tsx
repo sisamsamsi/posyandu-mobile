@@ -147,15 +147,15 @@ export default function ReportsScreen() {
            <Text style={styles.infoTitle}>Isi Laporan PDF:</Text>
            <View style={styles.infoItem}>
               <View style={styles.bullet} />
-              <Text style={styles.infoText}>Data SKDN (Semua, KMS, Datang, Naik)</Text>
+              <Text style={styles.infoText}>Ringkasan Indikator SKDN (S, K, D, N)</Text>
            </View>
            <View style={styles.infoItem}>
               <View style={styles.bullet} />
-              <Text style={styles.infoText}>Analisis Partisipasi & Dampak Program</Text>
+              <Text style={styles.infoText}>Analisis Partisipasi & Keberhasilan Program</Text>
            </View>
            <View style={styles.infoItem}>
               <View style={styles.bullet} />
-              <Text style={styles.infoText}>Daftar Balita dengan Masalah Gizi</Text>
+              <Text style={styles.infoText}>Daftar Balita Stunting & Wasting</Text>
            </View>
            <View style={styles.infoItem}>
               <View style={styles.bullet} />

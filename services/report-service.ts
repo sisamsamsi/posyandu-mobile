@@ -2,10 +2,10 @@ import { supabase } from '../lib/supabase';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 
 export interface SKDNStats {
-  s: number; // Semua balita
+  s: number; // Semua balita target
   k: number; // Punya KMS
-  d: number; // Datang penimbangan
-  n: number; // Naik berat badan
+  d: number; // Datang penimbangan bulan ini
+  n: number; // Naik berat badan dibanding bulan kemarin
 }
 
 export interface ProblematicBalita {
@@ -13,6 +13,7 @@ export interface ProblematicBalita {
   nama: string;
   nik: string;
   jenis_masalah: string[];
+  status_detail: string;
 }
 
 export class ReportService {
@@ -23,41 +24,53 @@ export class ReportService {
     const startDate = new Date(year, month - 1, 1);
     const endDate = endOfMonth(startDate);
 
-    // 1. S (Semua)
+    // 1. S (Semua) - Active balitas (0-60 months)
+    // We filter by posyandu_id. 
     const { count: s } = await supabase
       .from('balitas')
       .select('*', { count: 'exact', head: true })
       .eq('posyandu_id', posyanduId);
 
-    // 2. K (KMS) - Assume all registered have KMS
+    // 2. K (KMS) - Assume all have KMS
     const k = s || 0;
 
-    // 3. D (Datang)
+    // 3. D (Datang) - Unique balitas who visited this month
     const { data: dData } = await supabase
       .from('penimbangans')
-      .select('balita_id, bb')
-      .eq('posyandu_id', posyanduId)
+      .select('balita_id, berat_badan')
       .gte('tanggal', startDate.toISOString())
       .lte('tanggal', endDate.toISOString());
-
-    const d = dData?.length || 0;
+    
+    // Note: If penimbangans table doesn't have posyandu_id, we'd need a join.
+    // However, usually we filter by the records found. 
+    // Let's assume we need to filter dData by those belonging to this posyandu.
+    const { data: balitasInPosyandu } = await supabase
+      .from('balitas')
+      .select('id')
+      .eq('posyandu_id', posyanduId);
+    
+    const validIds = new Set(balitasInPosyandu?.map(b => b.id) || []);
+    const filteredD = dData?.filter(item => validIds.has(item.balita_id)) || [];
+    const d = filteredD.length;
 
     // 4. N (Naik)
     let n = 0;
-    if (dData) {
-      for (const p of dData) {
-        const { data: prevVisit } = await supabase
-          .from('penimbangans')
-          .select('bb')
-          .eq('balita_id', p.balita_id)
-          .lt('tanggal', startDate.toISOString())
-          .order('tanggal', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+    const prevMonthStart = startOfMonth(subMonths(startDate, 1)).toISOString();
+    const prevMonthEnd = endOfMonth(subMonths(startDate, 1)).toISOString();
 
-        if (prevVisit && p.bb > prevVisit.bb) {
-          n++;
-        }
+    for (const p of filteredD) {
+      const { data: prevVisit } = await supabase
+        .from('penimbangans')
+        .select('berat_badan')
+        .eq('balita_id', p.balita_id)
+        .gte('tanggal', prevMonthStart)
+        .lte('tanggal', prevMonthEnd)
+        .order('tanggal', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (prevVisit && p.berat_badan > prevVisit.berat_badan) {
+        n++;
       }
     }
 
@@ -71,17 +84,19 @@ export class ReportService {
     const startDate = new Date(year, month - 1, 1);
     const endDate = endOfMonth(startDate);
 
-    // Fetch all penimbangans for the month
+    // Fetch penimbangans for the month with balita info
     const { data: visits } = await supabase
       .from('penimbangans')
       .select(`
         id,
         balita_id,
-        status_gizi,
-        bb,
-        balitas (nama, nik)
+        status_bb_u,
+        status_tb_u,
+        status_bb_tb,
+        berat_badan,
+        balitas!inner(nama, nik, posyandu_id)
       `)
-      .eq('posyandu_id', posyanduId)
+      .eq('balitas.posyandu_id', posyanduId)
       .gte('tanggal', startDate.toISOString())
       .lte('tanggal', endDate.toISOString());
 
@@ -93,15 +108,25 @@ export class ReportService {
       const issues: string[] = [];
       const balita = v.balitas as any;
 
-      // Check Z-Score Issues (from status_gizi column)
-      if (v.status_gizi === 'Gizi Buruk' || v.status_gizi === 'Gizi Kurang') issues.push('Underweight');
-      if (v.status_gizi === 'Stunting') issues.push('Stunting'); // Assume we tagged this earlier or check logic
-      if (v.status_gizi === 'Wasting') issues.push('Wasting');
+      // 1. Check Stunting (TB/U)
+      if (v.status_tb_u?.includes('Pendek')) {
+        issues.push('Stunting (' + v.status_tb_u + ')');
+      }
 
-      // Check 2T (Tidak Naik 2x berturut-turut)
+      // 2. Check Wasting (BB/TB)
+      if (v.status_bb_tb?.includes('Wasted') || v.status_bb_tb?.includes('Buruk') || v.status_bb_tb?.includes('Kurang')) {
+        issues.push('Wasting (' + v.status_bb_tb + ')');
+      }
+
+      // 3. Check Underweight (BB/U)
+      if (v.status_bb_u?.includes('Kurang') || v.status_bb_u?.includes('Sangat Kurang')) {
+        issues.push('Underweight (' + v.status_bb_u + ')');
+      }
+
+      // 4. Check 2T (Tidak Naik 2x berturut-turut)
       const { data: history } = await supabase
         .from('penimbangans')
-        .select('bb, tanggal')
+        .select('berat_badan, tanggal')
         .eq('balita_id', v.balita_id)
         .lte('tanggal', endDate.toISOString())
         .order('tanggal', { ascending: false })
@@ -109,7 +134,7 @@ export class ReportService {
 
       if (history && history.length >= 3) {
         const [curr, prev, beforePrev] = history;
-        if (curr.bb <= prev.bb && prev.bb <= beforePrev.bb) {
+        if (curr.berat_badan <= prev.berat_badan && prev.berat_badan <= beforePrev.berat_badan) {
           issues.push('2T (Tidak Naik 2x)');
         }
       }
@@ -119,50 +144,12 @@ export class ReportService {
           id: v.balita_id,
           nama: balita.nama,
           nik: balita.nik,
-          jenis_masalah: issues
+          jenis_masalah: issues,
+          status_detail: [v.status_bb_u, v.status_tb_u, v.status_bb_tb].filter(Boolean).join(' | ')
         });
       }
     }
 
     return problematic;
-  }
-
-  /**
-   * Sensitive status formatter for parents
-   */
-  static getSensitiveStatus(statusGizi: string): { label: string; color: string; advice: string } {
-    const map: Record<string, { label: string; color: string; advice: string }> = {
-      'Gizi Baik': { 
-        label: 'Tumbuh Kembang Baik', 
-        color: '#22C55E', 
-        advice: 'Pertahankan pemberian gizi seimbang dan rutin ke Posyandu.' 
-      },
-      'Gizi Kurang': { 
-        label: 'Perlu Perhatian Petugas', 
-        color: '#F59E0B', 
-        advice: 'Disarankan konsultasi dengan petugas kesehatan terkait pola makan.' 
-      },
-      'Gizi Buruk': { 
-        label: 'Segera Konsultasi Medis', 
-        color: '#EF4444', 
-        advice: 'Mohon segera hubungi petugas kesehatan untuk pemeriksaan lebih lanjut.' 
-      },
-      'Gizi Lebih': { 
-        label: 'Pertumbuhan Sangat Pesat', 
-        color: '#3B82F6', 
-        advice: 'Perlu konsultasi terkait pengaturan pola makan anak.' 
-      },
-      'Obesitas': { 
-        label: 'Kondisi Lebih Berat', 
-        color: '#A855F7', 
-        advice: 'Segera konsultasikan dengan dokter terkait risiko obesitas.' 
-      }
-    };
-
-    return map[statusGizi] || { 
-      label: 'Data Belum Lengkap', 
-      color: '#94A3B8', 
-      advice: 'Silakan hubungi kader untuk penjelasan lebih lanjut.' 
-    };
   }
 }

@@ -1,32 +1,52 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Dimensions, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
   TrendingUp, 
-  BarChart3, 
-  Target, 
+  Users, 
   Heart,
-  Activity
+  Baby
 } from 'lucide-react-native';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
-import { DashboardService, DashboardStats } from '../../services/dashboard-service';
-import { BarChart } from 'react-native-chart-kit';
+import { FilterBar } from '../../components/ui/FilterBar';
+import { DistributionChart } from '../../components/charts/DistributionChart';
+import { AnalysisService, BalitaAnalysis, LansiaAnalysis, TrendPoint } from '../../services/analysis-service';
+import { LineChart } from 'react-native-chart-kit';
 
 const screenWidth = Dimensions.get('window').width;
 
+type AnalysisTab = 'balita' | 'lansia' | 'tren';
+
 export default function AnalysisTabScreen() {
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [activeTab, setActiveTab] = useState<AnalysisTab>('balita');
+  
+  // Filters
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [rt, setRt] = useState<number | null>(null);
+
+  // Data
+  const [balitaData, setBalitaData] = useState<BalitaAnalysis | null>(null);
+  const [lansiaData, setLansiaData] = useState<LansiaAnalysis | null>(null);
+  const [trendData, setTrendData] = useState<TrendPoint[]>([]);
 
   useEffect(() => {
-    fetchStats();
-  }, []);
+    fetchData();
+  }, [month, year, rt]);
 
-  const fetchStats = async () => {
+  const fetchData = async () => {
+    setLoading(true);
     try {
-      const data = await DashboardService.getStats();
-      setStats(data);
+      const [balita, lansia, trends] = await Promise.all([
+        AnalysisService.getBalitaAnalysis(month, year, rt || undefined),
+        AnalysisService.getLansiaAnalysis(month, year, rt || undefined),
+        AnalysisService.getTrendData(6)
+      ]);
+      setBalitaData(balita);
+      setLansiaData(lansia);
+      setTrendData(trends);
     } catch (e) {
       console.error(e);
     } finally {
@@ -34,99 +54,168 @@ export default function AnalysisTabScreen() {
     }
   };
 
-  if (loading) {
+  const renderBalitaTab = () => {
+    if (!balitaData) return null;
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#0D9488" />
+      <View>
+        <View style={styles.statsGrid}>
+          <Card style={styles.statCard}>
+            <Text style={styles.statLabel}>Sasaran</Text>
+            <Text style={styles.statValue}>{balitaData.totalSasaran}</Text>
+          </Card>
+          <Card style={styles.statCard}>
+            <Text style={styles.statLabel}>Hadir</Text>
+            <View style={styles.row}>
+               <Text style={styles.statValue}>{balitaData.totalHadir}</Text>
+               <Badge 
+                 label={`${Math.round((balitaData.totalHadir / (balitaData.totalSasaran || 1)) * 100)}%`} 
+                 variant="success" 
+               />
+            </View>
+          </Card>
+        </View>
+
+        <DistributionChart title="Distribusi Berat Badan (BB/U)" data={balitaData.stats_bb_u} />
+        <DistributionChart title="Distribusi Stunting (TB/U)" data={balitaData.stats_tb_u} />
+        <DistributionChart title="Distribusi Wasting (BB/TB)" data={balitaData.stats_bb_tb} />
       </View>
     );
-  }
+  };
 
-  const chartData = {
-    labels: stats?.nutritionStats.map(s => s.label.substring(0, 7)) || [],
-    datasets: [{
-      data: stats?.nutritionStats.map(s => s.count) || []
-    }]
+  const renderLansiaTab = () => {
+    if (!lansiaData) return null;
+    return (
+      <View>
+        <View style={styles.statsGrid}>
+          <Card style={styles.statCard}>
+            <Text style={styles.statLabel}>Total Lansia</Text>
+            <Text style={styles.statValue}>{lansiaData.totalSasaran}</Text>
+          </Card>
+          <Card style={styles.statCard}>
+            <Text style={styles.statLabel}>Diperiksa</Text>
+            <Text style={styles.statValue}>{lansiaData.totalHadir}</Text>
+          </Card>
+        </View>
+
+        <DistributionChart title="Prevalensi Penyakit Lansia" data={lansiaData.stats_kondisi} />
+
+        <Card style={styles.alertCard}>
+           <Heart size={20} color="#EF4444" />
+           <View style={{ marginLeft: 12, flex: 1 }}>
+              <Text style={styles.alertTitle}>Tindak Lanjut</Text>
+              <Text style={styles.alertText}>
+                {lansiaData.stats_kondisi.find(s => s.label === 'Hipertensi')?.count || 0} orang memiliki tekanan darah tinggi. Disarankan kunjungan rumah oleh Bidan.
+              </Text>
+           </View>
+        </Card>
+      </View>
+    );
+  };
+
+  const renderTrendTab = () => {
+    const chartData = {
+      labels: trendData.map(t => t.month),
+      datasets: [
+        {
+          data: trendData.map(t => t.balita),
+          color: (opacity = 1) => `rgba(13, 148, 136, ${opacity})`, // Teal
+          strokeWidth: 2
+        },
+        {
+          data: trendData.map(t => t.lansia),
+          color: (opacity = 1) => `rgba(168, 85, 247, ${opacity})`, // Purple
+          strokeWidth: 2
+        }
+      ],
+      legend: ['Balita', 'Lansia']
+    };
+
+    return (
+      <Card style={styles.chartContainer}>
+         <Text style={styles.chartTitle}>Tren Kehadiran 6 Bulan Terakhir</Text>
+         <LineChart
+            data={chartData}
+            width={screenWidth - 72}
+            height={220}
+            chartConfig={{
+              backgroundColor: '#ffffff',
+              backgroundGradientFrom: '#ffffff',
+              backgroundGradientTo: '#ffffff',
+              decimalPlaces: 0,
+              color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+              labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
+              propsForDots: { r: '4', strokeWidth: '2', stroke: '#fff' }
+            }}
+            bezier
+            style={styles.lineChart}
+         />
+      </Card>
+    );
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Analisis Kesehatan</Text>
+        <Text style={styles.headerTitle}>Analisis Agregat</Text>
+      </View>
+
+      <FilterBar 
+        month={month} 
+        year={year} 
+        rt={rt}
+        onMonthChange={setMonth}
+        onYearChange={setYear}
+        onRtChange={setRt}
+      />
+
+      <View style={styles.tabBar}>
+        <TabButton 
+          active={activeTab === 'balita'} 
+          icon={<Baby size={18} color={activeTab === 'balita' ? '#0D9488' : '#64748B'} />} 
+          label="Balita" 
+          onPress={() => setActiveTab('balita')} 
+        />
+        <TabButton 
+          active={activeTab === 'lansia'} 
+          icon={<Users size={18} color={activeTab === 'lansia' ? '#0D9488' : '#64748B'} />} 
+          label="Lansia" 
+          onPress={() => setActiveTab('lansia')} 
+        />
+        <TabButton 
+          active={activeTab === 'tren'} 
+          icon={<TrendingUp size={18} color={activeTab === 'tren' ? '#0D9488' : '#64748B'} />} 
+          label="Tren" 
+          onPress={() => setActiveTab('tren')} 
+        />
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.summaryRow}>
-          <Card style={[styles.miniCard, { backgroundColor: '#F0FDFA' }]}>
-             <Target size={20} color="#0D9488" />
-             <Text style={styles.miniLabel}>Partisipasi</Text>
-             <Text style={styles.miniValue}>85%</Text>
-          </Card>
-          <Card style={[styles.miniCard, { backgroundColor: '#FEF2F2' }]}>
-             <Heart size={20} color="#EF4444" />
-             <Text style={styles.miniLabel}>Risiko Gizi</Text>
-             <Text style={styles.miniValue}>{stats?.nutritionStats.find(s => s.label === 'BB Sangat Kurang (SK)' || s.label === 'Gizi Buruk')?.count || 0} Anak</Text>
-          </Card>
-        </View>
-
-        <Text style={styles.sectionTitle}>Tren Status Gizi Balita</Text>
-        <Card style={styles.chartCard}>
-           {chartData.labels.length > 0 ? (
-             <BarChart
-               data={chartData}
-               width={screenWidth - 60}
-               height={220}
-               yAxisLabel=""
-               yAxisSuffix=""
-               chartConfig={{
-                 backgroundColor: '#ffffff',
-                 backgroundGradientFrom: '#ffffff',
-                 backgroundGradientTo: '#ffffff',
-                 decimalPlaces: 0,
-                 color: (opacity = 1) => `rgba(13, 148, 136, ${opacity})`,
-                 labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
-                 style: {
-                   borderRadius: 16
-                 },
-                 propsForBackgroundLines: {
-                   strokeDasharray: ""
-                 }
-               }}
-               style={{
-                 marginVertical: 8,
-                 borderRadius: 16
-               }}
-               showValuesOnTopOfBars
-               fromZero
-             />
-           ) : (
-             <Text style={styles.emptyText}>Belum ada data penimbangan bulan ini</Text>
-           )}
-        </Card>
-
-        <Text style={styles.sectionTitle}>Status Kesehatan Lansia</Text>
-        <View style={styles.list}>
-          {stats?.healthAlertStats.map((item, idx) => (
-            <View key={idx} style={styles.listItem}>
-               <Activity size={20} color={item.color} />
-               <View style={styles.listItemText}>
-                  <Text style={styles.itemLabel}>{item.label}</Text>
-                  <Text style={styles.itemSub}>{item.count} Warga</Text>
-               </View>
-               <Badge label={`${Math.round((item.count / (stats.totalLansia || 1)) * 100)}%`} variant={item.label === 'Normal' ? 'success' : 'danger'} />
-            </View>
-          ))}
-        </View>
-
-        <Card style={styles.insightCard}>
-           <TrendingUp size={24} color="#0D9488" />
-           <Text style={styles.insightTitle}>Analisis Sistem</Text>
-           <Text style={styles.insightText}>
-             Tingkat partisipasi bulan ini cukup baik. Segera lakukan kunjungan rumah (Home Visit) untuk Balita dengan status "Gizi Buruk" atau "Gizi Kurang".
-           </Text>
-        </Card>
+        {loading ? (
+          <View style={styles.loader}>
+            <ActivityIndicator size="large" color="#0D9488" />
+            <Text style={styles.loadingText}>Menghitung data...</Text>
+          </View>
+        ) : (
+          <>
+            {activeTab === 'balita' && renderBalitaTab()}
+            {activeTab === 'lansia' && renderLansiaTab()}
+            {activeTab === 'tren' && renderTrendTab()}
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function TabButton({ active, icon, label, onPress }: { active: boolean, icon: any, label: string, onPress: () => void }) {
+  return (
+    <TouchableOpacity 
+      style={[styles.tabButton, active && styles.activeTabButton]} 
+      onPress={onPress}
+    >
+      {icon}
+      <Text style={[styles.tabLabel, active && styles.activeTabLabel]}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -135,25 +224,44 @@ const styles = StyleSheet.create({
   header: {
     padding: 20,
     backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
   },
   headerTitle: { fontSize: 20, fontWeight: '800', color: '#1E293B' },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    gap: 12,
+  },
+  tabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    gap: 8,
+  },
+  activeTabButton: {
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1,
+    borderColor: '#0D9488',
+  },
+  tabLabel: { fontSize: 13, fontWeight: '600', color: '#64748B' },
+  activeTabLabel: { color: '#0D9488' },
   content: { padding: 20 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 },
-  miniCard: { width: '48%', padding: 16, borderLeftWidth: 4, borderLeftColor: '#0D9488' },
-  miniLabel: { fontSize: 12, color: '#64748B', marginTop: 8 },
-  miniValue: { fontSize: 18, fontWeight: 'bold', color: '#1E293B', marginTop: 2 },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#1E293B', marginBottom: 16, marginTop: 8 },
-  chartCard: { padding: 10, alignItems: 'center', marginBottom: 24 },
-  emptyText: { color: '#94A3B8', padding: 40 },
-  list: { backgroundColor: '#FFF', borderRadius: 20, padding: 8, marginBottom: 24, borderWidth: 1, borderColor: '#F1F5F9' },
-  listItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#F8FAFC' },
-  listItemText: { flex: 1, marginLeft: 12 },
-  itemLabel: { fontSize: 14, fontWeight: 'bold', color: '#1E293B' },
-  itemSub: { fontSize: 12, color: '#94A3B8' },
-  insightCard: { backgroundColor: '#F0FDFA', padding: 20, marginBottom: 20, borderColor: '#CCFBF1' },
-  insightTitle: { fontSize: 16, fontWeight: 'bold', color: '#134E4A', marginTop: 12 },
-  insightText: { fontSize: 13, color: '#134E4A', lineHeight: 20, marginTop: 4 }
+  loader: { padding: 100, alignItems: 'center' },
+  loadingText: { marginTop: 12, color: '#64748B', fontSize: 13 },
+  statsGrid: { flexDirection: 'row', gap: 16, marginBottom: 20 },
+  statCard: { flex: 1, padding: 16 },
+  statLabel: { fontSize: 12, color: '#64748B', marginBottom: 4 },
+  statValue: { fontSize: 20, fontWeight: 'bold', color: '#1E293B' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  alertCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' },
+  alertTitle: { fontSize: 14, fontWeight: 'bold', color: '#991B1B' },
+  alertText: { fontSize: 13, color: '#991B1B', marginTop: 2, lineHeight: 18 },
+  chartContainer: { padding: 16 },
+  chartTitle: { fontSize: 14, fontWeight: 'bold', color: '#0F172A', marginBottom: 20 },
+  lineChart: { borderRadius: 16, marginVertical: 8 }
 });
