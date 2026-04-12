@@ -93,7 +93,7 @@ export default function LansiaDetail() {
   if (loading || lansiaLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0D9488" />
+        <ActivityIndicator size="large" color="#6366F1" />
         <Text style={styles.loadingText}>Memuat profil lansia...</Text>
       </View>
     );
@@ -113,14 +113,14 @@ export default function LansiaDetail() {
         return (
           <View>
             <Card style={styles.infoCard}>
-              <InfoRow icon={<Activity size={20} color="#0D9488" />} label="NIK" value={lansia.nik} />
+              <InfoRow icon={<Activity size={20} color="#6366F1" />} label="NIK" value={lansia.nik} />
               <InfoRow 
-                icon={<Calendar size={20} color="#0D9488" />} 
+                icon={<Calendar size={20} color="#6366F1" />} 
                 label="Tanggal Lahir" 
                 value={format(new Date(lansia.tanggal_lahir), 'dd MMMM yyyy', { locale: idLocale })} 
               />
               <InfoRow 
-                icon={<MapPin size={20} color="#0D9488" />} 
+                icon={<MapPin size={20} color="#6366F1" />} 
                 label="Alamat" 
                 value={`${lansia.alamat || '-'} (RT ${lansia.rt || '-'})`} 
                 isLast 
@@ -256,7 +256,7 @@ export default function LansiaDetail() {
         <Text style={styles.headerTitle}>Detail Lansia</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={() => router.push(`/lansia/${lansia.id}/edit`)} style={styles.headerAction}>
-            <Edit size={20} color="#0D9488" />
+            <Edit size={20} color="#6366F1" />
           </TouchableOpacity>
           <TouchableOpacity onPress={handleDelete} style={styles.headerAction}>
             <Trash2 size={20} color="#EF4444" />
@@ -267,7 +267,7 @@ export default function LansiaDetail() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.profileSection}>
            <View style={styles.avatarContainer}>
-              <User size={48} color="#0D9488" />
+              <User size={48} color="#6366F1" />
            </View>
            <Text style={styles.lansiaName}>{lansia.nama}</Text>
            <Text style={styles.lansiaSubtitle}>{lansia.nik} • {lansia.jenis_kelamin}</Text>
@@ -368,31 +368,31 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: '#F0FDFA',
+    backgroundColor: '#EEF2FF',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#CCFBF1',
+    borderColor: '#E0E7FF',
   },
   lansiaName: { fontSize: 22, fontWeight: 'bold', color: '#0F172A', marginBottom: 4 },
   lansiaSubtitle: { fontSize: 14, color: '#64748B' },
   tabBar: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 20, justifyContent: 'space-between' },
   tabItem: { alignItems: 'center', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12 },
-  activeTabItem: { backgroundColor: '#F0FDFA' },
+  activeTabItem: { backgroundColor: '#EEF2FF' },
   tabLabel: { fontSize: 12, fontWeight: '600', color: '#94A3B8', marginTop: 4 },
-  activeTabLabel: { color: '#0D9488' },
+  activeTabLabel: { color: '#6366F1' },
   tabContent: { padding: 20 },
   infoCard: { padding: 0, marginBottom: 20 },
   infoRow: { flexDirection: 'row', alignItems: 'center', padding: 16 },
   borderBottom: { borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  infoIconContainer: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#F0FDFA', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  infoIconContainer: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   infoLabel: { fontSize: 11, color: '#94A3B8', marginBottom: 2 },
   infoValue: { fontSize: 15, fontWeight: '600', color: '#334155' },
   statsGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 },
   statCard: { flex: 1, marginHorizontal: 4, alignItems: 'center', paddingVertical: 12 },
   statLabel: { fontSize: 11, color: '#64748B', marginBottom: 4 },
-  statValue: { fontSize: 18, fontWeight: 'bold', color: '#0D9488' },
+  statValue: { fontSize: 18, fontWeight: 'bold', color: '#6366F1' },
   unit: { fontSize: 11, fontWeight: 'normal', color: '#94A3B8' },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1E293B', marginBottom: 16 },
   alertsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
   historyKeluhan: { fontSize: 12, color: '#64748B', marginTop: 10, fontStyle: 'italic' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 12, color: '#64748B' },
-  fab: { position: 'absolute', bottom: 24, right: 24, backgroundColor: '#0D9488', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderRadius: 20, elevation: 8 },
+  fab: { position: 'absolute', bottom: 24, right: 24, backgroundColor: '#6366F1', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderRadius: 20, elevation: 8 },
   fabText: { color: '#FFFFFF', fontWeight: 'bold', marginLeft: 8, fontSize: 16 },
   emptyCard: { padding: 20, alignItems: 'center' },
   emptyText: { color: '#94A3B8', fontSize: 14 },

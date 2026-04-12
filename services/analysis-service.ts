@@ -188,16 +188,16 @@ export class AnalysisService {
       if (rt) query = query.eq('balitas.rt', rt);
 
       const { data, error } = await query;
-      if (error) {
-        console.error('Error fetching people by status:', error);
+      if (error || !data) {
+        if (error) console.error('Error fetching people by status:', error);
         return [];
       }
 
       return (data as any[]).map((d: any) => ({
         id: d.balita_id,
-        nama: (d.balitas as any).nama,
-        nik: (d.balitas as any).nik,
-        rt: (d.balitas as any).rt,
+        nama: (d.balitas as any)?.nama || 'Tidak diketahui',
+        nik: (d.balitas as any)?.nik || '-',
+        rt: (d.balitas as any)?.rt || '-',
         status: (d as any)[indicator]
       }));
     } else {
@@ -215,9 +215,9 @@ export class AnalysisService {
       if (rt) query = query.eq('lansias.rt', rt);
 
       const { data, error } = await query;
-      if (error) return [];
+      if (error || !data) return [];
 
-      const filtered = data.filter(p => {
+      const filtered = (data as any[]).filter(p => {
         if (status === 'Normal') {
           const [sis, dias] = (p.tekanan_darah || '0/0').split('/').map(Number);
           return !(sis >= 140 || dias >= 90 || (p.gula_darah || 0) > 200 || (p.kolesterol || 0) > 200 || (p.asam_urat || 0) > 7);
@@ -234,9 +234,9 @@ export class AnalysisService {
 
       return filtered.map(d => ({
         id: d.lansia_id,
-        nama: (d.lansias as any).nama,
-        nik: (d.lansias as any).nik,
-        rt: (d.lansias as any).rt,
+        nama: (d.lansias as any)?.nama || 'Tidak diketahui',
+        nik: (d.lansias as any)?.nik || '-',
+        rt: (d.lansias as any)?.rt || '-',
         status: status
       }));
     }

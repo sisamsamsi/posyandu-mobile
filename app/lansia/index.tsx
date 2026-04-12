@@ -40,7 +40,7 @@ export default function LansiaIndex() {
     <TouchableOpacity onPress={() => router.push(`/lansia/${item.id}`)}>
       <Card style={styles.personCard}>
         <View style={styles.personAvatar}>
-          <User size={24} color="#0D9488" />
+          <User size={24} color="#6366F1" />
         </View>
         <View style={styles.personInfo}>
           <Text style={styles.personName}>{item.nama}</Text>
@@ -74,7 +74,7 @@ export default function LansiaIndex() {
 
       {loading && lansias.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0D9488" />
+          <ActivityIndicator size="large" color="#6366F1" />
         </View>
       ) : (
         <FlatList
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#0D9488',
+    backgroundColor: '#6366F1',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,

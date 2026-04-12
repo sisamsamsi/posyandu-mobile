@@ -30,6 +30,7 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { GrowthChart } from '../../components/charts/GrowthChart';
 import { RiskSummary } from '../../components/ui/RiskSummary';
+import { ZScoreEngine } from '../../services/zscore-engine';
 import { whoService } from '../../services/who-service';
 import { RiskPredictionService } from '../../services/risk-prediction';
 import { format } from 'date-fns';
@@ -48,6 +49,8 @@ export default function BalitaDetail() {
   const [activeTab, setActiveTab] = useState<TabType>('profil');
   const [whoBB, setWhoBB] = useState<WHOReferenceRow[]>([]);
   const [whoTB, setWhoTB] = useState<WHOReferenceRow[]>([]);
+  const [whoIMT, setWhoIMT] = useState<WHOReferenceRow[]>([]);
+  const [whoBBTB, setWhoBBTB] = useState<WHOReferenceRow[]>([]);
   const [riskResult, setRiskResult] = useState<RiskCalculationResult | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -61,23 +64,55 @@ export default function BalitaDetail() {
         setBalita(data);
         
         // Fetch WHO standards
-        const [bbStandards, tbStandards] = await Promise.all([
+        const [bbStandards, tbStandards, imtStandards, bbtbStandards] = await Promise.all([
           whoService.getStandards('bb_u', data.jenis_kelamin),
-          whoService.getStandards('tb_u', data.jenis_kelamin)
+          whoService.getStandards('tb_u', data.jenis_kelamin),
+          whoService.getStandards('imt_u', data.jenis_kelamin),
+          whoService.getStandards('bb_tb', data.jenis_kelamin)
         ]);
         setWhoBB(bbStandards);
         setWhoTB(tbStandards);
+        setWhoIMT(imtStandards);
+        setWhoBBTB(bbtbStandards);
 
         // Calculate Risk if there is penimbangan data
-          const validPenimbangans = (data.penimbangans || []).filter(p => new Date(p.tanggal).getTime() <= new Date().getTime());
+          const validPenimbangans = (data.penimbangans || []).filter(p => 
+            new Date(p.tanggal).getTime() <= new Date().getTime() && 
+            (p.berat_badan > 0 || p.tinggi_badan > 0)
+          );
           const latest = [...validPenimbangans].sort((a,b) => 
             new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
           )[0];
           
           if (latest) {
-            const history = validPenimbangans.filter(p => p.id !== latest.id);
-            const risk = RiskPredictionService.calculate(data, latest, history);
-            setRiskResult(risk);
+             const genderChar = data.jenis_kelamin === 'Laki-laki' ? 'L' : 'P';
+             const ageAtMeasurement = RiskPredictionService.calculateAgeMonths(data.tanggal_lahir, latest.tanggal);
+             
+             // Repair missing Z-Scores/Statuses locally for analysis accuracy
+             const repairedLatest = { ...latest };
+             
+             if (!repairedLatest.zscore_bb_u || !repairedLatest.status_bb_u) {
+               const res = ZScoreEngine.calculate(bbStandards, genderChar, ageAtMeasurement, latest.berat_badan, 'BB/U');
+               repairedLatest.zscore_bb_u = res.zscore;
+               repairedLatest.status_bb_u = res.status;
+             }
+             
+             if (!repairedLatest.zscore_tb_u || !repairedLatest.status_tb_u) {
+               const res = ZScoreEngine.calculate(tbStandards, genderChar, ageAtMeasurement, latest.tinggi_badan, 'TB/U');
+               repairedLatest.zscore_tb_u = res.zscore;
+               repairedLatest.status_tb_u = res.status;
+             }
+             
+             if (!repairedLatest.status_gizi_imt_u || !repairedLatest.zscore_imt_u) {
+               const bmi = latest.berat_badan / ((latest.tinggi_badan / 100) ** 2);
+               const res = ZScoreEngine.calculate(imtStandards, genderChar, ageAtMeasurement, bmi, 'IMT/U');
+               repairedLatest.zscore_imt_u = res.zscore;
+               repairedLatest.status_gizi_imt_u = res.status;
+             }
+
+             const history = validPenimbangans.filter(p => p.id !== latest.id);
+             const risk = RiskPredictionService.calculate(data, repairedLatest, history);
+             setRiskResult(risk);
           }
       }
     } catch (err) {
@@ -195,6 +230,22 @@ export default function BalitaDetail() {
                data={balita.penimbangans || []} 
                indicator="TB" 
                title="Grafik Tinggi Badan / Umur" 
+               birthDate={balita.tanggal_lahir}
+             />
+             <View style={{ height: 20 }} />
+             <GrowthChart 
+               standards={whoBBTB} 
+               data={balita.penimbangans || []} 
+               indicator="BB_TB" 
+               title="Grafik Berat Badan / Tinggi Badan" 
+               birthDate={balita.tanggal_lahir}
+             />
+             <View style={{ height: 20 }} />
+             <GrowthChart 
+               standards={whoIMT} 
+               data={balita.penimbangans || []} 
+               indicator="IMT" 
+               title="Grafik IMT / Umur" 
                birthDate={balita.tanggal_lahir}
              />
           </View>

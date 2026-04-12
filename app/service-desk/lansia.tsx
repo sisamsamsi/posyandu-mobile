@@ -146,7 +146,7 @@ export default function LansiaServiceDesk() {
               renderItem={({ item }) => (
                 <TouchableOpacity style={styles.resultItem} onPress={() => onSelectLansia(item)}>
                   <View style={styles.resultAvatar}>
-                    <Users size={24} color="#0D9488" />
+                    <Users size={24} color="#6366F1" />
                   </View>
                   <View style={styles.resultInfo}>
                     <Text style={styles.resultName}>{item.nama}</Text>
@@ -166,7 +166,7 @@ export default function LansiaServiceDesk() {
         return (
           <ScrollView style={styles.stepContainer} showsVerticalScrollIndicator={false}>
             <View style={styles.selectedHeader}>
-               <Users size={32} color="#0D9488" />
+               <Users size={32} color="#6366F1" />
                <View style={styles.selectedHeaderText}>
                   <Text style={styles.selectedName}>{selectedLansia?.nama}</Text>
                   <Text style={styles.selectedSub}>{selectedLansia?.nik}</Text>
@@ -206,14 +206,14 @@ export default function LansiaServiceDesk() {
                <View style={styles.fieldContainerHalf}>
                   <Text style={styles.fieldLabel}>Berat Badan (kg)</Text>
                   <View style={styles.inputGroup}>
-                     <Activity size={18} color="#0D9488" />
+                     <Activity size={18} color="#6366F1" />
                      <TextInput style={styles.input} placeholder="Kg" keyboardType="numeric" value={berat} onChangeText={setBerat} />
                   </View>
                </View>
                <View style={styles.fieldContainerHalf}>
                   <Text style={styles.fieldLabel}>Tinggi Badan (cm)</Text>
                   <View style={styles.inputGroup}>
-                     <Activity size={18} color="#0D9488" />
+                     <Activity size={18} color="#6366F1" />
                      <TextInput style={styles.input} placeholder="Cm" keyboardType="numeric" value={tinggi} onChangeText={setTinggi} />
                   </View>
                </View>
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#F0FDFA',
+    backgroundColor: '#EEF2FF',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -450,12 +450,12 @@ const styles = StyleSheet.create({
   selectedHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0FDFA',
+    backgroundColor: '#EEF2FF',
     padding: 16,
     borderRadius: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#CCFBF1',
+    borderColor: '#E0E7FF',
   },
   selectedHeaderText: {
     flex: 1,
@@ -464,14 +464,14 @@ const styles = StyleSheet.create({
   selectedName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#134E4A',
+    color: '#312E81',
   },
   selectedSub: {
     fontSize: 12,
-    color: '#5EAD9D',
+    color: '#818CF8',
   },
   changeLink: {
-    color: '#0D9488',
+    color: '#6366F1',
     fontWeight: 'bold',
   },
   sectionLabel: {
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     elevation: 4,
-    shadowColor: '#0D9488',
+    shadowColor: '#6366F1',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,

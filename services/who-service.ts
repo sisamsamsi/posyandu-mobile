@@ -8,7 +8,9 @@ export const whoService = {
    * @param sex 'Laki-laki' | 'Perempuan'
    */
   async getStandards(indicator: 'bb_u' | 'tb_u' | 'imt_u' | 'bb_tb', sex: 'Laki-laki' | 'Perempuan'): Promise<WHOReferenceRow[]> {
-    const tableName = `who_${indicator}_standards`;
+    let tableName = `who_${indicator}_standards`;
+    if (indicator === 'imt_u') tableName = 'who_imt_standards';
+    
     const genderKey = sex === 'Laki-laki' ? 'L' : 'P';
     const orderColumn = indicator === 'bb_tb' ? 'measurement' : 'usia_bulan';
 

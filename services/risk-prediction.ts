@@ -84,7 +84,7 @@ export class RiskPredictionService {
     };
   }
 
-  private static calculateAgeMonths(birthDate: string, measureDate: string): number {
+  public static calculateAgeMonths(birthDate: string, measureDate: string): number {
     const birth = new Date(birthDate);
     const measure = new Date(measureDate);
     const months = (measure.getFullYear() - birth.getFullYear()) * 12 + (measure.getMonth() - birth.getMonth());

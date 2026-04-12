@@ -7,7 +7,7 @@ import { differenceInMonths } from 'date-fns';
 interface GrowthChartProps {
   standards: WHOReferenceRow[];
   data: Penimbangan[];
-  indicator: 'BB' | 'TB';
+  indicator: 'BB' | 'TB' | 'IMT' | 'BB_TB';
   title: string;
   birthDate?: string;
 }
@@ -17,68 +17,102 @@ const screenWidth = Dimensions.get('window').width;
 export const GrowthChart: React.FC<GrowthChartProps> = ({ standards, data, indicator, title, birthDate }) => {
   if (standards.length === 0) return <Text style={styles.loading}>Memuat standar referensi...</Text>;
 
-  // Labels for X-axis (Months 0-60, sampled every 12 months for better spacing)
-  const labels = standards.filter((_, i) => i % 12 === 0).map(s => `${s.measurement}bln`);
+  // Find the max measurement month recorded
+  const maxMonthRecorded = data.reduce((max, p) => {
+    if (!birthDate) return max;
+    const age = differenceInMonths(new Date(p.tanggal), new Date(birthDate));
+    return Math.max(max, age);
+  }, 0);
+
+  // TRUNCATION STRATEGY:
+  // To avoid the "dip to zero" and the "NaN crash" in react-native-chart-kit,
+  // we truncate the entire chart (standards + balita data) to only show
+  // up to the last recorded measurement month + a small margin.
+  // This satisfies the user request: "untuk yang belom dilakukan (masa datang) tidak perlu digambar"
+  const displayLimit = indicator === 'BB_TB' 
+    ? 120 // For height based, we can show up to typical height
+    : Math.min(Math.max(maxMonthRecorded + 6, 12), 60);
+
+  const filteredStandards = indicator === 'BB_TB'
+    ? standards.filter(s => s.measurement >= 45 && s.measurement <= 120)
+    : standards.filter(s => s.measurement <= displayLimit);
+
+  // Labels for X-axis (sampled for spacing)
+  const labels = filteredStandards.filter((_, i) => {
+    if (indicator === 'BB_TB') return i % 20 === 0;
+    return i % 12 === 0 || i === filteredStandards.length - 1;
+  }).map(s => `${s.measurement}${indicator === 'BB_TB' ? 'cm' : 'bln'}`);
   
   const getLine = (key: keyof WHOReferenceRow) => {
-    return standards.map(s => s[key] as number);
+    return filteredStandards.map(s => s[key] as number);
   };
 
   // Plot Balita's data
-  // We need to find the Y value for each age (month) present in standards
-  const balitaData = standards.map(s => {
-    if (!birthDate) return 0;
+  const balitaDataRaw = filteredStandards.map(s => {
+    if (!birthDate && indicator !== 'BB_TB') return 0;
     
-    // Find penimbangan that matches this month
+    if (indicator === 'BB_TB') {
+      const match = data.find(p => Math.abs(p.tinggi_badan - s.measurement) < 0.5);
+      return match ? match.berat_badan : 0;
+    }
+
+    if (s.measurement > maxMonthRecorded) return 0;
+
     const match = data.find(p => {
-      const age = differenceInMonths(new Date(p.tanggal), new Date(birthDate));
+      const age = differenceInMonths(new Date(p.tanggal), new Date(birthDate!));
       return age === s.measurement;
     });
 
     if (match) {
-      return indicator === 'BB' ? match.berat_badan : match.tinggi_badan;
+      if (indicator === 'BB') return match.berat_badan;
+      if (indicator === 'TB') return match.tinggi_badan;
+      if (indicator === 'IMT') return (match.berat_badan / ((match.tinggi_badan / 100) ** 2));
     }
-    return 0; // chart-kit uses 0 as 'no data' or we could use null if supported (it's tricky)
+    return 0;
   });
+
+  // Since we truncated the chart to maxMonthRecorded, 0s will only happen if there's a gap in history.
+  // We'll hide all 0 points completely.
+  const hideIndices = balitaDataRaw.map((v, i) => v <= 0 ? i : -1).filter(i => i !== -1);
 
   const chartData = {
     labels: labels,
     datasets: [
       {
         data: getLine('minus_3sd'),
-        color: (opacity = 0.5) => `rgba(239, 68, 68, ${opacity})`, // Red (-3SD)
+        color: (opacity = 0.5) => `rgba(239, 68, 68, ${opacity})`, 
         strokeWidth: 1,
         withDots: false,
       },
       {
         data: getLine('minus_2sd'),
-        color: (opacity = 0.5) => `rgba(245, 158, 11, ${opacity})`, // Orange (-2SD)
+        color: (opacity = 0.5) => `rgba(245, 158, 11, ${opacity})`, 
         strokeWidth: 1,
         withDots: false,
       },
       {
         data: getLine('median'),
-        color: (opacity = 0.5) => `rgba(34, 197, 94, ${opacity})`, // Green (Median)
+        color: (opacity = 0.5) => `rgba(34, 197, 94, ${opacity})`, 
         strokeWidth: 2,
         withDots: false,
       },
       {
         data: getLine('plus_2sd'),
-        color: (opacity = 0.5) => `rgba(245, 158, 11, ${opacity})`, // Orange (+2SD)
+        color: (opacity = 0.5) => `rgba(245, 158, 11, ${opacity})`, 
         strokeWidth: 1,
         withDots: false,
       },
       {
         data: getLine('plus_3sd'),
-        color: (opacity = 0.5) => `rgba(239, 68, 68, ${opacity})`, // Red (+3SD)
+        color: (opacity = 0.5) => `rgba(239, 68, 68, ${opacity})`, 
         strokeWidth: 1,
         withDots: false,
       },
       {
-        data: balitaData,
-        color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`, // Black Line for Balita (High Contrast)
-        strokeWidth: 4,
-        withDots: true,
+        data: balitaDataRaw,
+        color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`, 
+        strokeWidth: 3,
+        withDots: false,
       },
     ],
     legend: [title]
@@ -110,12 +144,13 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({ standards, data, indic
           fillShadowGradientOpacity: 0,
         }}
         withShadow={false}
+        hidePointsAtIndex={hideIndices}
         style={styles.chart}
         withInnerLines={false}
         withOuterLines={true}
         withVerticalLines={false}
         withHorizontalLines={true}
-        fromZero={false} // Better for height charts
+        fromZero={false}
       />
       <View style={styles.legend}>
         <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#22c55e' }]} /><Text style={styles.legendText}>Ideal</Text></View>
@@ -151,7 +186,7 @@ const styles = StyleSheet.create({
   chart: {
     marginVertical: 4,
     borderRadius: 16,
-    marginLeft: -10, // Adjust for Y-axis labels
+    marginLeft: -10, 
   },
   legend: {
     flexDirection: 'row',

@@ -44,7 +44,7 @@ export default function EditLansia() {
   if (fetching) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0D9488" />
+        <ActivityIndicator size="large" color="#6366F1" />
       </View>
     );
   }

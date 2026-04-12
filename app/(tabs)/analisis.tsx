@@ -47,11 +47,11 @@ export default function AnalysisTabScreen() {
 
   useEffect(() => {
     fetchData();
-    // Reset list when base filters change
+    // Reset list when base filters or tabs change
     setSelectedIndicator(null);
     setSelectedStatus(null);
     setPeopleList([]);
-  }, [month, year, rt]);
+  }, [month, year, rt, activeTab]);
 
   useEffect(() => {
     if (selectedStatus) {
