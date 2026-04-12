@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
 import { BarChart } from 'react-native-chart-kit';
 import { Card } from '../ui/Card';
 
@@ -7,32 +7,12 @@ interface DistributionChartProps {
   title: string;
   data: { label: string; count: number; color: string }[];
   color?: string;
+  onPress?: (status: string) => void;
 }
 
 const screenWidth = Dimensions.get('window').width;
 
-// Label mapping for pruning
-const LABEL_MAP: Record<string, string> = {
-  'Gizi Buruk': 'Buruk',
-  'Gizi Kurang': 'Kurang',
-  'Gizi Baik': 'Baik',
-  'Gizi Lebih': 'Lebih',
-  'Obesitas': 'Obesitas',
-  'Sangat Pendek (SP)': 'SP (Sgt Pdk)',
-  'Pendek (P)': 'P (Pendek)',
-  'Normal (N)': 'Normal',
-  'Tinggi (T)': 'Tinggi',
-  'BB Sangat Kurang (SK)': 'Sgt Kurang',
-  'BB Kurang (K)': 'Kurang',
-  'BB Normal (N)': 'Normal',
-  'Resiko BB Lebih (RL)': 'Resiko LB',
-  'Gizi Buruk (Severely Wasted)': 'Buruk',
-  'Gizi Kurang (Wasted)': 'Kurus',
-  'Berisiko Gizi Lebih': 'Risiko LB',
-  'Gizi Lebih (Overweight)': 'Lebih',
-};
-
-export function DistributionChart({ title, data, color = '#0D9488' }: DistributionChartProps) {
+export function DistributionChart({ title, data, color = '#0D9488', onPress }: DistributionChartProps) {
   if (data.length === 0) {
     return (
       <Card style={styles.container}>
@@ -44,40 +24,43 @@ export function DistributionChart({ title, data, color = '#0D9488' }: Distributi
     );
   }
 
-  const chartData = {
-    labels: data.map(d => LABEL_MAP[d.label] || (d.label.length > 10 ? d.label.substring(0, 8) + '..' : d.label)),
-    datasets: [{
-      data: data.map(d => d.count)
-    }]
-  };
+  const maxCount = Math.max(...data.map(d => d.count), 1);
 
   return (
     <Card style={styles.container}>
       <Text style={styles.title}>{title}</Text>
-      <BarChart
-        data={chartData}
-        width={screenWidth - 72}
-        height={220}
-        yAxisLabel=""
-        yAxisSuffix=""
-        fromZero
-        chartConfig={{
-          backgroundColor: '#ffffff',
-          backgroundGradientFrom: '#ffffff',
-          backgroundGradientTo: '#ffffff',
-          decimalPlaces: 0,
-          color: (opacity = 1) => color === '#0D9488' ? `rgba(13, 148, 136, ${opacity})` : `rgba(99, 102, 241, ${opacity})`,
-          labelColor: (opacity = 1) => `rgba(71, 85, 105, ${opacity})`,
-          barPercentage: 0.7,
-          propsForBackgroundLines: {
-            strokeDasharray: '4,4',
-            stroke: '#F1F5F9',
-          }
-        }}
-        verticalLabelRotation={45}
-        showValuesOnTopOfBars
-        style={styles.chart}
-      />
+      
+      <View style={styles.listContainer}>
+        {data.map((item, index) => {
+          const percentage = (item.count / maxCount) * 100;
+          
+          return (
+            <TouchableOpacity 
+              key={index} 
+              style={styles.itemRow}
+              onPress={() => onPress?.(item.label)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.labelRow}>
+                <Text style={styles.itemLabel} numberOfLines={1}>{item.label}</Text>
+                <Text style={styles.itemCount}>{item.count}</Text>
+              </View>
+              
+              <View style={styles.barBackground}>
+                <View 
+                  style={[
+                    styles.barFill, 
+                    { 
+                      width: `${percentage}%`, 
+                      backgroundColor: item.color || color 
+                    }
+                  ]} 
+                />
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
     </Card>
   );
 }
@@ -89,13 +72,45 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#0F172A',
-    marginBottom: 16,
+    fontWeight: '800',
+    color: '#1E293B',
+    marginBottom: 20,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  chart: {
-    marginVertical: 8,
-    borderRadius: 16,
+  listContainer: {
+    gap: 16,
+  },
+  itemRow: {
+    marginBottom: 4,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  itemLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+    flex: 1,
+    marginRight: 8,
+  },
+  itemCount: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  barBackground: {
+    height: 10,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 5,
   },
   emptyContainer: {
     height: 100,

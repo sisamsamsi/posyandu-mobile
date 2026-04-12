@@ -18,9 +18,9 @@ export default function DataMasterScreen() {
     {
       title: 'Data Lansia',
       subtitle: 'Kelola data penduduk lansia',
-      icon: <Users size={28} color="#0D9488" />,
+      icon: <Users size={28} color="#6366F1" />,
       route: '/lansia',
-      color: '#CCFBF1',
+      color: '#EEF2FF',
     },
     {
       title: 'Riwayat Penimbangan',
@@ -32,23 +32,23 @@ export default function DataMasterScreen() {
     {
       title: 'Riwayat Pemeriksaan',
       subtitle: 'Log aktivitas pemeriksaan lansia',
-      icon: <Users size={28} color="#0D9488" />,
+      icon: <Users size={28} color="#6366F1" />,
       route: '/pemeriksaan',
-      color: '#F0FDFA',
+      color: '#EEF2FF',
     },
     {
       title: 'Monitoring Balita',
       subtitle: 'Pantau kehadiran balita bulan ini',
-      icon: <Baby size={28} color="#F59E0B" />,
+      icon: <Baby size={28} color="#0D9488" />,
       route: '/monitoring/balita',
-      color: '#FEF3C7',
+      color: '#F0FDFA',
     },
     {
       title: 'Monitoring Lansia',
       subtitle: 'Pantau kehadiran lansia bulan ini',
-      icon: <Users size={28} color="#F59E0B" />,
+      icon: <Users size={28} color="#6366F1" />,
       route: '/monitoring/lansia',
-      color: '#FEF3C7',
+      color: '#EEF2FF',
     },
     {
       title: 'Pengaturan Posyandu',

@@ -159,6 +159,89 @@ export class AnalysisService {
     return trends;
   }
 
+  static async getPeopleByStatus(
+    type: 'balita' | 'lansia',
+    month: number,
+    year: number,
+    rt?: number,
+    indicator?: string,
+    status?: string
+  ) {
+    const date = new Date(year, month - 1, 1);
+    const start = startOfMonth(date).toISOString();
+    const end = endOfMonth(date).toISOString();
+
+    if (type === 'balita') {
+      if (!indicator || !status) return [];
+
+      let query = supabase
+        .from('penimbangans')
+        .select(`
+          balita_id,
+          ${indicator},
+          balitas!inner(nama, nik, rt)
+        `)
+        .gte('tanggal', start)
+        .lte('tanggal', end)
+        .eq(indicator, status) as any;
+
+      if (rt) query = query.eq('balitas.rt', rt);
+
+      const { data, error } = await query;
+      if (error) {
+        console.error('Error fetching people by status:', error);
+        return [];
+      }
+
+      return (data as any[]).map((d: any) => ({
+        id: d.balita_id,
+        nama: (d.balitas as any).nama,
+        nik: (d.balitas as any).nik,
+        rt: (d.balitas as any).rt,
+        status: (d as any)[indicator]
+      }));
+    } else {
+      // Lansia logic
+      let query = supabase
+        .from('pemeriksaan_lansias')
+        .select(`
+          lansia_id,
+          tekanan_darah, gula_darah, kolesterol, asam_urat,
+          lansias!inner(nama, nik, rt)
+        `)
+        .gte('tanggal_periksa', start)
+        .lte('tanggal_periksa', end);
+
+      if (rt) query = query.eq('lansias.rt', rt);
+
+      const { data, error } = await query;
+      if (error) return [];
+
+      const filtered = data.filter(p => {
+        if (status === 'Normal') {
+          const [sis, dias] = (p.tekanan_darah || '0/0').split('/').map(Number);
+          return !(sis >= 140 || dias >= 90 || (p.gula_darah || 0) > 200 || (p.kolesterol || 0) > 200 || (p.asam_urat || 0) > 7);
+        }
+        if (status === 'Hipertensi') {
+          const [sis, dias] = (p.tekanan_darah || '0/0').split('/').map(Number);
+          return sis >= 140 || dias >= 90;
+        }
+        if (status === 'Diabetes') return (p.gula_darah || 0) > 200;
+        if (status === 'Kolesterol Tinggi') return (p.kolesterol || 0) > 200;
+        if (status === 'Asam Urat Tinggi') return (p.asam_urat || 0) > 7;
+        return false;
+      });
+
+      return filtered.map(d => ({
+        id: d.lansia_id,
+        nama: (d.lansias as any).nama,
+        nik: (d.lansias as any).nik,
+        rt: (d.lansias as any).rt,
+        status: status
+      }));
+    }
+  }
+
   private static aggregate(records: any[], field: string): IndicatorStat[] {
     const counts: Record<string, number> = {};
     records.forEach(r => {

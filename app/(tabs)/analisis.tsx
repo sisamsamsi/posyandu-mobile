@@ -38,10 +38,48 @@ export default function AnalysisTabScreen() {
   const [balitaData, setBalitaData] = useState<BalitaAnalysis | null>(null);
   const [lansiaData, setLansiaData] = useState<LansiaAnalysis | null>(null);
   const [trendData, setTrendData] = useState<TrendPoint[]>([]);
+  
+  // By Name List States
+  const [selectedIndicator, setSelectedIndicator] = useState<string | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [peopleList, setPeopleList] = useState<any[]>([]);
+  const [listLoading, setListLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
+    // Reset list when base filters change
+    setSelectedIndicator(null);
+    setSelectedStatus(null);
+    setPeopleList([]);
   }, [month, year, rt]);
+
+  useEffect(() => {
+    if (selectedStatus) {
+      fetchPeople();
+    } else {
+      setPeopleList([]);
+    }
+  }, [selectedStatus, selectedIndicator]);
+
+  const fetchPeople = async () => {
+    if (!selectedStatus) return;
+    setListLoading(true);
+    try {
+      const data = await AnalysisService.getPeopleByStatus(
+        activeTab as 'balita' | 'lansia',
+        month,
+        year,
+        rt || undefined,
+        selectedIndicator || undefined,
+        selectedStatus
+      );
+      setPeopleList(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setListLoading(false);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -82,9 +120,33 @@ export default function AnalysisTabScreen() {
           </Card>
         </View>
 
-        <DistributionChart title="Distribusi Berat Badan (BB/U)" data={balitaData.stats_bb_u} color={COLORS.balita} />
-        <DistributionChart title="Distribusi Stunting (TB/U)" data={balitaData.stats_tb_u} color={COLORS.balita} />
-        <DistributionChart title="Distribusi Wasting (BB/TB)" data={balitaData.stats_bb_tb} color={COLORS.balita} />
+        <DistributionChart 
+          title="Distribusi Berat Badan (BB/U)" 
+          data={balitaData.stats_bb_u} 
+          color={COLORS.balita} 
+          onPress={(status) => {
+            setSelectedIndicator('status_bb_u');
+            setSelectedStatus(status);
+          }}
+        />
+        <DistributionChart 
+          title="Distribusi Stunting (TB/U)" 
+          data={balitaData.stats_tb_u} 
+          color={COLORS.balita} 
+          onPress={(status) => {
+            setSelectedIndicator('status_tb_u');
+            setSelectedStatus(status);
+          }}
+        />
+        <DistributionChart 
+          title="Distribusi Wasting (BB/TB)" 
+          data={balitaData.stats_bb_tb} 
+          color={COLORS.balita} 
+          onPress={(status) => {
+            setSelectedIndicator('status_bb_tb');
+            setSelectedStatus(status);
+          }}
+        />
       </View>
     );
   };
@@ -104,7 +166,15 @@ export default function AnalysisTabScreen() {
           </Card>
         </View>
 
-        <DistributionChart title="Prevalensi Penyakit Lansia" data={lansiaData.stats_kondisi} color={COLORS.lansia} />
+        <DistributionChart 
+          title="Prevalensi Penyakit Lansia" 
+          data={lansiaData.stats_kondisi} 
+          color={COLORS.lansia} 
+          onPress={(status) => {
+            setSelectedIndicator('stats_kondisi');
+            setSelectedStatus(status);
+          }}
+        />
 
         <Card style={styles.alertCard}>
            <Heart size={20} color="#EF4444" />
@@ -210,6 +280,40 @@ export default function AnalysisTabScreen() {
             {activeTab === 'balita' && renderBalitaTab()}
             {activeTab === 'lansia' && renderLansiaTab()}
             {activeTab === 'tren' && renderTrendTab()}
+
+            {/* By Name List Section */}
+            {selectedStatus && (
+              <View style={styles.listSection}>
+                <View style={styles.listHeader}>
+                  <Text style={styles.listTitle}>
+                    Data By Name: <Text style={{ color: activeTab === 'balita' ? COLORS.balita : COLORS.lansia }}>{selectedStatus}</Text>
+                  </Text>
+                  <TouchableOpacity onPress={() => setSelectedStatus(null)}>
+                    <Text style={styles.closeBtn}>Tutup</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {listLoading ? (
+                  <ActivityIndicator size="small" color="#64748B" style={{ margin: 20 }} />
+                ) : peopleList.length > 0 ? (
+                  <Card style={styles.peopleCard}>
+                    {peopleList.map((person, idx) => (
+                      <View key={person.id} style={[styles.peopleItem, idx === peopleList.length - 1 && { borderBottomWidth: 0 }]}>
+                        <View>
+                          <Text style={styles.personName}>{person.nama}</Text>
+                          <Text style={styles.personSub}>NIK: {person.nik} • RT 0{person.rt}</Text>
+                        </View>
+                        <Badge label={person.status || selectedStatus} variant={person.status?.includes('Normal') ? 'success' : 'warning'} />
+                      </View>
+                    ))}
+                  </Card>
+                ) : (
+                  <View style={styles.emptyList}>
+                    <Text style={styles.emptyText}>Tidak ada data untuk kategori ini.</Text>
+                  </View>
+                )}
+              </View>
+            )}
           </>
         )}
       </ScrollView>
@@ -270,5 +374,17 @@ const styles = StyleSheet.create({
   alertText: { fontSize: 13, color: '#991B1B', marginTop: 2, lineHeight: 18 },
   chartContainer: { padding: 16 },
   chartTitle: { fontSize: 15, fontWeight: '800', color: '#0F172A', marginBottom: 20 },
-  lineChart: { borderRadius: 16, marginVertical: 8 }
+  lineChart: { borderRadius: 16, marginVertical: 8 },
+  
+  // List Section Styles
+  listSection: { marginTop: 12, marginBottom: 40 },
+  listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  listTitle: { fontSize: 16, fontWeight: '800', color: '#1E293B' },
+  closeBtn: { color: '#EF4444', fontWeight: 'bold', fontSize: 13 },
+  peopleCard: { padding: 0, overflow: 'hidden' },
+  peopleItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  personName: { fontSize: 14, fontWeight: '700', color: '#1E293B' },
+  personSub: { fontSize: 12, color: '#64748B', marginTop: 2 },
+  emptyList: { padding: 40, alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 16, borderStyle: 'dashed', borderWidth: 1, borderColor: '#CBD5E1' },
+  emptyText: { color: '#94A3B8', fontSize: 13 }
 });
