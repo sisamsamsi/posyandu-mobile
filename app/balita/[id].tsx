@@ -25,7 +25,8 @@ import {
   LayoutDashboard
 } from 'lucide-react-native';
 import { useBalita } from '../../hooks/useBalita';
-import { Balita, WHOReferenceRow, RiskCalculationResult } from '../../lib/types';
+import { usePenimbangan } from '../../hooks/usePenimbangan';
+import { Balita, WHOReferenceRow, RiskCalculationResult, Penimbangan } from '../../lib/types';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { GrowthChart } from '../../components/charts/GrowthChart';
@@ -44,6 +45,7 @@ export default function BalitaDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { getBalitaById, deleteBalita, loading: balitaLoading } = useBalita();
+  const { deletePenimbangan } = usePenimbangan();
   
   const [balita, setBalita] = useState<Balita | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('profil');
@@ -141,6 +143,25 @@ export default function BalitaDetail() {
               if (success) {
                 router.replace('/balita');
               }
+            }
+          }
+        }
+      ]
+    );
+  };
+  const handleDeletePenimbangan = (pId: string) => {
+    Alert.alert(
+      'Hapus Data',
+      'Apakah Anda yakin ingin menghapus data penimbangan ini?',
+      [
+        { text: 'Batal', style: 'cancel' },
+        { 
+          text: 'Hapus', 
+          style: 'destructive',
+          onPress: async () => {
+            const success = await deletePenimbangan(pId);
+            if (success) {
+              fetchAllData();
             }
           }
         }
@@ -265,6 +286,12 @@ export default function BalitaDetail() {
                           label={p.status_bb_tb || 'N/A'} 
                           variant={p.status_bb_tb?.includes('Gizi Buruk') || p.status_bb_tb?.includes('Gizi Kurang') ? 'danger' : 'success'} 
                         />
+                        <TouchableOpacity style={styles.historyAction} onPress={() => router.push(`/service-desk/balita?id=${balita.id}&editId=${p.id}`)}>
+                           <Edit size={16} color="#0D9488" />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.historyAction} onPress={() => handleDeletePenimbangan(p.id)}>
+                           <Trash2 size={16} color="#EF4444" />
+                        </TouchableOpacity>
                       </View>
                    </View>
                    <View style={styles.historyStats}>
@@ -619,6 +646,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#1E293B',
+  },
+  historyAction: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    marginLeft: 4,
   },
   loadingContainer: {
     flex: 1,

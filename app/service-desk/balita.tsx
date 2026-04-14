@@ -28,6 +28,7 @@ import {
   Calendar
 } from 'lucide-react-native';
 import { useBalita } from '../../hooks/useBalita';
+import { usePenimbangan } from '../../hooks/usePenimbangan';
 import { useServiceStore } from '../../stores/service-store';
 import { Balita, Penimbangan } from '../../lib/types';
 import { Card } from '../../components/ui/Card';
@@ -37,13 +38,14 @@ import { supabase } from '../../lib/supabase';
 import { ZScoreEngine } from '../../services/zscore-engine';
 import { whoService } from '../../services/who-service';
 import { ReportService } from '../../services/report-service';
+import { WhatsAppService } from '../../services/whatsapp-service';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 type Step = 'search' | 'input' | 'confirm' | 'success';
 
 export default function BalitaServiceDesk() {
   const router = useRouter();
-  const { id: initialId } = useLocalSearchParams();
+  const { id: initialId, editId } = useLocalSearchParams();
   const [step, setStep] = useState<Step>('search');
   
   // State
@@ -60,14 +62,30 @@ export default function BalitaServiceDesk() {
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const { getBalitas, loading } = useBalita();
+  const { updatePenimbangan } = usePenimbangan();
   const { activePosyanduId, addToHistory } = useServiceStore();
 
   useEffect(() => {
     if (initialId && typeof initialId === 'string') {
-       // If coming from Detail screen, auto select
        autoSelectBalita(initialId);
     }
   }, [initialId]);
+
+  useEffect(() => {
+    if (editId && typeof editId === 'string') {
+      fetchEditData(editId);
+    }
+  }, [editId]);
+
+  const fetchEditData = async (eId: string) => {
+    const { data } = await supabase.from('penimbangans').select('*').eq('id', eId).single();
+    if (data) {
+      setBerat(data.berat_badan.toString());
+      setTinggi(data.tinggi_badan.toString());
+      setLica(data.lingkar_kepala?.toString() || '');
+      setTanggal(data.tanggal);
+    }
+  };
 
   const autoSelectBalita = async (id: string) => {
     const { data } = await supabase.from('balitas').select('*, posyandu:posyandus(*)').eq('id', id).single();
@@ -103,6 +121,8 @@ export default function BalitaServiceDesk() {
   };
 
   const [lastSavedStatus, setLastSavedStatus] = useState('');
+  const [calculatedResult, setCalculatedResult] = useState<any>(null);
+  const [lastSavedRecord, setLastSavedRecord] = useState<any>(null);
 
   const confirmSave = async () => {
     if (!selectedBalita) return;
@@ -127,8 +147,14 @@ export default function BalitaServiceDesk() {
       const bbtbResult = ZScoreEngine.calculate(bbtbStd, gender, heightValue, parseFloat(berat), 'BB/TB');
       
       setLastSavedStatus(bbResult.status);
+      const resultData = {
+        bb_u: bbResult,
+        tb_u: tbResult,
+        bb_tb: bbtbResult
+      };
+      setCalculatedResult(resultData);
 
-      const res = await supabase.from('penimbangans').insert({
+      const payload = {
         balita_id: selectedBalita.id,
         tanggal: tanggal,
         berat_badan: parseFloat(berat),
@@ -140,9 +166,19 @@ export default function BalitaServiceDesk() {
         status_tb_u: tbResult.status,
         zscore_bb_tb: bbtbResult.zscore,
         status_bb_tb: bbtbResult.status,
-      });
+      };
+
+      let res;
+      if (editId) {
+        const success = await updatePenimbangan(editId as string, payload);
+        res = { error: !success ? new Error('Gagal update data') : null };
+      } else {
+        res = await supabase.from('penimbangans').insert(payload).select().single();
+      }
 
       if (res.error) throw res.error;
+
+      setLastSavedRecord(editId ? { id: editId, ...payload } : res.data);
 
       addToHistory({
         id: selectedBalita.id,
@@ -163,18 +199,23 @@ export default function BalitaServiceDesk() {
   };
 
   const handleShareWA = async () => {
-    if (!selectedBalita) return;
+    if (!selectedBalita || !lastSavedRecord) return;
     
-    const sensitive = ReportService.getSensitiveStatus(lastSavedStatus);
-    
-    const message = `*LAPORAN HASIL PENIMBANGAN* 👶\n\nHalo Ayah/Bunda dari *${selectedBalita.nama}*, berikut hasil pemeriksaan hari ini:\n- BB: *${berat} kg*\n- TB: *${tinggi} cm*\n- Kondisi: *${sensitive.label}*\n\nNasihat: ${sensitive.advice}\n\n*Mari terus pantau tumbuh kembang si kecil di Posyandu!*`;
+    // Use WhatsApp Service for consistent formatting
+    const message = WhatsAppService.generateHasilPenimbangan(
+       selectedBalita,
+       lastSavedRecord,
+       selectedBalita.posyandu
+    );
 
-    try {
-      await Share.share({
-        message,
-      });
-    } catch (error: any) {
-      Alert.alert('Error', error.message);
+    if (selectedBalita.no_hp_ortu) {
+       await WhatsAppService.openWhatsApp(selectedBalita.no_hp_ortu, message);
+    } else {
+      try {
+        await Share.share({ message });
+      } catch (error: any) {
+        Alert.alert('Error', error.message);
+      }
     }
   };
 
@@ -332,9 +373,20 @@ export default function BalitaServiceDesk() {
         return (
           <View style={[styles.stepContainer, styles.center]}>
             <CheckCircle2 size={64} color="#22C55E" />
-            <Text style={styles.successTitle}>Data Berhasil Disimpan!</Text>
+            <Text style={styles.successTitle}>Data Berhasil {editId ? 'Diperbarui' : 'Disimpan'}!</Text>
             <Text style={styles.successDesc}>Penimbangan untuk {selectedBalita?.nama} telah dicatat.</Text>
             
+            {calculatedResult && (
+              <Card style={styles.resultCard}>
+                <Text style={styles.cardResultTitle}>Hasil Analisis Gizi:</Text>
+                <View style={styles.resultRow}>
+                  <ResultItem label="BB/U" status={calculatedResult.bb_u.status} zscore={calculatedResult.bb_u.zscore} />
+                  <ResultItem label="TB/U" status={calculatedResult.tb_u.status} zscore={calculatedResult.tb_u.zscore} />
+                  <ResultItem label="BB/TB" status={calculatedResult.bb_tb.status} zscore={calculatedResult.bb_tb.zscore} />
+                </View>
+              </Card>
+            )}
+
             <TouchableOpacity 
               style={[styles.primaryButton, { width: '100%', backgroundColor: '#25D366' }]} 
               onPress={handleShareWA}
@@ -346,20 +398,7 @@ export default function BalitaServiceDesk() {
               style={[styles.primaryButton, { width: '100%' }]} 
               onPress={() => router.replace('/(tabs)/service-desk')}
             >
-              <Text style={styles.primaryButtonText}>Kembali ke Menu Utama</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.secondaryButton, { width: '100%' }]} 
-              onPress={() => {
-                setStep('search');
-                setSelectedBalita(null);
-                setBerat('');
-                setTinggi('');
-                setLica('');
-              }}
-            >
-              <Text style={styles.secondaryButtonText}>Lanjut Balita Lain</Text>
+              <Text style={styles.primaryButtonText}>Selesai</Text>
             </TouchableOpacity>
           </View>
         );
@@ -605,5 +644,51 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 40,
     color: '#94A3B8',
+  },
+  resultCard: {
+    width: '100%',
+    padding: 16,
+    marginBottom: 24,
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
+  },
+  cardResultTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#134E4A',
+    marginBottom: 12,
+  },
+  resultRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  resultItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  resultLabel: {
+    fontSize: 10,
+    color: '#5EAD9D',
+    marginBottom: 4,
+  },
+  resultStatus: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#134E4A',
+    textAlign: 'center',
+  },
+  resultZ: {
+    fontSize: 10,
+    color: '#2DD4BF',
+    marginTop: 2,
   }
 });
+
+const ResultItem = ({ label, status, zscore }: { label: string, status: string, zscore: number }) => (
+  <View style={styles.resultItem}>
+    <Text style={styles.resultLabel}>{label}</Text>
+    <Text style={styles.resultStatus} numberOfLines={2}>{status}</Text>
+    <Text style={styles.resultZ}>Z: {zscore.toFixed(2)}</Text>
+  </View>
+);

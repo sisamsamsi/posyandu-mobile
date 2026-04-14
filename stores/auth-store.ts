@@ -26,8 +26,31 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ session: null, user: null, loading: false });
   },
   initialize: async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    set({ session, user: session?.user ?? null, loading: false, initialized: true });
+    try {
+      // Add a simple timeout to prevent getting stuck if Supabase is unreachable
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Auth Timeout')), 5000)
+      );
+
+      const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+      
+      if (session) {
+        set({ session, user: session.user, loading: false, initialized: true });
+      } else {
+        // Mock a user for Guest Mode
+        const mockUser = { id: 'guest-user', email: 'guest@posyandu.info' };
+        set({ 
+          session: { user: mockUser } as any, 
+          user: mockUser as any, 
+          loading: false, 
+          initialized: true 
+        });
+      }
+    } catch (err) {
+      console.warn('Auth check failed or timed out:', err);
+      set({ loading: false, initialized: true });
+    }
 
     supabase.auth.onAuthStateChange((_event, session) => {
       set({ session, user: session?.user ?? null, loading: false });

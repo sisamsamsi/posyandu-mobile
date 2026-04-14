@@ -2,6 +2,8 @@
 import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useAuthStore } from '../stores/auth-store';
+import { useServiceStore } from '../stores/service-store';
+import { supabase } from '../lib/supabase';
 import { View, ActivityIndicator } from 'react-native';
 import { COLORS } from '../lib/constants';
 
@@ -12,18 +14,29 @@ function RootLayoutNav() {
 
   useEffect(() => {
     initialize();
+    ensureActivePosyandu();
   }, []);
+
+  const ensureActivePosyandu = async () => {
+    const { activePosyanduId, setActivePosyandu } = useServiceStore.getState();
+    if (!activePosyanduId) {
+      console.log('Ensuring active Posyandu for Guest Mode...');
+      const { data } = await supabase.from('posyandus').select('id').limit(1).single();
+      if (data) {
+        setActivePosyandu(data.id);
+        console.log('Auto-selected Posyandu ID:', data.id);
+      }
+    }
+  };
 
   useEffect(() => {
     if (!initialized) return;
 
     const isLoginScreen = segments[0] === 'login';
 
-    if (!session && !isLoginScreen) {
-      // Redirect to login if not logged in and not on login screen
-      router.replace('/login');
-    } else if (session && isLoginScreen) {
-      // Redirect to home if logged in and trying to access login
+    // Temporary: Disable Auth Gate to skip login screen
+    // We allow access even without a session
+    if (isLoginScreen) {
       router.replace('/(tabs)');
     }
   }, [session, initialized, segments]);

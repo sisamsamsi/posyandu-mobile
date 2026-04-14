@@ -136,6 +136,23 @@ export const BalitaForm: React.FC<BalitaFormProps> = ({
               keyboardType="numeric"
             />
           </View>
+          <View style={{ flex: 2, marginLeft: 8 }}>
+            <Text style={styles.label}>No. HP Orang Tua (WhatsApp)</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.no_hp_ortu || ''}
+              onChangeText={(val) => {
+                let formatted = val;
+                // Auto prefix 62 logic
+                if (val.startsWith('08')) {
+                  formatted = '628' + val.substring(2);
+                }
+                handleChange('no_hp_ortu', formatted);
+              }}
+              placeholder="Contoh: 0812..."
+              keyboardType="phone-pad"
+            />
+          </View>
         </View>
 
         <View style={styles.row}>

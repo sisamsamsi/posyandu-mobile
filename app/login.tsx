@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 import { COLORS } from '../lib/constants';
 
 export default function LoginScreen() {
@@ -10,14 +11,73 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   async function signInWithEmail() {
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      setLoading(true);
+      console.log('Attempting login with:', email);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) Alert.alert('Login Gagal', error.message);
-    setLoading(false);
+      console.log('Login result:', { hasData: !!data, hasSession: !!data?.session, error: error?.message });
+
+      if (error) {
+        Alert.alert('Login Gagal', error.message);
+      }
+    } catch (err: any) {
+      console.error('Login error exception:', err);
+      Alert.alert('Error', err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRepair() {
+    try {
+      setLoading(true);
+      const url = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+      const serviceKey = process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
+
+      if (!serviceKey) {
+        Alert.alert('Error', 'Service Role Key tidak ditemukan di .env');
+        return;
+      }
+
+      console.log('Running Emergency Repair...');
+      const adminClient = createClient(url, serviceKey);
+
+      const email = 'kader@posyandu.com';
+      const password = 'password123';
+
+      // Ensure user exists and has confirmed email
+      const { data: { users }, error: listError } = await adminClient.auth.admin.listUsers();
+      if (listError) throw listError;
+
+      const user = users.find(u => u.email === email);
+
+      if (!user) {
+        console.log('Creating user...');
+        const { error: createError } = await adminClient.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true
+        });
+        if (createError) throw createError;
+        Alert.alert('Sukses', `Akun ${email} berhasil dibuat dengan password ${password}`);
+      } else {
+        console.log('Resetting password for user ID:', user.id);
+        const { error: updateError } = await adminClient.auth.admin.updateUserById(user.id, {
+          password: password
+        });
+        if (updateError) throw updateError;
+        Alert.alert('Sukses', `Password untuk ${email} telah di-reset menjadi: ${password}`);
+      }
+    } catch (err: any) {
+      console.error('Repair failed:', err);
+      Alert.alert('Repair Gagal', err.message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -56,6 +116,14 @@ export default function LoginScreen() {
             ) : (
               <Text style={styles.buttonText}>Masuk</Text>
             )}
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.repairButton} 
+            onPress={handleRepair}
+            disabled={loading}
+          >
+            <Text style={styles.repairButtonText}>Masalah Masuk? Perbaiki & Reset Akun</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -123,5 +191,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  repairButton: {
+    marginTop: 20,
+    padding: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    borderStyle: 'dashed',
+  },
+  repairButtonText: {
+    color: '#64748b',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

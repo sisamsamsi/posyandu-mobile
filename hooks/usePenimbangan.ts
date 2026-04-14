@@ -40,6 +40,51 @@ export const usePenimbangan = () => {
   };
 
   /**
+   * Delete a penimbangan record
+   */
+  const deletePenimbangan = async (id: string) => {
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('penimbangans')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      return true;
+    } catch (err: any) {
+      setError(err.message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Update an existing penimbangan record
+   */
+  const updatePenimbangan = async (id: string, data: Partial<Penimbangan>) => {
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('penimbangans')
+        .update({
+          ...data,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      return true;
+    } catch (err: any) {
+      setError(err.message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
    * Get penimbangans for a specific month to check attendance
    */
   const getMonthlyAttendance = async (month: number, year: number) => {
@@ -65,5 +110,5 @@ export const usePenimbangan = () => {
     }
   };
 
-  return { getPenimbangans, getMonthlyAttendance, loading, error };
+  return { getPenimbangans, getMonthlyAttendance, deletePenimbangan, updatePenimbangan, loading, error };
 };

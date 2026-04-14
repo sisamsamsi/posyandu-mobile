@@ -34,6 +34,7 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+import { isBalitaLulus } from '../../lib/utils';
 
 type TabType = 'hasil' | 'pengingat';
 
@@ -127,7 +128,10 @@ export default function WhatsAppShareScreen() {
           .lte('tanggal', end);
 
         const timbangSet = new Set((penimbanganIds || []).map((p: any) => p.balita_id));
-        const belum = (allBalita || []).filter((b: any) => !timbangSet.has(b.id));
+        const belum = (allBalita || [])
+          .filter((b: any) => !timbangSet.has(b.id))
+          .filter((b: any) => !isBalitaLulus(b.tanggal_lahir));
+        
         setBalitasBelumTimbang(belum as Balita[]);
       }
     } catch (e) {
