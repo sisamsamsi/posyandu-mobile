@@ -97,6 +97,11 @@ export default function ReportsScreen() {
       const sourceFile = new File(uri);
       const destinationFile = new File(Paths.cache, filename);
       
+      // Delete existing file if it already exists to prevent move failure
+      if (destinationFile.exists) {
+        destinationFile.delete();
+      }
+      
       // Move (rename) and share
       sourceFile.move(destinationFile);
       const finalUri = sourceFile.uri;

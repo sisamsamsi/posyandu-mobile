@@ -67,21 +67,22 @@ export class ReportService {
     // 2. K (KMS) - Assume all have KMS
     const k = s || 0;
 
-    const startStr = format(startDate, 'yyyy-MM-01');
-    const endStr = format(endDate, 'yyyy-MM-dd');
+    const startStr = startOfMonth(startDate).toISOString();
+    const endStr = endOfMonth(startDate).toISOString();
 
     // 3. D (Datang) - Unique balitas who visited this month in this posyandu
-    const { data: dData } = await supabase
+    const { data: dData, error: dError } = await supabase
       .from('penimbangans')
       .select(`
         balita_id, 
         berat_badan,
-        balita!inner(posyandu_id)
+        balitas!inner(posyandu_id)
       `)
-      .eq('balita.posyandu_id', posyanduId)
+      .eq('balitas.posyandu_id', posyanduId)
       .gte('tanggal', startStr)
       .lte('tanggal', endStr);
     
+    if (dError) console.error('SKDN Error:', dError);
     const filteredD = dData || [];
     const d = filteredD.length;
 
@@ -95,8 +96,8 @@ export class ReportService {
         .from('penimbangans')
         .select('berat_badan')
         .eq('balita_id', p.balita_id)
-        .gte('tanggal', format(startOfMonth(subMonths(startDate, 1)), 'yyyy-MM-dd'))
-        .lte('tanggal', format(endOfMonth(subMonths(startDate, 1)), 'yyyy-MM-dd'))
+        .gte('tanggal', startOfMonth(subMonths(startDate, 1)).toISOString())
+        .lte('tanggal', endOfMonth(subMonths(startDate, 1)).toISOString())
         .order('tanggal', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -117,7 +118,7 @@ export class ReportService {
     const endDate = endOfMonth(startDate);
 
     // Fetch penimbangans for the month with balita info
-    const { data: visits } = await supabase
+    const { data: visits, error: vError } = await supabase
       .from('penimbangans')
       .select(`
         id,
@@ -126,11 +127,13 @@ export class ReportService {
         status_tb_u,
         status_bb_tb,
         berat_badan,
-        balita!inner(nama, nik, posyandu_id)
+        balitas!inner(nama, nik, posyandu_id)
       `)
-      .eq('balita.posyandu_id', posyanduId)
-      .gte('tanggal', format(startDate, 'yyyy-MM-dd'))
-      .lte('tanggal', format(endDate, 'yyyy-MM-dd'));
+      .eq('balitas.posyandu_id', posyanduId)
+      .gte('tanggal', startOfMonth(startDate).toISOString())
+      .lte('tanggal', endOfMonth(startDate).toISOString());
+
+    if (vError) console.error('ProblematicGroups Error:', vError);
 
     if (!visits) return [];
 
@@ -138,8 +141,9 @@ export class ReportService {
 
     for (const v of visits) {
       const issues: string[] = [];
-      const balita = Array.isArray(v.balita) ? v.balita[0] : v.balita;
-      if (!balita) continue;
+      const bData = Array.isArray(v.balitas) ? v.balitas[0] : v.balitas;
+      if (!bData) continue;
+      const balita = bData as any;
 
       // 1. Check Stunting (TB/U)
       if (v.status_tb_u?.includes('Pendek')) {
@@ -161,7 +165,7 @@ export class ReportService {
         .from('penimbangans')
         .select('berat_badan, tanggal')
         .eq('balita_id', v.balita_id)
-        .lte('tanggal', format(endDate, 'yyyy-MM-dd'))
+        .lte('tanggal', endOfMonth(startDate).toISOString())
         .order('tanggal', { ascending: false })
         .limit(3);
 
@@ -227,22 +231,24 @@ export class ReportService {
     const startDate = new Date(year, month - 1, 1);
     const endDate = endOfMonth(startDate);
 
-    const { data: visits } = await supabase
+    const { data: visits, error: wError } = await supabase
       .from('penimbangans')
       .select(`
         berat_badan,
         tinggi_badan,
-        balita!inner(nama, tanggal_lahir, jenis_kelamin, nama_ortu, rt, posyandu_id)
+        balitas!inner(nama, tanggal_lahir, jenis_kelamin, nama_ortu, rt, posyandu_id)
       `)
-      .eq('balita.posyandu_id', posyanduId)
-      .gte('tanggal', format(startDate, 'yyyy-MM-dd'))
-      .lte('tanggal', format(endDate, 'yyyy-MM-dd'))
+      .eq('balitas.posyandu_id', posyanduId)
+      .gte('tanggal', startOfMonth(startDate).toISOString())
+      .lte('tanggal', endOfMonth(startDate).toISOString())
       .order('tanggal', { ascending: true });
+
+    if (wError) console.error('WeighingList Error:', wError);
 
     if (!visits) return [];
 
     return visits.map(v => {
-      const b = (Array.isArray(v.balita) ? v.balita[0] : v.balita) as any;
+      const b = (Array.isArray(v.balitas) ? v.balitas[0] : v.balitas) as any;
       if (!b) return null;
       const ageMonths = (year - new Date(b.tanggal_lahir).getFullYear()) * 12 + (month - 1 - new Date(b.tanggal_lahir).getMonth());
       return {
@@ -282,27 +288,23 @@ export class ReportService {
     const startDate = new Date(year, month - 1, 1);
     const endDate = endOfMonth(startDate);
 
-    const { data: checks } = await supabase
+    const { data: checks, error: lError } = await supabase
       .from('pemeriksaan_lansias')
-      .select(`
-        berat_badan,
-        tinggi_badan,
-        tekanan_darah,
-        gula_darah,
-        asam_urat,
-        kolesterol,
-        lansia!inner(nama, tanggal_lahir, rt, posyandu_id)
-      `)
-      .eq('lansia.posyandu_id', posyanduId)
-      .gte('tanggal_periksa', format(startDate, 'yyyy-MM-dd'))
-      .lte('tanggal_periksa', format(endDate, 'yyyy-MM-dd'))
+      .select('*, lansias(*)')
+      .gte('tanggal_periksa', startOfMonth(startDate).toISOString())
+      .lte('tanggal_periksa', endOfMonth(startDate).toISOString())
       .order('tanggal_periksa', { ascending: true });
+
+    if (lError) console.error('Lansia Report Error:', lError);
 
     if (!checks) return [];
 
     return checks.map(c => {
-      const l = (Array.isArray(c.lansia) ? c.lansia[0] : c.lansia) as any;
-      if (!l) return null;
+      // Find lansia from either relation name and extract object
+      const relation = c.lansia || c.lansias;
+      const l = Array.isArray(relation) ? relation[0] : relation;
+      if (!l || !l.nama) return null;
+      
       const age = year - new Date(l.tanggal_lahir).getFullYear();
       
       const bmi = (c.berat_badan && c.tinggi_badan) ? c.berat_badan / Math.pow(c.tinggi_badan / 100, 2) : null;
@@ -315,28 +317,29 @@ export class ReportService {
       }
 
       const issues: string[] = [];
-      if (c.tekanan_darah) {
+      if (c.tekanan_darah && c.tekanan_darah !== '-') {
         const [sys, dia] = c.tekanan_darah.split('/').map(Number);
         if (sys >= 140 || dia >= 90) issues.push('Hipertensi');
       }
-      if (c.gula_darah && c.gula_darah > 200) issues.push('Gula Darah Tinggi');
-      if (c.asam_urat && c.asam_urat > 7) issues.push('Asam Urat Tinggi');
-      if (c.kolesterol && c.kolesterol > 200) issues.push('Kolesterol Tinggi');
+      if (Number(c.gula_darah) > 200) issues.push('Gula Darah Tinggi');
+      if (Number(c.asam_urat) > 7) issues.push('Asam Urat Tinggi');
+      if (Number(c.kolesterol) > 200) issues.push('Kolesterol Tinggi');
 
       return {
         nama: l.nama,
-        umur: age,
-        rt: l.rt,
-        berat_badan: c.berat_badan,
-        tinggi_badan: c.tinggi_badan,
+        umur: age || 0,
+        rt: l.rt || '-',
+        berat_badan: c.berat_badan || '-',
+        tinggi_badan: c.tinggi_badan || '-',
         bmi: bmi ? Math.round(bmi * 10) / 10 : null,
         status_bmi: statusBmi,
-        tekanan_darah: c.tekanan_darah,
-        gula_darah: c.gula_darah,
-        asam_urat: c.asam_urat,
-        kolesterol: c.kolesterol,
+        tekanan_darah: c.tekanan_darah || '-',
+        gula_darah: c.gula_darah || '-',
+        asam_urat: c.asam_urat || '-',
+        kolesterol: c.kolesterol || '-',
         status_pemeriksaan: issues
       };
     }).filter(Boolean) as LansiaReportItem[];
   }
+
 }

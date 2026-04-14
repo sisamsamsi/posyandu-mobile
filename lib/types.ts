@@ -5,6 +5,19 @@ export interface Posyandu {
   nama_posyandu: string;
   lokasi: string | null;
   keterangan: string | null;
+  // Alamat lengkap
+  alamat_lengkap: string | null;
+  kelurahan: string | null;
+  kecamatan: string | null;
+  kabupaten: string | null;
+  provinsi: string | null;
+  // Jadwal posyandu (tanggal per bulan)
+  jadwal_balita_tanggal: number | null;
+  jadwal_balita_jam: string | null;
+  jadwal_lansia_tanggal: number | null;
+  jadwal_lansia_jam: string | null;
+  // Logo
+  logo_url: string | null;
   created_at: string;
 }
 
@@ -25,6 +38,7 @@ export interface Balita {
   penyakit_bawaan?: string[];
   bb_lahir?: number | null;
   tb_lahir?: number | null;
+  no_hp_ortu?: string | null; // Format: 628xxxxxxxxxx
   created_at: string;
   posyandu?: Posyandu;
   penimbangans?: Penimbangan[];

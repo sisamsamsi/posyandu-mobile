@@ -1,5 +1,14 @@
+// services/dashboard-service.ts
 import { supabase } from '../lib/supabase';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { Posyandu } from '../lib/types';
+import { startOfMonth, endOfMonth } from 'date-fns';
+
+export interface LansiaHealthBreakdown {
+  hipertensi: number;
+  gulaTinggi: number;
+  kolesterolTinggi: number;
+  asamUratTinggi: number;
+}
 
 export interface DashboardStats {
   totalBalita: number;
@@ -7,13 +16,23 @@ export interface DashboardStats {
   visitsThisMonth: number;
   nutritionStats: { label: string; count: number; color: string }[];
   healthAlertStats: { label: string; count: number; color: string }[];
+  // NEW
+  balitaVisitsThisMonth: number;
+  lansiaVisitsThisMonth: number;
+  belumTimbangBalita: number;
+  belumPeriksaLansia: number;
+  risikoTinggiBalita: number;
+  lansiaHealthBreakdown: LansiaHealthBreakdown;
+  posyanduInfo: Posyandu | null;
 }
 
 export class DashboardService {
-  static async getStats(): Promise<DashboardStats> {
+  static async getStats(posyanduId?: string | null): Promise<DashboardStats> {
     const now = new Date();
     const start = startOfMonth(now).toISOString();
     const end = endOfMonth(now).toISOString();
+    const startDate = startOfMonth(now).toISOString().split('T')[0];
+    const endDate = endOfMonth(now).toISOString().split('T')[0];
 
     const [
       { count: totalBalita },
@@ -21,14 +40,18 @@ export class DashboardService {
       { count: balitaVisits },
       { count: lansiaVisits },
       { data: nutritionData },
-      { data: lansiaData }
+      { data: lansiaData },
+      { data: balitaIdsWithVisit },
+      { data: lansiaIdsWithVisit },
     ] = await Promise.all([
       supabase.from('balitas').select('*', { count: 'exact', head: true }),
       supabase.from('lansias').select('*', { count: 'exact', head: true }),
-      supabase.from('penimbangans').select('*', { count: 'exact', head: true }).gte('tanggal', start).lte('tanggal', end),
-      supabase.from('pemeriksaan_lansias').select('*', { count: 'exact', head: true }).gte('tanggal_periksa', start).lte('tanggal_periksa', end),
-      supabase.from('penimbangans').select('status_bb_u').gte('tanggal', start).lte('tanggal', end),
-      supabase.from('pemeriksaan_lansias').select('tekanan_darah, gula_darah, kolesterol, asam_urat').gte('tanggal_periksa', start).lte('tanggal_periksa', end)
+      supabase.from('penimbangans').select('*', { count: 'exact', head: true }).gte('tanggal', startDate).lte('tanggal', endDate),
+      supabase.from('pemeriksaan_lansias').select('*', { count: 'exact', head: true }).gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate),
+      supabase.from('penimbangans').select('status_bb_u, status_tb_u, status_bb_tb').gte('tanggal', startDate).lte('tanggal', endDate),
+      supabase.from('pemeriksaan_lansias').select('tekanan_darah, gula_darah, kolesterol, asam_urat').gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate),
+      supabase.from('penimbangans').select('balita_id').gte('tanggal', startDate).lte('tanggal', endDate),
+      supabase.from('pemeriksaan_lansias').select('lansia_id').gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate),
     ]);
 
     // Aggregate nutrition stats
@@ -45,12 +68,34 @@ export class DashboardService {
       color: this.getNutritionColor(label)
     }));
 
-    // Aggregate health alert stats (Simplified: how many have at least one high value)
+    // Count risiko tinggi balita (stunting atau wasting atau underweight berat)
+    let risikoTinggiBalita = 0;
+    nutritionData?.forEach(p => {
+      const isRisk =
+        (p.status_bb_u && (p.status_bb_u.includes('Sangat Kurang') || p.status_bb_u.includes('Kurang'))) ||
+        (p.status_tb_u && (p.status_tb_u.includes('Sangat Pendek') || p.status_tb_u.includes('Pendek'))) ||
+        (p.status_bb_tb && (p.status_bb_tb.includes('Buruk') || p.status_bb_tb.includes('Kurang')));
+      if (isRisk) risikoTinggiBalita++;
+    });
+
+    // Lansia health breakdown
+    const lansiaHealthBreakdown: LansiaHealthBreakdown = {
+      hipertensi: 0,
+      gulaTinggi: 0,
+      kolesterolTinggi: 0,
+      asamUratTinggi: 0,
+    };
+
     let atRiskCount = 0;
     lansiaData?.forEach(p => {
-       const [sis, dias] = (p.tekanan_darah || '0/0').split('/').map(Number);
-       const isAtRisk = sis > 140 || (p.gula_darah || 0) > 200 || (p.kolesterol || 0) > 200 || (p.asam_urat || 0) > 7;
-       if (isAtRisk) atRiskCount++;
+      const [sis, dias] = (p.tekanan_darah || '0/0').split('/').map(Number);
+      if (sis >= 140 || dias >= 90) lansiaHealthBreakdown.hipertensi++;
+      if ((p.gula_darah || 0) > 200) lansiaHealthBreakdown.gulaTinggi++;
+      if ((p.kolesterol || 0) > 200) lansiaHealthBreakdown.kolesterolTinggi++;
+      if ((p.asam_urat || 0) > 7) lansiaHealthBreakdown.asamUratTinggi++;
+      
+      const isAtRisk = sis > 140 || (p.gula_darah || 0) > 200 || (p.kolesterol || 0) > 200 || (p.asam_urat || 0) > 7;
+      if (isAtRisk) atRiskCount++;
     });
 
     const healthAlertStats = [
@@ -58,12 +103,44 @@ export class DashboardService {
       { label: 'Normal', count: (totalLansia || 0) - atRiskCount, color: '#22C55E' }
     ];
 
+    // Belum timbang / periksa
+    const balitaVisitIds = new Set((balitaIdsWithVisit || []).map((p: any) => p.balita_id));
+    const lansiaVisitIds = new Set((lansiaIdsWithVisit || []).map((p: any) => p.lansia_id));
+    const belumTimbangBalita = (totalBalita || 0) - balitaVisitIds.size;
+    const belumPeriksaLansia = (totalLansia || 0) - lansiaVisitIds.size;
+
+    // Posyandu info
+    let posyanduInfo: Posyandu | null = null;
+    if (posyanduId) {
+      const { data: posData } = await supabase
+        .from('posyandus')
+        .select('*')
+        .eq('id', posyanduId)
+        .single();
+      posyanduInfo = posData as Posyandu;
+    } else {
+      // Fallback to first posyandu
+      const { data: posData } = await supabase
+        .from('posyandus')
+        .select('*')
+        .limit(1)
+        .single();
+      posyanduInfo = posData as Posyandu;
+    }
+
     return {
       totalBalita: totalBalita || 0,
       totalLansia: totalLansia || 0,
       visitsThisMonth: (balitaVisits || 0) + (lansiaVisits || 0),
       nutritionStats,
-      healthAlertStats
+      healthAlertStats,
+      balitaVisitsThisMonth: balitaVisits || 0,
+      lansiaVisitsThisMonth: lansiaVisits || 0,
+      belumTimbangBalita: Math.max(0, belumTimbangBalita),
+      belumPeriksaLansia: Math.max(0, belumPeriksaLansia),
+      risikoTinggiBalita,
+      lansiaHealthBreakdown,
+      posyanduInfo,
     };
   }
 
