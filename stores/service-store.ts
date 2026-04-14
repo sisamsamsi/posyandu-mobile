@@ -11,9 +11,11 @@ export interface ServiceHistoryItem {
 
 interface ServiceState {
   activePosyanduId: string | null;
+  activeWorkspace: 'balita' | 'lansia' | null;
   history: ServiceHistoryItem[];
   
   setActivePosyandu: (id: string | null) => void;
+  setActiveWorkspace: (workspace: 'balita' | 'lansia' | null) => void;
   addToHistory: (item: Omit<ServiceHistoryItem, 'timestamp'>) => void;
   clearHistory: () => void;
 }
@@ -22,9 +24,12 @@ export const useServiceStore = create<ServiceState>()(
   persist(
     (set) => ({
       activePosyanduId: null,
+      activeWorkspace: null,
       history: [],
 
       setActivePosyandu: (id) => set({ activePosyanduId: id }),
+
+      setActiveWorkspace: (workspace) => set({ activeWorkspace: workspace }),
 
       addToHistory: (item) => set((state) => {
         const newItem: ServiceHistoryItem = {

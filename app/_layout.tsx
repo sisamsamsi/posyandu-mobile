@@ -32,12 +32,22 @@ function RootLayoutNav() {
   useEffect(() => {
     if (!initialized) return;
 
+    const { activeWorkspace } = useServiceStore.getState();
     const isLoginScreen = segments[0] === 'login';
+    const isSelectWorkspaceScreen = segments[0] === 'select-workspace';
 
-    // Temporary: Disable Auth Gate to skip login screen
-    // We allow access even without a session
-    if (isLoginScreen) {
-      router.replace('/(tabs)');
+    if (!session) {
+      if (!isLoginScreen) {
+        router.replace('/login');
+      }
+    } else if (!activeWorkspace) {
+      if (!isSelectWorkspaceScreen) {
+        router.replace('/select-workspace');
+      }
+    } else {
+      if (isLoginScreen || isSelectWorkspaceScreen) {
+        router.replace('/(tabs)');
+      }
     }
   }, [session, initialized, segments]);
 
@@ -52,6 +62,7 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="login" options={{ headerShown: false }} />
+      <Stack.Screen name="select-workspace" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
     </Stack>
   );

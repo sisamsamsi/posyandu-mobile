@@ -3,9 +3,11 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { createClient } from '@supabase/supabase-js';
+import { useRouter } from 'expo-router';
 import { COLORS } from '../lib/constants';
 
 export default function LoginScreen() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,6 +25,9 @@ export default function LoginScreen() {
 
       if (error) {
         Alert.alert('Login Gagal', error.message);
+      } else {
+        // Explicitly move to workspace selection
+        router.replace('/select-workspace');
       }
     } catch (err: any) {
       console.error('Login error exception:', err);

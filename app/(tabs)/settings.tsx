@@ -28,6 +28,7 @@ import {
   Building2,
   Info,
   CheckCircle2,
+  LayoutGrid,
 } from 'lucide-react-native';
 import { useAuthStore } from '../../stores/auth-store';
 import { useServiceStore } from '../../stores/service-store';
@@ -40,7 +41,7 @@ type SectionKey = 'profil' | 'jadwal' | 'info';
 
 export default function SettingsScreen() {
   const { signOut } = useAuthStore();
-  const { activePosyanduId } = useServiceStore();
+  const { activePosyanduId, setActiveWorkspace } = useServiceStore();
   const { posyandu: defaultPosyandu, getAllPosyandus } = usePosyandu();
 
   const [loading, setLoading] = useState(true);
@@ -135,6 +136,23 @@ export default function SettingsScreen() {
 
   const toggleSection = (key: SectionKey) => {
     setExpandedSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleSwitchWorkspace = () => {
+    Alert.alert(
+      'Ganti Layanan',
+      'Apakah Anda ingin berganti fokus pelayanan (Balita/Lansia)? Anda akan diarahkan ke halaman pemilihan layanan.',
+      [
+        { text: 'Batal', style: 'cancel' },
+        { 
+          text: 'Ya, Ganti', 
+          onPress: () => {
+            setActiveWorkspace(null);
+            // The router will automatically redirect to select-workspace because of the _layout.tsx guard
+          } 
+        },
+      ]
+    );
   };
 
   const handleLogout = () => {
@@ -418,8 +436,17 @@ export default function SettingsScreen() {
             </View>
           )}
 
+          {/* Ganti Layanan Button */}
+          <TouchableOpacity 
+            style={[styles.logoutButton, { backgroundColor: '#F0FDFA', marginTop: 32 }]} 
+            onPress={handleSwitchWorkspace}
+          >
+            <LayoutGrid size={20} color={COLORS.primary} />
+            <Text style={[styles.logoutText, { color: COLORS.primary }]}>Ganti Layanan (Balita/Lansia)</Text>
+          </TouchableOpacity>
+
           {/* Logout Button */}
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <TouchableOpacity style={[styles.logoutButton, { marginTop: 12 }]} onPress={handleLogout}>
             <LogOut size={20} color="#DC2626" />
             <Text style={styles.logoutText}>Keluar Akun</Text>
           </TouchableOpacity>

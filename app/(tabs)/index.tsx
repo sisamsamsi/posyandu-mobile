@@ -45,7 +45,7 @@ const screenWidth = Dimensions.get('window').width;
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { activePosyanduId } = useServiceStore();
+  const { activePosyanduId, activeWorkspace } = useServiceStore();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -131,113 +131,163 @@ export default function DashboardScreen() {
           <Text style={styles.sectionTitle}>Statistik Bulan Ini</Text>
         </View>
         <StatsGrid
-          items={[
+          items={activeWorkspace === 'balita' ? [
             {
-              label: 'Balita',
+              label: 'Total Balita',
               value: stats?.totalBalita || 0,
               icon: <Baby size={22} color="#0D9488" />,
               color: '#0D9488',
               bgColor: '#F0FDFA',
             },
             {
-              label: 'Lansia',
+              label: 'Kunjungan',
+              value: stats?.balitaVisitsThisMonth || 0,
+              icon: <ClipboardCheck size={22} color="#059669" />,
+              color: '#059669',
+              bgColor: '#ECFDF5',
+            },
+            {
+              label: 'Stunting/Wasting',
+              value: stats?.risikoTinggiBalita || 0,
+              icon: <AlertTriangle size={22} color="#EF4444" />,
+              color: '#EF4444',
+              bgColor: '#FEF2F2',
+            },
+            {
+              label: 'Belum Timbang',
+              value: stats?.belumTimbangBalita || 0,
+              icon: <Activity size={22} color="#F59E0B" />,
+              color: '#F59E0B',
+              bgColor: '#FFFBEB',
+            },
+          ] : [
+            {
+              label: 'Total Lansia',
               value: stats?.totalLansia || 0,
               icon: <Users size={22} color="#6366F1" />,
               color: '#6366F1',
               bgColor: '#EEF2FF',
             },
             {
-              label: 'Kunjungan',
-              value: stats?.visitsThisMonth || 0,
+              label: 'Pemeriksaan',
+              value: stats?.lansiaVisitsThisMonth || 0,
               icon: <ClipboardCheck size={22} color="#059669" />,
               color: '#059669',
               bgColor: '#ECFDF5',
             },
             {
-              label: 'Perlu Perhatian',
-              value: stats?.risikoTinggiBalita || 0,
-              icon: <AlertTriangle size={22} color="#EF4444" />,
+              label: 'Berisiko',
+              value: stats?.healthAlertStats?.find(s => s.label === 'Berisiko')?.count || 0,
+              icon: <AlertCircle size={22} color="#EF4444" />,
               color: '#EF4444',
               bgColor: '#FEF2F2',
+            },
+            {
+              label: 'Belum Periksa',
+              value: stats?.belumPeriksaLansia || 0,
+              icon: <Activity size={22} color="#F59E0B" />,
+              color: '#F59E0B',
+              bgColor: '#FFFBEB',
             },
           ]}
         />
 
-        {/* ============================= */}
-        {/* ALERT: BELUM TIMBANG          */}
-        {/* ============================= */}
-        {((stats?.belumTimbangBalita || 0) > 0 || (stats?.belumPeriksaLansia || 0) > 0) && (
-          <TouchableOpacity 
-            style={styles.alertCard}
-            onPress={() => router.push('/monitoring/balita')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.alertIconCircle}>
-              <AlertTriangle size={20} color="#F59E0B" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.alertTitle}>Belum Ditimbang/Diperiksa</Text>
-              <View style={styles.alertStatsRow}>
-                {(stats?.belumTimbangBalita || 0) > 0 && (
-                  <View style={styles.alertChip}>
-                    <Baby size={14} color="#0D9488" />
-                    <Text style={styles.alertChipText}>{stats?.belumTimbangBalita} balita</Text>
+        {/* ==================================== */}
+        {/* BALITA SPECIFIC SECTIONS             */}
+        {/* ==================================== */}
+        {activeWorkspace === 'balita' && (
+          <>
+            {/* ALERT: BELUM TIMBANG          */}
+            {(stats?.belumTimbangBalita || 0) > 0 && (
+              <TouchableOpacity 
+                style={styles.alertCard}
+                onPress={() => router.push('/monitoring/balita')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.alertIconCircle}>
+                  <AlertTriangle size={20} color="#F59E0B" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.alertTitle}>Penimbangan Tertunda</Text>
+                  <View style={styles.alertStatsRow}>
+                    <View style={styles.alertChip}>
+                      <Baby size={14} color="#0D9488" />
+                      <Text style={styles.alertChipText}>{stats?.belumTimbangBalita} balita belum ditimbang</Text>
+                    </View>
                   </View>
-                )}
-                {(stats?.belumPeriksaLansia || 0) > 0 && (
-                  <View style={styles.alertChip}>
-                    <Users size={14} color="#6366F1" />
-                    <Text style={styles.alertChipText}>{stats?.belumPeriksaLansia} lansia</Text>
-                  </View>
-                )}
-              </View>
+                </View>
+                <ChevronRight size={18} color="#94A3B8" />
+              </TouchableOpacity>
+            )}
+
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Status Gizi Balita</Text>
             </View>
-            <ChevronRight size={18} color="#94A3B8" />
-          </TouchableOpacity>
+            {stats?.nutritionStats && stats.nutritionStats.length > 0 ? (
+              <Card style={styles.chartCard}>
+                <PieChart
+                  data={stats.nutritionStats.map(s => ({
+                    name: s.label,
+                    population: s.count,
+                    color: s.color,
+                    legendFontColor: '#64748B',
+                    legendFontSize: 11,
+                  }))}
+                  width={screenWidth - 56}
+                  height={180}
+                  chartConfig={{ color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})` }}
+                  accessor={"population"}
+                  backgroundColor={"transparent"}
+                  paddingLeft={"15"}
+                  absolute
+                />
+              </Card>
+            ) : (
+              <Card style={styles.emptyChart}>
+                <CheckCircle2 size={32} color="#E2E8F0" />
+                <Text style={styles.emptyText}>Belum ada data penimbangan bulan ini</Text>
+              </Card>
+            )}
+          </>
         )}
 
-        {/* ============================= */}
-        {/* DISTRIBUSI STATUS GIZI BALITA */}
-        {/* ============================= */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Status Gizi Balita</Text>
-        </View>
-        {stats?.nutritionStats && stats.nutritionStats.length > 0 ? (
-          <Card style={styles.chartCard}>
-            <PieChart
-              data={stats.nutritionStats.map(s => ({
-                name: s.label,
-                population: s.count,
-                color: s.color,
-                legendFontColor: '#64748B',
-                legendFontSize: 11,
-              }))}
-              width={screenWidth - 56}
-              height={180}
-              chartConfig={{ color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})` }}
-              accessor={"population"}
-              backgroundColor={"transparent"}
-              paddingLeft={"15"}
-              absolute
+        {/* ==================================== */}
+        {/* LANSIA SPECIFIC SECTIONS             */}
+        {/* ==================================== */}
+        {activeWorkspace === 'lansia' && (
+          <>
+            {/* ALERT: BELUM PERIKSA          */}
+            {(stats?.belumPeriksaLansia || 0) > 0 && (
+              <TouchableOpacity 
+                style={styles.alertCard}
+                onPress={() => router.push('/monitoring/lansia')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.alertIconCircle}>
+                  <AlertTriangle size={20} color="#F59E0B" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.alertTitle}>Pemeriksaan Tertunda</Text>
+                  <View style={styles.alertStatsRow}>
+                    <View style={styles.alertChip}>
+                      <Users size={14} color="#6366F1" />
+                      <Text style={styles.alertChipText}>{stats?.belumPeriksaLansia} lansia belum diperiksa</Text>
+                    </View>
+                  </View>
+                </View>
+                <ChevronRight size={18} color="#94A3B8" />
+              </TouchableOpacity>
+            )}
+
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Pemantauan Kesehatan Lansia</Text>
+            </View>
+            <LansiaHealthBar
+              data={stats?.lansiaHealthBreakdown || { hipertensi: 0, gulaTinggi: 0, kolesterolTinggi: 0, asamUratTinggi: 0 }}
+              totalLansia={stats?.totalLansia || 0}
             />
-          </Card>
-        ) : (
-          <Card style={styles.emptyChart}>
-            <CheckCircle2 size={32} color="#E2E8F0" />
-            <Text style={styles.emptyText}>Belum ada data penimbangan bulan ini</Text>
-          </Card>
+          </>
         )}
-
-        {/* ============================= */}
-        {/* KESEHATAN LANSIA              */}
-        {/* ============================= */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Pemantauan Lansia</Text>
-        </View>
-        <LansiaHealthBar
-          data={stats?.lansiaHealthBreakdown || { hipertensi: 0, gulaTinggi: 0, kolesterolTinggi: 0, asamUratTinggi: 0 }}
-          totalLansia={stats?.totalLansia || 0}
-        />
 
         {/* ============================= */}
         {/* AKSI CEPAT (4 Grid)           */}
