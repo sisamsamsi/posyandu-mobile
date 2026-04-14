@@ -13,8 +13,9 @@ import { useBalita } from '../../hooks/useBalita';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
-import { Plus, Baby, ArrowLeft } from 'lucide-react-native';
+import { Plus, Baby, ArrowLeft, GraduationCap } from 'lucide-react-native';
 import { Balita } from '../../lib/types';
+import { differenceInMonths } from 'date-fns';
 
 export default function BalitaIndex() {
   const router = useRouter();
@@ -36,23 +37,37 @@ export default function BalitaIndex() {
     fetchBalitas(text);
   };
 
-  const renderItem = ({ item }: { item: Balita }) => (
-    <TouchableOpacity onPress={() => router.push(`/balita/${item.id}`)}>
-      <Card style={styles.childCard}>
-        <View style={styles.childAvatar}>
-          <Baby size={24} color="#0D9488" />
-        </View>
-        <View style={styles.childInfo}>
-          <Text style={styles.childName}>{item.nama}</Text>
-          <Text style={styles.childNik}>{item.nik}</Text>
-          <View style={styles.badgeRow}>
-            <Badge label={item.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'} variant="primary" />
-            <Text style={styles.childRt}>RT {item.rt}</Text>
+  const renderItem = ({ item }: { item: Balita }) => {
+    const ageMonths = differenceInMonths(new Date(), new Date(item.tanggal_lahir));
+    const isGraduated = ageMonths >= 60;
+
+    return (
+      <TouchableOpacity onPress={() => router.push(`/balita/${item.id}`)}>
+        <Card style={styles.childCard}>
+          <View style={styles.childAvatar}>
+            <Baby size={24} color="#0D9488" />
           </View>
-        </View>
-      </Card>
-    </TouchableOpacity>
-  );
+          <View style={styles.childInfo}>
+            <View style={styles.nameRow}>
+              <Text style={styles.childName}>{item.nama}</Text>
+              {isGraduated && (
+                <View style={styles.lulusBadge}>
+                  <GraduationCap size={12} color="#FFFFFF" />
+                  <Text style={styles.lulusText}>LULUS</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.childNik}>{item.nik}</Text>
+            <View style={styles.badgeRow}>
+              <Badge label={item.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'} variant="primary" />
+              <Text style={styles.childRt}>RT {item.rt}</Text>
+              <Text style={styles.childAge}> • {ageMonths} bln</Text>
+            </View>
+          </View>
+        </Card>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -172,6 +187,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#94A3B8',
     marginLeft: 8,
+  },
+  childAge: {
+    fontSize: 12,
+    color: '#94A3B8',
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  lulusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    gap: 4,
+  },
+  lulusText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#FFFFFF',
   },
   emptyContainer: {
     alignItems: 'center',

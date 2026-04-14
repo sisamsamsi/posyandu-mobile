@@ -40,48 +40,47 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 16,
   },
   cardWrapper: {
-    width: '48%',
+    width: '47%',
     flexGrow: 1,
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 32, // Upgraded radius
+    padding: 24, // Generous whitespace
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    elevation: 1,
-    shadowColor: '#64748B',
-    shadowOffset: { width: 0, height: 2 },
+    borderWidth: 0, // No line rule
+    elevation: 4,
+    shadowColor: '#006A63',
+    shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.04,
-    shadowRadius: 6,
+    shadowRadius: 24,
   },
   iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 64,
+    height: 64,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 16,
   },
   value: {
-    fontSize: 28,
+    fontSize: 32, // Big typography
     fontWeight: '900',
-    letterSpacing: -1,
+    letterSpacing: -1.5,
   },
   suffix: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
   },
   label: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
     color: '#64748B',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginTop: 2,
+    marginTop: 4,
   },
 });

@@ -188,42 +188,42 @@ export default function WhatsAppShareScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft size={24} color="#1E293B" />
+        <TouchableOpacity onPress={() => router.back()} style={styles.v2BackBtn}>
+          <ArrowLeft size={22} color="#1E293B" />
         </TouchableOpacity>
         <View>
-          <Text style={styles.headerTitle}>WhatsApp Share</Text>
-          <Text style={styles.headerSub}>Kirim pesan ke orang tua</Text>
+          <Text style={styles.headerTitle}>AYOMI Share</Text>
+          <Text style={styles.headerSub}>Komunikasi Digital Sanctuary</Text>
         </View>
       </View>
 
       {/* Tab Bar */}
-      <View style={styles.tabBar}>
+      <View style={styles.v2TabBar}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'hasil' && styles.tabActive]}
+          style={[styles.v2Tab, activeTab === 'hasil' && styles.v2TabActive]}
           onPress={() => setActiveTab('hasil')}
         >
           <MessageCircle size={16} color={activeTab === 'hasil' ? '#0D9488' : '#64748B'} />
-          <Text style={[styles.tabText, activeTab === 'hasil' && styles.tabTextActive]}>
-            Hasil Penimbangan
+          <Text style={[styles.v2TabText, activeTab === 'hasil' && styles.v2TabTextActive]}>
+            Hasil Periksa
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'pengingat' && styles.tabActive]}
+          style={[styles.v2Tab, activeTab === 'pengingat' && styles.v2TabActive]}
           onPress={() => setActiveTab('pengingat')}
         >
           <Bell size={16} color={activeTab === 'pengingat' ? '#F59E0B' : '#64748B'} />
-          <Text style={[styles.tabText, activeTab === 'pengingat' && styles.tabTextActive]}>
-            Pengingat ({balitasBelumTimbang.length})
+          <Text style={[styles.v2TabText, activeTab === 'pengingat' && styles.v2TabTextActive]}>
+            Reminder ({balitasBelumTimbang.length})
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* Search */}
-      <View style={styles.searchContainer}>
+      <View style={styles.v2SearchContainer}>
         <Search size={18} color="#94A3B8" />
         <TextInput
-          style={styles.searchInput}
+          style={styles.v2SearchInput}
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="Cari nama balita atau orang tua..."
@@ -344,43 +344,42 @@ function BalitaHasilCard({
   const tanggal = format(new Date(penimbangan.tanggal), 'd MMM yyyy', { locale: idLocale });
 
   return (
-    <Card style={styles.balitaCard}>
-      <View style={styles.balitaCardTop}>
-        <View style={styles.balitaIconCircle}>
-          <Baby size={20} color="#0D9488" />
+    <Card style={styles.v2BalitaCard}>
+      <View style={styles.v2CardTop}>
+        <View style={styles.v2BalitaIconCircle}>
+          <Baby size={22} color="#0D9488" />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.balitaName}>{balita.nama}</Text>
-          <Text style={styles.balitaSub}>
+          <Text style={styles.v2BalitaName}>{balita.nama}</Text>
+          <Text style={styles.v2BalitaSub}>
             Ortu: {balita.nama_ortu} • {tanggal}
           </Text>
         </View>
         {balita.no_hp_ortu ? (
-          <Badge label="HP ✓" variant="success" />
+          <Badge label="Active" variant="success" />
         ) : (
-          <Badge label="No HP" variant="warning" />
+          <Badge label="Missing HP" variant="warning" />
         )}
       </View>
-      <View style={styles.balitaStats}>
-        <View style={styles.statChip}>
-          <Text style={styles.statChipLabel}>BB</Text>
-          <Text style={styles.statChipValue}>{penimbangan.berat_badan} kg</Text>
+      <View style={styles.v2StatsRow}>
+        <View style={styles.v2StatItem}>
+          <Text style={styles.v2StatVal}>{penimbangan.berat_badan.toFixed(2)} kg</Text>
+          <Text style={styles.v2StatLab}>BERAT</Text>
         </View>
-        <View style={styles.statChip}>
-          <Text style={styles.statChipLabel}>TB</Text>
-          <Text style={styles.statChipValue}>{penimbangan.tinggi_badan} cm</Text>
+        <View style={styles.v2StatDiv} />
+        <View style={styles.v2StatItem}>
+          <Text style={styles.v2StatVal}>{penimbangan.tinggi_badan.toFixed(2)} cm</Text>
+          <Text style={styles.v2StatLab}>TINGGI</Text>
         </View>
-        {penimbangan.status_bb_u && (
-          <View style={[styles.statChip, { backgroundColor: '#F0FDFA' }]}>
-            <Text style={[styles.statChipValue, { color: '#0D9488', fontSize: 11 }]}>
-              {penimbangan.status_bb_u}
-            </Text>
-          </View>
-        )}
+        <View style={styles.v2StatDiv} />
+        <View style={styles.v2StatItem}>
+          <Text style={styles.v2StatVal}>{penimbangan.status_bb_u || 'N/A'}</Text>
+          <Text style={styles.v2StatLab}>HASIL</Text>
+        </View>
       </View>
-      <TouchableOpacity style={styles.sendBtn} onPress={onSend}>
-        <Send size={16} color="#FFF" />
-        <Text style={styles.sendBtnText}>Kirim via WA</Text>
+      <TouchableOpacity style={styles.v2SendBtn} onPress={onSend}>
+        <MessageCircle size={18} color="#FFF" />
+        <Text style={styles.v2SendBtnText}>Share Ke WhatsApp</Text>
       </TouchableOpacity>
     </Card>
   );
@@ -394,26 +393,26 @@ function BalitaPengingatCard({
   onSend: () => void;
 }) {
   return (
-    <Card style={styles.balitaCard}>
-      <View style={styles.balitaCardTop}>
-        <View style={[styles.balitaIconCircle, { backgroundColor: '#FFFBEB' }]}>
-          <Bell size={20} color="#F59E0B" />
+    <Card style={styles.v2BalitaCard}>
+      <View style={styles.v2CardTop}>
+        <View style={[styles.v2BalitaIconCircle, { backgroundColor: '#FFFBEB' }]}>
+          <Bell size={22} color="#F59E0B" />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.balitaName}>{balita.nama}</Text>
-          <Text style={styles.balitaSub}>
+          <Text style={styles.v2BalitaName}>{balita.nama}</Text>
+          <Text style={styles.v2BalitaSub}>
             Ortu: {balita.nama_ortu} • RT {balita.rt}
           </Text>
         </View>
         {balita.no_hp_ortu ? (
-          <Badge label="HP ✓" variant="success" />
+          <Badge label="Ready" variant="success" />
         ) : (
           <Badge label="No HP" variant="warning" />
         )}
       </View>
-      <TouchableOpacity style={[styles.sendBtn, { backgroundColor: '#F59E0B' }]} onPress={onSend}>
-        <Bell size={16} color="#FFF" />
-        <Text style={styles.sendBtnText}>Kirim Pengingat</Text>
+      <TouchableOpacity style={[styles.v2SendBtn, { backgroundColor: '#F59E0B' }]} onPress={onSend}>
+        <Bell size={18} color="#FFF" />
+        <Text style={styles.v2SendBtnText}>Kirim Pengingat WA</Text>
       </TouchableOpacity>
     </Card>
   );
@@ -660,4 +659,138 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   closePreviewText: { color: '#64748B', fontWeight: '700', fontSize: 14 },
+  // V2 STYLES
+  v2BackBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  v2TabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    gap: 12,
+  },
+  v2Tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  v2TabActive: {
+    backgroundColor: '#F0FDFA',
+    borderColor: '#0D9488',
+    elevation: 2,
+    shadowColor: '#0D9488',
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+  },
+  v2TabText: { fontSize: 13, fontWeight: '700', color: '#94A3B8' },
+  v2TabTextActive: { color: '#0D9488', fontWeight: '900' },
+  v2SearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    paddingHorizontal: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    marginBottom: 16,
+  },
+  v2SearchInput: {
+    flex: 1,
+    paddingVertical: 14,
+    marginLeft: 12,
+    fontSize: 14,
+    color: '#1E293B',
+    fontWeight: '500',
+  },
+  v2BalitaCard: {
+    padding: 18,
+    borderRadius: 24,
+    marginBottom: 14,
+  },
+  v2CardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  v2BalitaIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#F0FDFA',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  v2BalitaName: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  v2BalitaSub: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  v2StatsRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 12,
+    marginTop: 14,
+    marginBottom: 14,
+    alignItems: 'center',
+  },
+  v2StatItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  v2StatVal: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  v2StatLab: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 1,
+    marginTop: 2,
+  },
+  v2StatDiv: {
+    width: 1,
+    height: 20,
+    backgroundColor: '#E2E8F0',
+  },
+  v2SendBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#25D366',
+    paddingVertical: 14,
+    borderRadius: 16,
+    gap: 8,
+    elevation: 2,
+    shadowColor: '#25D366',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  v2SendBtnText: {
+    color: '#FFF',
+    fontWeight: '800',
+    fontSize: 14,
+  },
 });

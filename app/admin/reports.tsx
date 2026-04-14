@@ -127,40 +127,40 @@ export default function ReportsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.description}>
-          Hasilkan laporan PDF bulanan {isLansia ? 'Lansia' : 'Balita'} mencakup data pemeriksaan dan ringkasan indikator.
-        </Text>
+        <View style={styles.v2HeaderSection}>
+           <Text style={styles.description}>
+             AYOMI Export — Hasilkan laporan PDF bulanan untuk {isLansia ? 'Lansia' : 'Balita'} mencakup data pemeriksaan dan ringkasan indikator secara otomatis.
+           </Text>
+        </View>
 
-        <Card style={styles.selectionCard}>
-          <Text style={styles.cardLabel}>Periode Laporan</Text>
-          <View style={styles.pickerRow}>
-            <TouchableOpacity style={styles.picker} onPress={() => setShowPicker(!showPicker)}>
-               <CalendarIcon size={18} color={themeColor} />
-               <Text style={styles.pickerText}>{MONTHS[selectedMonth - 1]} {selectedYear}</Text>
-            </TouchableOpacity>
-          </View>
+        <Card style={styles.v2SelectionCard}>
+          <Text style={styles.v2CardLabel}>Periode Laporan</Text>
+          <TouchableOpacity style={styles.v2Picker} onPress={() => setShowPicker(!showPicker)}>
+             <CalendarIcon size={18} color={themeColor} />
+             <Text style={styles.v2PickerText}>{MONTHS[selectedMonth - 1]} {selectedYear}</Text>
+          </TouchableOpacity>
 
           {showPicker && (
-            <View style={styles.pickerList}>
-               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.yearScroll}>
+            <View style={styles.v2PickerList}>
+               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.v2YearScroll}>
                   {[2023, 2024, 2025, 2026].map(y => (
                     <TouchableOpacity 
                       key={y} 
-                      style={[styles.yearBtn, selectedYear === y && { backgroundColor: themeColor }]}
+                      style={[styles.v2YearBtn, selectedYear === y && { backgroundColor: themeColor }]}
                       onPress={() => setSelectedYear(y)}
                     >
-                       <Text style={[styles.yearBtnText, selectedYear === y && styles.activeYearBtnText]}>{y}</Text>
+                       <Text style={[styles.v2YearBtnText, selectedYear === y && styles.activeYearBtnText]}>{y}</Text>
                     </TouchableOpacity>
                   ))}
                </ScrollView>
-               <View style={styles.monthGrid}>
+               <View style={styles.v2MonthGrid}>
                   {MONTHS.map((m, i) => (
                     <TouchableOpacity 
                       key={m} 
-                      style={[styles.monthBtn, selectedMonth === i + 1 && { backgroundColor: themeBg, borderColor: themeColor }]}
+                      style={[styles.v2MonthBtn, selectedMonth === i + 1 && { backgroundColor: themeBg, borderColor: themeColor }]}
                       onPress={() => { setSelectedMonth(i + 1); setShowPicker(false); }}
                     >
-                       <Text style={[styles.monthBtnText, selectedMonth === i + 1 && { color: themeColor }]}>{m.substring(0, 3)}</Text>
+                       <Text style={[styles.v2MonthBtnText, selectedMonth === i + 1 && { color: themeColor }]}>{m.substring(0, 3)}</Text>
                     </TouchableOpacity>
                   ))}
                </View>
@@ -169,14 +169,14 @@ export default function ReportsScreen() {
         </Card>
 
         <TouchableOpacity 
-          style={[styles.generateBtn, { backgroundColor: themeColor }, loading && styles.disabledBtn]} 
+          style={[styles.v2GenerateBtn, { backgroundColor: themeColor }, loading && styles.disabledBtn]} 
           onPress={handleGenerateReport}
           disabled={loading}
         >
           {loading ? <ActivityIndicator color="#FFF" /> : (
             <>
               <FileDown size={22} color="#FFF" />
-              <Text style={styles.generateBtnText}>Unduh Laporan PDF</Text>
+              <Text style={styles.v2GenerateBtnText}>Generate Report PDF</Text>
             </>
           )}
         </TouchableOpacity>
@@ -267,5 +267,95 @@ const styles = StyleSheet.create({
   bullet: { width: 6, height: 6, borderRadius: 3, marginRight: 12 },
   infoText: { fontSize: 12, color: '#64748B' },
   alertCard: { marginTop: 32, flexDirection: 'row', padding: 16, backgroundColor: '#EEF2FF', borderColor: '#E0E7FF' },
-  alertText: { flex: 1, marginLeft: 12, fontSize: 11, color: '#4338CA', lineHeight: 18 }
+  alertText: { flex: 1, marginLeft: 12, fontSize: 11, color: '#4338CA', lineHeight: 18 },
+  // V2 STYLES
+  v2HeaderSection: {
+    marginBottom: 24,
+  },
+  v2SelectionCard: {
+    padding: 20,
+    borderRadius: 24,
+    marginBottom: 24,
+  },
+  v2CardLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: 14,
+  },
+  v2Picker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  v2PickerText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1E293B',
+    marginLeft: 12,
+  },
+  v2PickerList: {
+    marginTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 20,
+  },
+  v2YearScroll: {
+    marginBottom: 16,
+  },
+  v2YearBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    marginRight: 10,
+  },
+  v2YearBtnText: {
+    color: '#64748B',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  v2MonthGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  v2MonthBtn: {
+    width: '31%',
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  v2MonthBtnText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '700',
+  },
+  v2GenerateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    borderRadius: 20,
+    elevation: 4,
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+  },
+  v2GenerateBtnText: {
+    color: '#FFF',
+    fontWeight: '900',
+    fontSize: 16,
+    marginLeft: 10,
+    letterSpacing: -0.3,
+  },
 });

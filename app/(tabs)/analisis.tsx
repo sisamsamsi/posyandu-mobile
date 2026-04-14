@@ -13,6 +13,7 @@ import { FilterBar } from '../../components/ui/FilterBar';
 import { DistributionChart } from '../../components/charts/DistributionChart';
 import { AnalysisService, BalitaAnalysis, LansiaAnalysis, TrendPoint } from '../../services/analysis-service';
 import { LineChart } from 'react-native-chart-kit';
+import { useServiceStore } from '../../stores/service-store';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -26,8 +27,9 @@ const COLORS = {
 };
 
 export default function AnalysisTabScreen() {
+  const { activeWorkspace } = useServiceStore();
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<AnalysisTab>('balita');
+  const [activeTab, setActiveTab] = useState<AnalysisTab>(activeWorkspace === 'lansia' ? 'lansia' : 'balita');
   
   // Filters
   const [month, setMonth] = useState(new Date().getMonth() + 1);
@@ -246,20 +248,24 @@ export default function AnalysisTabScreen() {
       />
 
       <View style={styles.tabBar}>
-        <TabButton 
-          active={activeTab === 'balita'} 
-          icon={<Baby size={18} color={activeTab === 'balita' ? COLORS.balita : '#64748B'} />} 
-          label="Balita" 
-          activeColor={COLORS.balita}
-          onPress={() => setActiveTab('balita')} 
-        />
-        <TabButton 
-          active={activeTab === 'lansia'} 
-          icon={<Users size={18} color={activeTab === 'lansia' ? COLORS.lansia : '#64748B'} />} 
-          label="Lansia" 
-          activeColor={COLORS.lansia}
-          onPress={() => setActiveTab('lansia')} 
-        />
+        {activeWorkspace === 'balita' && (
+          <TabButton 
+            active={activeTab === 'balita'} 
+            icon={<Baby size={18} color={activeTab === 'balita' ? COLORS.balita : '#64748B'} />} 
+            label="Balita" 
+            activeColor={COLORS.balita}
+            onPress={() => setActiveTab('balita')} 
+          />
+        )}
+        {activeWorkspace === 'lansia' && (
+          <TabButton 
+            active={activeTab === 'lansia'} 
+            icon={<Users size={18} color={activeTab === 'lansia' ? COLORS.lansia : '#64748B'} />} 
+            label="Lansia" 
+            activeColor={COLORS.lansia}
+            onPress={() => setActiveTab('lansia')} 
+          />
+        )}
         <TabButton 
           active={activeTab === 'tren'} 
           icon={<TrendingUp size={18} color={activeTab === 'tren' ? COLORS.trend : '#64748B'} />} 

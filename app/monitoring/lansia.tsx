@@ -70,18 +70,21 @@ export default function MonitoringLansiaScreen() {
         onPress={() => router.push(`/lansia/${item.id}`)}
         activeOpacity={0.7}
       >
-        <Card style={styles.card}>
-          <View style={styles.cardContent}>
-            <View style={styles.avatar}>
-              <Users size={28} color="#0D9488" />
+        <Card style={styles.v2Card}>
+          <View style={styles.v2CardContent}>
+            <View style={styles.v2Avatar}>
+              <Users size={24} color="#6366F1" />
             </View>
-            <View style={styles.info}>
-              <Text style={styles.name}>{item.nama}</Text>
-              <Text style={styles.subtext}>RT {item.rt || '-'}</Text>
+            <View style={styles.v2Info}>
+              <Text style={styles.v2Name}>{item.nama}</Text>
+              <View style={styles.v2MetaRow}>
+                <Text style={styles.v2MetaText}>RT {item.rt || '-'}</Text>
+                <View style={styles.v2Dot} />
+                <Text style={styles.v2MetaText}>{item.nik}</Text>
+              </View>
             </View>
-            <View style={styles.statusContainer}>
+            <View style={styles.v2StatusCol}>
               <Badge label={status.label} variant={status.variant} />
-              <View style={styles.iconWrapper}>{status.icon}</View>
             </View>
           </View>
         </Card>
@@ -281,5 +284,52 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: '#94A3B8',
+  },
+  // V2 STYLES
+  v2Card: {
+    marginBottom: 10,
+    padding: 14,
+    borderRadius: 20,
+  },
+  v2CardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  v2Avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#EEF2FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  v2Info: {
+    flex: 1,
+  },
+  v2Name: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  v2MetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  v2MetaText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  v2Dot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: '#CBD5E1',
+    marginHorizontal: 8,
+  },
+  v2StatusCol: {
+    alignItems: 'flex-end',
   },
 });

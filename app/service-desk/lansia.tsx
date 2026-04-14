@@ -207,14 +207,26 @@ export default function LansiaServiceDesk() {
                   <Text style={styles.fieldLabel}>Berat Badan (kg)</Text>
                   <View style={styles.inputGroup}>
                      <Activity size={18} color="#6366F1" />
-                     <TextInput style={styles.input} placeholder="Kg" keyboardType="numeric" value={berat} onChangeText={setBerat} />
+                     <TextInput 
+                        style={styles.input} 
+                        placeholder="Contoh: 60.50" 
+                        keyboardType="decimal-pad" 
+                        value={berat} 
+                        onChangeText={setBerat} 
+                     />
                   </View>
                </View>
                <View style={styles.fieldContainerHalf}>
                   <Text style={styles.fieldLabel}>Tinggi Badan (cm)</Text>
                   <View style={styles.inputGroup}>
                      <Activity size={18} color="#6366F1" />
-                     <TextInput style={styles.input} placeholder="Cm" keyboardType="numeric" value={tinggi} onChangeText={setTinggi} />
+                     <TextInput 
+                        style={styles.input} 
+                        placeholder="Contoh: 165.25" 
+                        keyboardType="decimal-pad" 
+                        value={tinggi} 
+                        onChangeText={setTinggi} 
+                     />
                   </View>
                </View>
             </View>
@@ -325,19 +337,46 @@ export default function LansiaServiceDesk() {
         );
 
       case 'success':
+        const isHighBP = parseInt(tdSistolik) >= 140 || parseInt(tdDiastolik) >= 90;
+        const isHighSugar = parseFloat(gulaDarah) >= 200;
+
         return (
           <View style={[styles.stepContainer, styles.center]}>
             <CheckCircle2 size={64} color="#22C55E" />
             <Text style={styles.successTitle}>Pemeriksaan Tersimpan!</Text>
             <Text style={styles.successDesc}>Data pemeriksaan {selectedLansia?.nama} telah dicatat.</Text>
+            
+            <Card style={[styles.lansiaResultCard, isHighBP || isHighSugar ? { borderColor: '#EF4444' } : {}]}>
+               <Text style={styles.resultCardHeader}>Ringkasan Kesehatan:</Text>
+               <View style={styles.resultGrid}>
+                  <View style={styles.resultBox}>
+                     <Text style={styles.boxLabel}>Tekanan Darah</Text>
+                     <Text style={[styles.boxValue, isHighBP && { color: '#DC2626' }]}>{tdSistolik}/{tdDiastolik}</Text>
+                     <Text style={styles.boxUnit}>mmHg</Text>
+                  </View>
+                  <View style={styles.resultBox}>
+                     <Text style={styles.boxLabel}>Gula Darah</Text>
+                     <Text style={[styles.boxValue, isHighSugar && { color: '#DC2626' }]}>{gulaDarah || '-'}</Text>
+                     <Text style={styles.boxUnit}>mg/dL</Text>
+                  </View>
+               </View>
+               {(isHighBP || isHighSugar) && (
+                 <View style={styles.warningBox}>
+                    <Text style={styles.warningText}>
+                      ⚠️ Terdeteksi nilai di atas normal. Segera rujuk ke Puskesmas jika ada keluhan berat.
+                    </Text>
+                 </View>
+               )}
+            </Card>
+
             <TouchableOpacity 
-              style={styles.primaryButton} 
+              style={[styles.primaryButton, { width: '100%', marginTop: 20 }]} 
               onPress={() => router.replace('/(tabs)/service-desk')}
             >
               <Text style={styles.primaryButtonText}>Kembali ke Menu Utama</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={styles.secondaryButton} 
+              style={[styles.secondaryButton, { width: '100%' }]} 
               onPress={() => {
                 setStep('search');
                 setSelectedLansia(null);
@@ -596,5 +635,64 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 40,
     color: '#94A3B8',
-  }
+  },
+  // LANSIA SUCCESS STYLES
+  lansiaResultCard: {
+    width: '100%',
+    padding: 20,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 24,
+  },
+  resultCardHeader: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#64748B',
+    marginBottom: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  resultGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  resultBox: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  boxLabel: {
+    fontSize: 10,
+    color: '#64748B',
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  boxValue: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#1E293B',
+  },
+  boxUnit: {
+    fontSize: 10,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  warningBox: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+  },
+  warningText: {
+    fontSize: 12,
+    color: '#991B1B',
+    fontWeight: '600',
+    lineHeight: 18,
+    textAlign: 'center',
+  },
 });

@@ -1,88 +1,103 @@
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Baby, Users, Settings, ChevronRight, Calendar } from 'lucide-react-native';
-import { Card } from '../../components/ui/Card';
+import { Baby, Users, Settings, ChevronRight, Calendar, ClipboardList } from 'lucide-react-native';
+import { useServiceStore } from '../../stores/service-store';
+import { COLORS } from '../../lib/constants';
 
 export default function DataMasterScreen() {
   const router = useRouter();
+  const { activeWorkspace } = useServiceStore();
 
-  const menuItems = [
+  const allMenuItems = [
     {
       title: 'Data Balita',
-      subtitle: 'Kelola data anak dan bayi',
-      icon: <Baby size={28} color="#0D9488" />,
+      subtitle: 'Pendaftaran & data induk anak',
+      icon: <Baby size={24} color={COLORS.primaryDark} />,
       route: '/balita',
-      color: '#CCFBF1',
-    },
-    {
-      title: 'Data Lansia',
-      subtitle: 'Kelola data penduduk lansia',
-      icon: <Users size={28} color="#6366F1" />,
-      route: '/lansia',
-      color: '#EEF2FF',
+      color: '#E0F2F1', // Very light teal
+      ws: 'balita',
     },
     {
       title: 'Riwayat Penimbangan',
-      subtitle: 'Log aktivitas penimbangan balita',
-      icon: <Calendar size={28} color="#0D9488" />,
+      subtitle: 'Aktivitas KMS & pencatatan bulanan',
+      icon: <Calendar size={24} color={COLORS.primaryDark} />,
       route: '/penimbangan',
-      color: '#F0FDFA',
-    },
-    {
-      title: 'Riwayat Pemeriksaan',
-      subtitle: 'Log aktivitas pemeriksaan lansia',
-      icon: <Users size={28} color="#6366F1" />,
-      route: '/pemeriksaan',
-      color: '#EEF2FF',
+      color: '#E0F2F1',
+      ws: 'balita',
     },
     {
       title: 'Monitoring Balita',
-      subtitle: 'Pantau kehadiran balita bulan ini',
-      icon: <Baby size={28} color="#0D9488" />,
+      subtitle: 'Analisis status kehadiran',
+      icon: <ClipboardList size={24} color={COLORS.primaryDark} />,
       route: '/monitoring/balita',
-      color: '#F0FDFA',
+      color: '#E0F2F1',
+      ws: 'balita',
+    },
+    {
+      title: 'Data Lansia',
+      subtitle: 'Pendaftaran & profil kesehatan lansia',
+      icon: <Users size={24} color={COLORS.secondary} />,
+      route: '/lansia',
+      color: '#E3F2FD', // Very light blue
+      ws: 'lansia',
+    },
+    {
+      title: 'Riwayat Pemeriksaan',
+      subtitle: 'Catatan tensi & kesehatan',
+      icon: <Calendar size={24} color={COLORS.secondary} />,
+      route: '/pemeriksaan',
+      color: '#E3F2FD',
+      ws: 'lansia',
     },
     {
       title: 'Monitoring Lansia',
-      subtitle: 'Pantau kehadiran lansia bulan ini',
-      icon: <Users size={28} color="#6366F1" />,
+      subtitle: 'Pantau kunjungan bulanan',
+      icon: <ClipboardList size={24} color={COLORS.secondary} />,
       route: '/monitoring/lansia',
-      color: '#EEF2FF',
+      color: '#E3F2FD',
+      ws: 'lansia',
     },
     {
-      title: 'Pengaturan Posyandu',
+      title: 'Pengaturan',
       subtitle: 'Konfigurasi unit posyandu',
-      icon: <Settings size={28} color="#64748B" />,
+      icon: <Settings size={24} color="#64748B" />,
       route: '/settings',
       color: '#F1F5F9',
+      ws: 'both',
     },
   ];
 
+  const menuItems = allMenuItems.filter((item) => item.ws === 'both' || item.ws === activeWorkspace);
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Data Master</Text>
-          <Text style={styles.subtitle}>Pilih kategori data yang ingin dikelola</Text>
-        </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>Data Master</Text>
+        <Text style={styles.subtitle}>
+          Kelola informasi dan riwayat layanan untuk {activeWorkspace === 'balita' ? 'Balita' : 'Lansia'}
+        </Text>
+      </View>
 
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {menuItems.map((item, index) => (
           <TouchableOpacity 
             key={index} 
             onPress={() => router.push(item.route as any)}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
+            style={styles.menuCard}
           >
-            <Card style={styles.menuCard}>
-              <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
-                {item.icon}
-              </View>
-              <View style={styles.textContainer}>
-                <Text style={styles.menuTitle}>{item.title}</Text>
-                <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
-              </View>
-              <ChevronRight size={20} color="#94A3B8" />
-            </Card>
+            <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
+              {item.icon}
+            </View>
+            <View style={styles.textContainer}>
+              <Text style={styles.menuTitle}>{item.title}</Text>
+              <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+            </View>
+            <View style={styles.actionCircle}>
+              <ChevronRight size={16} color="#94A3B8" />
+            </View>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -93,50 +108,71 @@ export default function DataMasterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
-  content: {
-    padding: 20,
+    backgroundColor: COLORS.background,
   },
   header: {
-    marginBottom: 24,
-    marginTop: 10,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 16,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#0F172A',
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#191C1D',
+    letterSpacing: -1,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#64748B',
-    marginTop: 4,
+    marginTop: 6,
+    lineHeight: 22,
+  },
+  content: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    gap: 16,
   },
   menuCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    marginBottom: 16,
+    backgroundColor: COLORS.surface,
+    padding: 20,
+    borderRadius: 32, // Large radius per Serene Guardian
+    elevation: 4,
+    shadowColor: '#006A63',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.04,
+    shadowRadius: 24,
   },
   iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
+    width: 60,
+    height: 60,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
   },
   textContainer: {
     flex: 1,
+    marginLeft: 16,
+    marginRight: 8,
   },
   menuTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1E293B',
+    fontWeight: '800',
+    color: '#191C1D',
   },
   menuSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#64748B',
-    marginTop: 2,
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  actionCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.surfaceDim,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

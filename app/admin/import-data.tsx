@@ -136,72 +136,82 @@ export default function ImportDataScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={24} color="#1E293B" /></TouchableOpacity>
-        <Text style={styles.headerTitle}>Import Data Excel</Text>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity onPress={() => router.back()} style={styles.v2BackBtn}>
+          <ArrowLeft size={22} color="#1E293B" />
+        </TouchableOpacity>
+        <View>
+          <Text style={styles.headerTitle}>AYOMI Import</Text>
+          <Text style={styles.headerSub}>Sinkronisasi Data Excel</Text>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Step 1: Configuration */}
-        <Text style={styles.sectionTitle}>1. Konfigurasi Dasar</Text>
-        <View style={styles.typeSwitcher}>
+        <Text style={styles.v2SectionTitle}>1. Konfigurasi Pelayanan</Text>
+        <View style={styles.v2TypeSwitcher}>
            <TouchableOpacity 
-             style={[styles.typeBtn, type === 'balita' && styles.activeTypeBtn]} 
+             style={[styles.v2TypeBtn, type === 'balita' && styles.v2ActiveTypeBtnBalita]} 
              onPress={() => { setType('balita'); setParsedData([]); }}
            >
-             <Text style={[styles.typeBtnText, type === 'balita' && styles.activeTypeBtnText]}>Balita</Text>
+             <Text style={[styles.v2TypeBtnText, type === 'balita' && styles.v2ActiveTypeBtnText]}>Balita</Text>
            </TouchableOpacity>
            <TouchableOpacity 
-             style={[styles.typeBtn, type === 'lansia' && styles.activeTypeBtn]} 
+             style={[styles.v2TypeBtn, type === 'lansia' && styles.v2ActiveTypeBtnLansia]} 
              onPress={() => { setType('lansia'); setParsedData([]); }}
            >
-             <Text style={[styles.typeBtnText, type === 'lansia' && styles.activeTypeBtnText]}>Lansia</Text>
+             <Text style={[styles.v2TypeBtnText, type === 'lansia' && styles.v2ActiveTypeBtnText]}>Lansia</Text>
            </TouchableOpacity>
         </View>
 
         <TouchableOpacity 
-          style={styles.posyanduCard}
+          style={styles.v2PosyanduCard}
           onPress={() => setShowPosyanduPicker(true)}
         >
-          <MapPin size={20} color="#0D9488" />
-          <View style={styles.posyanduInfo}>
-             <Text style={styles.posyanduLabel}>Target Posyandu</Text>
-             <Text style={styles.posyanduName}>{selectedPosyandu?.nama_posyandu || 'Pilih'}</Text>
+          <View style={styles.v2PosyanduIcon}>
+            <MapPin size={20} color="#0D9488" />
+          </View>
+          <View style={styles.v2PosyanduInfo}>
+             <Text style={styles.v2PosyanduLabel}>Target Posyandu</Text>
+             <Text style={styles.v2PosyanduName}>{selectedPosyandu?.nama_posyandu || 'Pilih Target'}</Text>
           </View>
           <ChevronRight size={18} color="#94A3B8" />
         </TouchableOpacity>
 
         {/* Step 2: Template */}
-        <Text style={styles.sectionTitle}>2. Persiapkan File</Text>
-        <Card style={styles.infoCard}>
-           <Info size={20} color="#3B82F6" />
-           <Text style={styles.infoText}>
-             Gunakan template resmi kami agar format kolom sesuai dengan sistem.
-           </Text>
-           <TouchableOpacity style={styles.downloadBtn} onPress={handleDownloadTemplate}>
+        <Text style={styles.v2SectionTitle}>2. Persiapkan Data</Text>
+        <Card style={styles.v2InfoCard}>
+           <View style={{ flex: 1 }}>
+             <Text style={styles.v2InfoTitle}>Gunakan Template Resmi</Text>
+             <Text style={styles.v2InfoText}>
+               Pastikan format kolom sesuai agar proses sinkronisasi database berjalan lancar.
+             </Text>
+           </View>
+           <TouchableOpacity style={styles.v2DownloadBtn} onPress={handleDownloadTemplate}>
               <FileDown size={18} color="#FFF" />
-              <Text style={styles.downloadBtnText}>Template</Text>
+              <Text style={styles.v2DownloadBtnText}>Unduh</Text>
            </TouchableOpacity>
         </Card>
 
         {/* Step 3: Pick & Preview */}
-        <Text style={styles.sectionTitle}>3. Pilih & Preview</Text>
+        <Text style={styles.v2SectionTitle}>3. Upload & Sinkronisasi</Text>
         {parsedData.length === 0 ? (
-          <TouchableOpacity style={styles.pickArea} onPress={handlePickFile} disabled={loading}>
+          <TouchableOpacity style={styles.v2PickArea} onPress={handlePickFile} disabled={loading}>
             {loading ? <ActivityIndicator color="#0D9488" /> : (
               <>
-                <FileUp size={40} color="#94A3B8" />
-                <Text style={styles.pickTitle}>Pilih File Excel/CSV</Text>
-                <Text style={styles.pickSubtitle}>Maksimal 5MB</Text>
+                <View style={styles.v2PickIconCircle}>
+                  <FileUp size={32} color="#0D9488" />
+                </View>
+                <Text style={styles.v2PickTitle}>Pilih File Excel</Text>
+                <Text style={styles.v2PickSubtitle}>Sentuh untuk memilih dokumen (.xlsx / .csv)</Text>
               </>
             )}
           </TouchableOpacity>
         ) : (
           <View>
-            <View style={styles.previewHeaderRow}>
-               <Text style={styles.previewCount}>{parsedData.length} data ditemukan</Text>
+            <View style={styles.v2PreviewHeaderRow}>
+               <Text style={styles.v2PreviewCount}>{parsedData.length} Data Terbaca</Text>
                <TouchableOpacity onPress={() => setParsedData([])}>
-                  <Text style={styles.clearBtn}>Hapus</Text>
+                  <Text style={styles.v2ClearBtn}>Hapus</Text>
                </TouchableOpacity>
             </View>
             <FlatList 
@@ -210,19 +220,19 @@ export default function ImportDataScreen() {
               keyExtractor={(item, index) => index.toString()}
               scrollEnabled={false}
               ListFooterComponent={() => parsedData.length > 5 ? (
-                <Text style={styles.moreText}>+ {parsedData.length - 5} data lainnya...</Text>
+                <Text style={styles.v2MoreText}>Menampilkan 5 dari {parsedData.length} data...</Text>
               ) : null}
             />
             
             <TouchableOpacity 
-              style={styles.importBtn} 
+              style={styles.v2ImportBtn} 
               onPress={handleImport}
               disabled={importing}
             >
                {importing ? <ActivityIndicator color="#FFF" /> : (
                  <>
                    <Database size={20} color="#FFF" />
-                   <Text style={styles.importBtnText}>Mulai Import ke Database</Text>
+                   <Text style={styles.v2ImportBtnText}>Mulai Sinkronisasi Data</Text>
                  </>
                )}
             </TouchableOpacity>
@@ -290,6 +300,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E2E8F0',
   },
   headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#1E293B' },
+  headerSub: { fontSize: 12, color: '#94A3B8', marginTop: 1 },
   content: { padding: 20 },
   sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#64748B', marginBottom: 12, marginTop: 8 },
   typeSwitcher: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 12, padding: 4, marginBottom: 16 },
@@ -330,5 +341,202 @@ const styles = StyleSheet.create({
   closeBtn: { color: '#EF4444', fontWeight: 'bold' },
   pickerItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
   pickerItemText: { flex: 1, fontSize: 16, color: '#1E293B', marginLeft: 12 },
-  activeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#0D9488' }
+  activeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#0D9488' },
+  // V2 STYLES
+  v2BackBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  v2SectionTitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: 16,
+    marginTop: 12,
+  },
+  v2TypeSwitcher: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 16,
+    padding: 6,
+    marginBottom: 20,
+  },
+  v2TypeBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 12,
+  },
+  v2ActiveTypeBtnBalita: {
+    backgroundColor: '#0D9488',
+    elevation: 4,
+    shadowColor: '#0D9488',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  v2ActiveTypeBtnLansia: {
+    backgroundColor: '#6366F1',
+    elevation: 4,
+    shadowColor: '#6366F1',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  v2TypeBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  v2ActiveTypeBtnText: {
+    color: '#FFFFFF',
+  },
+  v2PosyanduCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 18,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    marginBottom: 24,
+  },
+  v2PosyanduIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#F0FDFA',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  v2PosyanduInfo: {
+    flex: 1,
+    marginLeft: 14,
+  },
+  v2PosyanduLabel: {
+    fontSize: 10,
+    color: '#94A3B8',
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  v2PosyanduName: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1E293B',
+    marginTop: 2,
+  },
+  v2InfoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDFA',
+    borderColor: '#CCFBF1',
+    padding: 20,
+    borderRadius: 24,
+    marginBottom: 24,
+  },
+  v2InfoTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0D9488',
+    marginBottom: 4,
+  },
+  v2InfoText: {
+    fontSize: 12,
+    color: '#134E48',
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+  v2DownloadBtn: {
+    backgroundColor: '#0D9488',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginLeft: 12,
+  },
+  v2DownloadBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+    marginLeft: 6,
+  },
+  v2PickArea: {
+    height: 200,
+    borderRadius: 32,
+    borderStyle: 'dashed',
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  v2PickIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#F0FDFA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  v2PickTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  v2PickSubtitle: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 6,
+    fontWeight: '500',
+  },
+  v2PreviewHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  v2PreviewCount: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  v2ClearBtn: {
+    color: '#EF4444',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  v2MoreText: {
+    textAlign: 'center',
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '600',
+    marginVertical: 12,
+  },
+  v2ImportBtn: {
+    backgroundColor: '#0D9488',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    borderRadius: 20,
+    marginTop: 16,
+    marginBottom: 24,
+    elevation: 4,
+    shadowColor: '#0D9488',
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+  },
+  v2ImportBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 16,
+    marginLeft: 10,
+  },
 });

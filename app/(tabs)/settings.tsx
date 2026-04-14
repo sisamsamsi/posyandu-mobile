@@ -196,8 +196,8 @@ export default function SettingsScreen() {
             <Settings size={22} color={COLORS.primary} />
           </View>
           <View>
-            <Text style={styles.headerTitle}>Pengaturan</Text>
-            <Text style={styles.headerSub}>Konfigurasi posyandu Anda</Text>
+            <Text style={styles.headerTitle}>AYOMI</Text>
+            <Text style={styles.headerSub}>Rawat Tumbuhnya, Jaga Tuanya</Text>
           </View>
         </View>
         {hasChanges && (
@@ -404,7 +404,7 @@ export default function SettingsScreen() {
             <View style={styles.sectionBody}>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Versi Aplikasi</Text>
-                <Text style={styles.infoValue}>v1.1.0</Text>
+                <Text style={styles.infoValue}>v2.0.0 (Premium)</Text>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Platform</Text>
@@ -415,8 +415,8 @@ export default function SettingsScreen() {
                 <Text style={styles.infoValue}>Supabase (PostgreSQL)</Text>
               </View>
               <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-                <Text style={styles.infoLabel}>Pembuat</Text>
-                <Text style={styles.infoValue}>Tim Posyandu Mobile</Text>
+                <Text style={styles.infoLabel}>Filosofi</Text>
+                <Text style={styles.infoValue}>Rawat Tumbuhnya, Jaga Tuanya</Text>
               </View>
 
               <View style={styles.waFormatCard}>

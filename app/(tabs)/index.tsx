@@ -100,8 +100,8 @@ export default function DashboardScreen() {
               <Text style={styles.dateText}>{today}</Text>
             </View>
           </View>
-          <Text style={styles.greeting}>Halo, Kader! 👋</Text>
-          <Text style={styles.subGreeting}>Pantau kesehatan warga hari ini</Text>
+          <Text style={styles.greeting}>AYOMI</Text>
+          <Text style={styles.subGreeting}>Rawat Tumbuhnya, Jaga Tuanya</Text>
         </View>
         <TouchableOpacity style={styles.notifBtn} onPress={() => setIsNotifVisible(true)}>
           <Bell size={22} color="#1E293B" />
@@ -123,6 +123,25 @@ export default function DashboardScreen() {
           jadwalLansiaTanggal={stats?.posyanduInfo?.jadwal_lansia_tanggal || null}
           jadwalLansiaJam={stats?.posyanduInfo?.jadwal_lansia_jam || null}
         />
+
+        {/* ==================================== */}
+        {/* DAILY TIP (WORKSPACE AWARE)          */}
+        {/* ==================================== */}
+        <View style={styles.tipContainer}>
+          <View style={styles.tipIconCircle}>
+            <TrendingUp size={18} color="#0D9488" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.tipTitle}>
+              {activeWorkspace === 'balita' ? 'Tips Gizi Hari Ini' : 'Tips Sehat Lansia'}
+            </Text>
+            <Text style={styles.tipText}>
+              {activeWorkspace === 'balita' 
+                ? 'Pastikan balita mendapatkan imunisasi dasar lengkap sesuai jadwal di buku KIA.' 
+                : 'Ingatkan lansia untuk rutin melakukan aktivitas fisik ringan 15-30 menit setiap hari.'}
+            </Text>
+          </View>
+        </View>
 
         {/* ============================= */}
         {/* STATISTIK OVERVIEW (4 GRID)   */}
@@ -327,7 +346,7 @@ export default function DashboardScreen() {
         {/* ============================= */}
         <View style={styles.footer}>
           <View style={styles.footerDivider} />
-          <Text style={styles.footerText}>Posyandu Mobile v1.1 — Digitalisasi Layanan Kesehatan Desa</Text>
+          <Text style={styles.footerText}>AYOMI v2.0 — Rawat Tumbuhnya, Jaga Tuanya</Text>
         </View>
       </ScrollView>
 
@@ -433,7 +452,7 @@ function NotifItem({ icon, title, desc, time }: { icon: any, title: string, desc
 // ============================================
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, backgroundColor: '#F8F9FA' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
   loadingText: { color: '#64748B', fontSize: 13 },
   
@@ -442,91 +461,88 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 32,
     backgroundColor: '#FFFFFF',
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-    elevation: 4,
-    shadowColor: '#64748B',
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    elevation: 8,
+    shadowColor: '#006A63',
     shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
   },
   headerContent: { flex: 1 },
   headerIconRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 14,
+    gap: 12,
+    marginBottom: 16,
   },
   posyanduBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#F0FDFA',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E0F2F1',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#CCFBF1',
   },
   headerTextBlock: { flex: 1 },
   posyanduNameHeader: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0D9488',
-    letterSpacing: 0.3,
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#006A63',
+    letterSpacing: 0.5,
   },
   dateText: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 1,
-    fontWeight: '500',
+    fontSize: 12,
+    color: '#64B5F6',
+    marginTop: 2,
+    fontWeight: '600',
   },
   greeting: {
-    fontSize: 26,
+    fontSize: 32,
     fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: -0.8,
+    color: '#191C1D',
+    letterSpacing: -1,
   },
   subGreeting: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#64748B',
-    marginTop: 2,
+    marginTop: 6,
     fontWeight: '500',
+    lineHeight: 22,
   },
   notifBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: '#F8FAFC',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#F3F4F5',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    marginTop: 4,
+    marginTop: 8,
   },
   notifDot: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#EF4444',
+    top: 14,
+    right: 14,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#ba1a1a',
     borderWidth: 2,
     borderColor: '#FFF',
   },
 
-  scrollContent: { padding: 16, paddingBottom: 32 },
+  scrollContent: { padding: 24, paddingBottom: 40 },
 
   // Section
-  sectionHeader: { marginTop: 20, marginBottom: 12, paddingHorizontal: 4 },
+  sectionHeader: { marginTop: 24, marginBottom: 16, paddingHorizontal: 4 },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#334155',
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#191C1D',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -536,129 +552,172 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFBEB',
-    borderRadius: 18,
-    padding: 16,
+    borderRadius: 32, // Serene Guardian radius
+    padding: 24,
     marginTop: 16,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
+    gap: 16,
+    elevation: 4,
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
   },
   alertIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#FEF3C7',
     justifyContent: 'center',
     alignItems: 'center',
   },
   alertTitle: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '900',
     color: '#92400E',
   },
   alertStatsRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 6,
+    gap: 12,
+    marginTop: 8,
   },
   alertChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
   alertChipText: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '800',
     color: '#78350F',
   },
 
   // Chart
   chartCard: {
-    padding: 12,
+    padding: 24,
     alignItems: 'center',
-    borderRadius: 20,
+    borderRadius: 32,
+    backgroundColor: '#FFFFFF',
+    elevation: 4,
+    shadowColor: '#006A63',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.04,
+    shadowRadius: 24,
   },
   emptyChart: {
-    padding: 40,
+    padding: 48,
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 20,
-    gap: 8,
-    borderStyle: 'dashed',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
+    backgroundColor: '#F3F4F5',
+    borderRadius: 32,
+    gap: 12,
   },
-  emptyText: { color: '#94A3B8', fontSize: 13 },
+  emptyText: { color: '#94A3B8', fontSize: 14, fontWeight: '500' },
 
-  // Quick Actions
+  // Quick Actions (No lines, ambient shadows)
   quickGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 16,
   },
   quickActionBtn: {
-    width: '23%',
+    width: '47%', // Making them bigger and fewer per row for premium feel
     flexGrow: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 14,
+    borderRadius: 32,
+    padding: 20,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    elevation: 1,
-    shadowColor: '#64748B',
-    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+    shadowColor: '#006A63',
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.04,
-    shadowRadius: 6,
+    shadowRadius: 16,
   },
   quickActionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: 64,
+    height: 64,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   quickActionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#334155',
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#191C1D',
     textAlign: 'center',
   },
 
   // Footer
   footer: {
     alignItems: 'center',
-    marginTop: 28,
-    paddingBottom: 8,
+    marginTop: 40,
+    paddingBottom: 16,
   },
   footerDivider: {
-    width: 40,
-    height: 3,
-    backgroundColor: '#E2E8F0',
+    width: 48,
+    height: 4,
+    backgroundColor: '#E0F2F1', // Using teal subtle
     borderRadius: 2,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   footerText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#94A3B8',
-    fontWeight: '500',
+    fontWeight: '600',
     textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+
+  // Tip Styles
+  tipContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 24,
+    borderRadius: 32,
+    marginTop: 20,
+    gap: 16,
+    elevation: 4,
+    shadowColor: '#006A63',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.04,
+    shadowRadius: 24,
+  },
+  tipIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E0F2F1', // teal light
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tipTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#006A63',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  tipText: {
+    fontSize: 14,
+    color: '#475569',
+    marginTop: 4,
+    lineHeight: 22,
+    fontWeight: '500',
   },
 
   // Modal Styles
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 32, borderTopRightRadius: 32, maxHeight: '80%', padding: 24 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontWeight: '800', color: '#1E293B' },
-  modalBody: { marginBottom: 20 },
-  notifItem: { flexDirection: 'row', marginBottom: 20, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  notifIconContainer: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
-  notifTitle: { fontSize: 15, fontWeight: '700', color: '#1E293B' },
-  notifDesc: { fontSize: 13, color: '#64748B', marginTop: 2, lineHeight: 18 },
-  notifTime: { fontSize: 11, color: '#94A3B8', marginTop: 8 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(25,28,29,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 40, borderTopRightRadius: 40, maxHeight: '85%', padding: 32 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  modalTitle: { fontSize: 24, fontWeight: '900', color: '#191C1D', letterSpacing: -0.5 },
+  modalBody: { marginBottom: 24 },
+  notifItem: { flexDirection: 'row', marginBottom: 24, paddingBottom: 24, borderBottomWidth: 1, borderBottomColor: '#F3F4F5' },
+  notifIconContainer: { width: 56, height: 56, borderRadius: 20, backgroundColor: '#F8F9FA', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  notifTitle: { fontSize: 16, fontWeight: '800', color: '#191C1D' },
+  notifDesc: { fontSize: 14, color: '#64748B', marginTop: 4, lineHeight: 20 },
+  notifTime: { fontSize: 12, color: '#94A3B8', marginTop: 8, fontWeight: '600' },
 });

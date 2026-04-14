@@ -9,18 +9,34 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: '#94a3b8',
+        tabBarInactiveTintColor: '#94A3B8',
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: '700',
+          paddingBottom: 4,
+        },
         tabBarStyle: {
-          height: 60,
-          paddingBottom: 8,
+          height: 65,
+          paddingBottom: 10,
           paddingTop: 8,
+          borderTopWidth: 0,
+          backgroundColor: '#FFFFFF',
+          elevation: 24,
+          shadowColor: '#006A63',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.04,
+          shadowRadius: 12,
         },
         headerStyle: {
-          backgroundColor: COLORS.white,
+          backgroundColor: '#FFFFFF',
+          elevation: 0,
+          shadowOpacity: 0,
         },
         headerTitleStyle: {
-          fontWeight: 'bold',
-          color: COLORS.secondary,
+          fontWeight: '900',
+          fontSize: 18,
+          color: '#1E293B',
+          letterSpacing: -0.5,
         },
       }}
     >
@@ -28,42 +44,42 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Beranda',
-          tabBarIcon: ({ color }) => <Home size={24} color={color} />,
+          tabBarIcon: ({ color }) => <Home size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="service-desk"
         options={{
-          title: 'Pelayanan',
-          tabBarIcon: ({ color }) => <Stethoscope size={24} color={color} />,
+          title: 'Layanan',
+          tabBarIcon: ({ color }) => <Stethoscope size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="data"
         options={{
-          title: 'Data',
-          tabBarIcon: ({ color }) => <ClipboardList size={24} color={color} />,
+          title: 'Warga',
+          tabBarIcon: ({ color }) => <ClipboardList size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="analisis"
         options={{
           title: 'Analisis',
-          tabBarIcon: ({ color }) => <BarChart3 size={24} color={color} />,
+          tabBarIcon: ({ color }) => <BarChart3 size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="laporan"
         options={{
-          title: 'Laporan',
-          tabBarIcon: ({ color }) => <FileText size={24} color={color} />,
+          title: 'Export',
+          tabBarIcon: ({ color }) => <FileText size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Pengaturan',
-          tabBarIcon: ({ color }) => <Settings size={24} color={color} />,
+          title: 'Profil',
+          tabBarIcon: ({ color }) => <Settings size={22} color={color} />,
         }}
       />
     </Tabs>

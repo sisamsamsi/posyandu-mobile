@@ -1,11 +1,15 @@
 // lib/constants.ts
 
 export const COLORS = {
-  primary: '#0d9488', // Teal
-  secondary: '#0f172a', // Slate-900
-  background: '#f8fafc', // Slate-50
+  primary: '#4DB6AC', // Light Teal
+  primaryDark: '#006A63', 
+  secondary: '#64B5F6', // Light Blue
+  secondaryContainer: '#cde5ff',
+  background: '#f8f9fa', 
+  surface: '#ffffff',
+  surfaceDim: '#f3f4f5',
   white: '#ffffff',
-  error: '#ef4444',
+  error: '#ba1a1a',
   warning: '#f97316',
   success: '#22c55e',
   info: '#0ea5e9',

@@ -44,14 +44,17 @@ export default function RiwayatPenimbanganScreen() {
       onPress={() => router.push(`/balita/${item.balita_id}`)}
       activeOpacity={0.7}
     >
-      <Card style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={[styles.avatar, { backgroundColor: '#F0FDFA' }]}>
-            <Baby size={24} color="#0D9488" />
+      <Card style={styles.v2Card}>
+        <View style={styles.v2CardHeader}>
+          <View style={styles.v2Avatar}>
+            <Baby size={22} color="#0D9488" />
           </View>
-          <View style={styles.info}>
-            <Text style={styles.name}>{item.balita?.nama || 'Unknown'}</Text>
-            <Text style={styles.date}>{formatIndoDate(item.tanggal)}</Text>
+          <View style={styles.v2Info}>
+            <Text style={styles.v2Name}>{item.balita?.nama || 'Unknown'}</Text>
+            <View style={styles.v2DateRow}>
+              <Calendar size={12} color="#94A3B8" />
+              <Text style={styles.v2Date}>{formatIndoDate(item.tanggal)}</Text>
+            </View>
           </View>
           <Badge 
             label={item.status_bb_u || 'N/A'} 
@@ -59,18 +62,20 @@ export default function RiwayatPenimbanganScreen() {
           />
         </View>
         
-        <View style={styles.stats}>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>BB</Text>
-            <Text style={styles.statValue}>{item.berat_badan} <Text style={styles.unit}>kg</Text></Text>
+        <View style={styles.v2StatsGrid}>
+          <View style={styles.v2StatItem}>
+            <Text style={styles.v2StatLabel}>BERAT</Text>
+            <Text style={styles.v2StatValue}>{item.berat_badan.toFixed(2)} <Text style={styles.v2Unit}>kg</Text></Text>
           </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>TB</Text>
-            <Text style={styles.statValue}>{item.tinggi_badan} <Text style={styles.unit}>cm</Text></Text>
+          <View style={styles.v2StatDivider} />
+          <View style={styles.v2StatItem}>
+            <Text style={styles.v2StatLabel}>TINGGI</Text>
+            <Text style={styles.v2StatValue}>{item.tinggi_badan.toFixed(2)} <Text style={styles.v2Unit}>cm</Text></Text>
           </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>IMT/U</Text>
-            <Text style={styles.statValue}>{item.zscore_imt_u?.toFixed(2) || '-'}</Text>
+          <View style={styles.v2StatDivider} />
+          <View style={styles.v2StatItem}>
+            <Text style={styles.v2StatLabel}>BB/U</Text>
+            <Text style={styles.v2StatValue}>{item.zscore_bb_u?.toFixed(2) || '-'}</Text>
           </View>
         </View>
       </Card>
@@ -369,5 +374,77 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  // V2 RIWAYAT STYLES
+  v2Card: {
+    marginBottom: 16,
+    padding: 18,
+    borderRadius: 24,
+  },
+  v2CardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  v2Avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: '#F0FDFA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  v2Info: {
+    flex: 1,
+  },
+  v2Name: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  v2DateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  v2Date: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  v2StatsGrid: {
+    flexDirection: 'row',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 12,
+    alignItems: 'center',
+  },
+  v2StatItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  v2StatLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  v2StatValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  v2Unit: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  v2StatDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: '#E2E8F0',
   },
 });

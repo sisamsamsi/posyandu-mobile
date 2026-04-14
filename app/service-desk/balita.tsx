@@ -25,7 +25,8 @@ import {
   Ruler, 
   Brain,
   CheckCircle2,
-  Calendar
+  Calendar,
+  Activity
 } from 'lucide-react-native';
 import { useBalita } from '../../hooks/useBalita';
 import { usePenimbangan } from '../../hooks/usePenimbangan';
@@ -160,6 +161,7 @@ export default function BalitaServiceDesk() {
         berat_badan: parseFloat(berat),
         tinggi_badan: parseFloat(tinggi),
         lingkar_kepala: parseFloat(lica) || null,
+        lingkar_lengan: parseFloat(lila) || null, // FIX: Inclusion of LILA
         zscore_bb_u: bbResult.zscore,
         status_bb_u: bbResult.status,
         zscore_tb_u: tbResult.zscore,
@@ -277,8 +279,8 @@ export default function BalitaServiceDesk() {
                   <Scale size={18} color="#0D9488" />
                   <TextInput 
                     style={styles.input} 
-                    placeholder="Contoh: 8.5" 
-                    keyboardType="numeric"
+                    placeholder="Contoh: 8.50" 
+                    keyboardType="decimal-pad"
                     value={berat}
                     onChangeText={setBerat}
                   />
@@ -291,8 +293,8 @@ export default function BalitaServiceDesk() {
                   <Ruler size={18} color="#0D9488" />
                   <TextInput 
                     style={styles.input} 
-                    placeholder="Contoh: 75.2" 
-                    keyboardType="numeric"
+                    placeholder="Contoh: 75.25" 
+                    keyboardType="decimal-pad"
                     value={tinggi}
                     onChangeText={setTinggi}
                   />
@@ -305,10 +307,24 @@ export default function BalitaServiceDesk() {
                   <Brain size={18} color="#0D9488" />
                   <TextInput 
                     style={styles.input} 
-                    placeholder="Masukkan lingkar kepala..." 
-                    keyboardType="numeric"
+                    placeholder="Contoh: 35.00" 
+                    keyboardType="decimal-pad"
                     value={lica}
                     onChangeText={setLica}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>LiLA (Lingkar Lengan Atas) (cm)</Text>
+                <View style={styles.inputGroup}>
+                  <Activity size={18} color="#0D9488" />
+                  <TextInput 
+                    style={styles.input} 
+                    placeholder="Contoh: 12.55" 
+                    keyboardType="decimal-pad"
+                    value={lila}
+                    onChangeText={setLila}
                   />
                 </View>
               </View>
@@ -377,14 +393,37 @@ export default function BalitaServiceDesk() {
             <Text style={styles.successDesc}>Penimbangan untuk {selectedBalita?.nama} telah dicatat.</Text>
             
             {calculatedResult && (
-              <Card style={styles.resultCard}>
+              <View style={styles.v2ResultContainer}>
                 <Text style={styles.cardResultTitle}>Hasil Analisis Gizi:</Text>
-                <View style={styles.resultRow}>
-                  <ResultItem label="BB/U" status={calculatedResult.bb_u.status} zscore={calculatedResult.bb_u.zscore} />
-                  <ResultItem label="TB/U" status={calculatedResult.tb_u.status} zscore={calculatedResult.tb_u.zscore} />
-                  <ResultItem label="BB/TB" status={calculatedResult.bb_tb.status} zscore={calculatedResult.bb_tb.zscore} />
+                <View style={styles.v2ResultGrid}>
+                  <ResultCardV2 
+                    label="BB/U" 
+                    status={calculatedResult.bb_u.status} 
+                    zscore={calculatedResult.bb_u.zscore} 
+                    indicator="berat"
+                  />
+                  <ResultCardV2 
+                    label="TB/U" 
+                    status={calculatedResult.tb_u.status} 
+                    zscore={calculatedResult.tb_u.zscore} 
+                    indicator="tinggi"
+                  />
+                  <ResultCardV2 
+                    label="BB/TB" 
+                    status={calculatedResult.bb_tb.status} 
+                    zscore={calculatedResult.bb_tb.zscore} 
+                    indicator="proportional"
+                  />
                 </View>
-              </Card>
+                
+                <View style={styles.feedbackBox}>
+                  <Text style={styles.feedbackText}>
+                    {calculatedResult.bb_u.status.includes('Normal') 
+                      ? '✅ Pertumbuhan anak sesuai dengan usianya. Tetap berikan nutrisi seimbang.' 
+                      : '⚠️ Perlu perhatian khusus pada asupan gizi anak. Konsultasikan dengan petugas kesehatan.'}
+                  </Text>
+                </View>
+              </View>
             )}
 
             <TouchableOpacity 
@@ -682,13 +721,94 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#2DD4BF',
     marginTop: 2,
-  }
+  },
+  // V2 SUCCESS STYLES
+  v2ResultContainer: {
+    width: '100%',
+    marginBottom: 24,
+  },
+  v2ResultGrid: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  v2Item: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 110,
+  },
+  v2Label: {
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  v2Status: {
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'center',
+    lineHeight: 16,
+    marginVertical: 4,
+  },
+  v2ZRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  v2ZLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+  },
+  v2ZValue: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  feedbackBox: {
+    backgroundColor: '#F1F5F9',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  feedbackText: {
+    fontSize: 13,
+    color: '#475569',
+    lineHeight: 20,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
 });
 
-const ResultItem = ({ label, status, zscore }: { label: string, status: string, zscore: number }) => (
-  <View style={styles.resultItem}>
-    <Text style={styles.resultLabel}>{label}</Text>
-    <Text style={styles.resultStatus} numberOfLines={2}>{status}</Text>
-    <Text style={styles.resultZ}>Z: {zscore.toFixed(2)}</Text>
-  </View>
-);
+const ResultCardV2 = ({ label, status, zscore, indicator }: { label: string, status: string, zscore: number, indicator: string }) => {
+  const isNormal = status.includes('Normal') || status.includes('Baik');
+  const isWarning = status.includes('Batas') || status.includes('Resiko') || status.includes('Kurang');
+  
+  const getColors = () => {
+    if (isNormal) return { bg: '#F0FDFA', border: '#CCFBF1', text: '#134E4A', z: '#2DD4BF' };
+    if (isWarning) return { bg: '#FFFBEB', border: '#FEF3C7', text: '#92400E', z: '#F59E0B' };
+    return { bg: '#FEF2F2', border: '#FEE2E2', text: '#991B1B', z: '#EF4444' };
+  };
+
+  const colors = getColors();
+
+  return (
+    <View style={[styles.v2Item, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+      <Text style={[styles.v2Label, { color: colors.z }]}>{label}</Text>
+      <Text style={[styles.v2Status, { color: colors.text }]}>{status}</Text>
+      <View style={styles.v2ZRow}>
+        <Text style={[styles.v2ZLabel, { color: colors.z }]}>Z-Score</Text>
+        <Text style={[styles.v2ZValue, { color: colors.text }]}>{zscore.toFixed(2)}</Text>
+      </View>
+    </View>
+  );
+};

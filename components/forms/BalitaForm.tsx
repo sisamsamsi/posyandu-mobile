@@ -7,7 +7,8 @@ import {
   TouchableOpacity, 
   ScrollView, 
   Switch,
-  Platform
+  Platform,
+  KeyboardAvoidingView
 } from 'react-native';
 import { Balita } from '../../lib/types';
 import { format } from 'date-fns';
@@ -51,10 +52,15 @@ export const BalitaForm: React.FC<BalitaFormProps> = ({
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.section}>
-        <Text style={styles.label}>Nama Balita</Text>
-        <TextInput
+    <KeyboardAvoidingView 
+      style={{ flex: 1 }} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 100}
+    >
+      <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+        <View style={styles.section}>
+          <Text style={styles.label}>Nama Balita</Text>
+          <TextInput
           style={styles.input}
           value={formData.nama}
           onChangeText={(val) => handleChange('nama', val)}
@@ -188,6 +194,7 @@ export const BalitaForm: React.FC<BalitaFormProps> = ({
       </TouchableOpacity>
       <View style={{ height: 40 }} />
     </ScrollView>
+  </KeyboardAvoidingView>
   );
 };
 
