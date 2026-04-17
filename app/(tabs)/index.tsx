@@ -40,6 +40,7 @@ import { LansiaHealthBar } from '../../components/ui/LansiaHealthBar';
 import { useServiceStore } from '../../stores/service-store';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+import { WorkspaceSwitcher } from '../../components/ui/WorkspaceSwitcher';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -103,10 +104,13 @@ export default function DashboardScreen() {
           <Text style={styles.greeting}>AYOMI</Text>
           <Text style={styles.subGreeting}>Rawat Tumbuhnya, Jaga Tuanya</Text>
         </View>
-        <TouchableOpacity style={styles.notifBtn} onPress={() => setIsNotifVisible(true)}>
-          <Bell size={22} color="#1E293B" />
-          {(stats?.risikoTinggiBalita || 0) > 0 && <View style={styles.notifDot} />}
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <WorkspaceSwitcher size={24} color="#1E293B" />
+          <TouchableOpacity style={styles.notifBtn} onPress={() => setIsNotifVisible(true)}>
+            <Bell size={22} color="#1E293B" />
+            {(stats?.risikoTinggiBalita || 0) > 0 && <View style={styles.notifDot} />}
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView 
@@ -514,6 +518,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     lineHeight: 22,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
   notifBtn: {
     width: 56,
     height: 56,
@@ -521,7 +531,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F5',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
   },
   notifDot: {
     position: 'absolute',

@@ -57,12 +57,18 @@ export class ReportService {
     const startDate = new Date(year, month - 1, 1);
     const endDate = endOfMonth(startDate);
 
-    // 1. S (Semua) - Active balitas (0-60 months)
-    // We filter by posyandu_id. 
-    const { count: s } = await supabase
+    // 1. S (Semua) - Active balitas (under 60 months at report month)
+    const birthThreshold = subMonths(startDate, 60);
+    const birthThresholdStr = format(birthThreshold, 'yyyy-MM-dd');
+
+    const { count: s, error: sError } = await supabase
       .from('balitas')
       .select('*', { count: 'exact', head: true })
-      .eq('posyandu_id', posyanduId);
+      .eq('posyandu_id', posyanduId)
+      .gt('tanggal_lahir', birthThresholdStr);
+
+    if (sError) console.error('SKDN Error (S):', sError);
+    console.log(`[ReportService] Total S for ${posyanduId}: ${s}`);
 
     // 2. K (KMS) - Assume all have KMS
     const k = s || 0;
@@ -70,19 +76,21 @@ export class ReportService {
     const startStr = startOfMonth(startDate).toISOString();
     const endStr = endOfMonth(startDate).toISOString();
 
-    // 3. D (Datang) - Unique balitas who visited this month in this posyandu
+    // 3. D (Datang) - Unique balitas who visited this month (under 60 months)
     const { data: dData, error: dError } = await supabase
       .from('penimbangans')
       .select(`
         balita_id, 
         berat_badan,
-        balitas!inner(posyandu_id)
+        balita:balitas!inner(posyandu_id, tanggal_lahir)
       `)
-      .eq('balitas.posyandu_id', posyanduId)
+      .eq('balita.posyandu_id', posyanduId)
+      .gt('balita.tanggal_lahir', birthThresholdStr)
       .gte('tanggal', startStr)
       .lte('tanggal', endStr);
     
-    if (dError) console.error('SKDN Error:', dError);
+    if (dError) console.error('SKDN Error (D):', dError);
+    console.log(`[ReportService] Total D (Visits) for ${posyanduId}: ${dData?.length || 0}`);
     const filteredD = dData || [];
     const d = filteredD.length;
 
@@ -115,6 +123,7 @@ export class ReportService {
    */
   static async getProblematicGroups(posyanduId: string, month: number, year: number): Promise<ProblematicBalita[]> {
     const startDate = new Date(year, month - 1, 1);
+    const birthThresholdStr = format(subMonths(startDate, 60), 'yyyy-MM-dd');
     const endDate = endOfMonth(startDate);
 
     // Fetch penimbangans for the month with balita info
@@ -127,9 +136,10 @@ export class ReportService {
         status_tb_u,
         status_bb_tb,
         berat_badan,
-        balitas!inner(nama, nik, posyandu_id)
+        balita:balitas!inner(nama, nik, posyandu_id, tanggal_lahir)
       `)
-      .eq('balitas.posyandu_id', posyanduId)
+      .eq('balita.posyandu_id', posyanduId)
+      .gt('balita.tanggal_lahir', birthThresholdStr)
       .gte('tanggal', startOfMonth(startDate).toISOString())
       .lte('tanggal', endOfMonth(startDate).toISOString());
 
@@ -141,9 +151,8 @@ export class ReportService {
 
     for (const v of visits) {
       const issues: string[] = [];
-      const bData = Array.isArray(v.balitas) ? v.balitas[0] : v.balitas;
-      if (!bData) continue;
-      const balita = bData as any;
+      const balita = v.balita as any;
+      if (!balita) continue;
 
       // 1. Check Stunting (TB/U)
       if (v.status_tb_u?.includes('Pendek')) {
@@ -229,6 +238,7 @@ export class ReportService {
    */
   static async getMonthlyWeighingList(posyanduId: string, month: number, year: number): Promise<WeighingItem[]> {
     const startDate = new Date(year, month - 1, 1);
+    const birthThresholdStr = format(subMonths(startDate, 60), 'yyyy-MM-dd');
     const endDate = endOfMonth(startDate);
 
     const { data: visits, error: wError } = await supabase
@@ -236,9 +246,10 @@ export class ReportService {
       .select(`
         berat_badan,
         tinggi_badan,
-        balitas!inner(nama, tanggal_lahir, jenis_kelamin, nama_ortu, rt, posyandu_id)
+        balita:balitas!inner(nama, tanggal_lahir, jenis_kelamin, nama_ortu, rt, posyandu_id)
       `)
-      .eq('balitas.posyandu_id', posyanduId)
+      .eq('balita.posyandu_id', posyanduId)
+      .gt('balita.tanggal_lahir', birthThresholdStr)
       .gte('tanggal', startOfMonth(startDate).toISOString())
       .lte('tanggal', endOfMonth(startDate).toISOString())
       .order('tanggal', { ascending: true });
@@ -248,7 +259,7 @@ export class ReportService {
     if (!visits) return [];
 
     return visits.map(v => {
-      const b = (Array.isArray(v.balitas) ? v.balitas[0] : v.balitas) as any;
+      const b = v.balita as any;
       if (!b) return null;
       const ageMonths = (year - new Date(b.tanggal_lahir).getFullYear()) * 12 + (month - 1 - new Date(b.tanggal_lahir).getMonth());
       return {
@@ -290,7 +301,8 @@ export class ReportService {
 
     const { data: checks, error: lError } = await supabase
       .from('pemeriksaan_lansias')
-      .select('*, lansias(*)')
+      .select('*, lansia:lansias!inner(*)')
+      .eq('lansia.posyandu_id', posyanduId)
       .gte('tanggal_periksa', startOfMonth(startDate).toISOString())
       .lte('tanggal_periksa', endOfMonth(startDate).toISOString())
       .order('tanggal_periksa', { ascending: true });
@@ -300,9 +312,7 @@ export class ReportService {
     if (!checks) return [];
 
     return checks.map(c => {
-      // Find lansia from either relation name and extract object
-      const relation = c.lansia || c.lansias;
-      const l = Array.isArray(relation) ? relation[0] : relation;
+      const l = c.lansia as any;
       if (!l || !l.nama) return null;
       
       const age = year - new Date(l.tanggal_lahir).getFullYear();

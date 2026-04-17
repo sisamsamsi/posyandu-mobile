@@ -14,6 +14,7 @@ import { DistributionChart } from '../../components/charts/DistributionChart';
 import { AnalysisService, BalitaAnalysis, LansiaAnalysis, TrendPoint } from '../../services/analysis-service';
 import { LineChart } from 'react-native-chart-kit';
 import { useServiceStore } from '../../stores/service-store';
+import { WorkspaceSwitcher } from '../../components/ui/WorkspaceSwitcher';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -236,6 +237,7 @@ export default function AnalysisTabScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Analisis Agregat</Text>
+        <WorkspaceSwitcher size={24} color="#1E293B" />
       </View>
 
       <FilterBar 
@@ -347,6 +349,9 @@ const styles = StyleSheet.create({
   header: {
     padding: 20,
     backgroundColor: '#FFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   headerTitle: { fontSize: 22, fontWeight: '900', color: '#1E293B', letterSpacing: -0.5 },
   tabBar: {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -26,7 +26,9 @@ import * as Sharing from 'expo-sharing';
 import { File, Paths } from 'expo-file-system';
 import { ReportService } from '../../services/report-service';
 import { generateMonthlyReportHtml, generateLansiaReportHtml } from '../../services/pdf-template';
+import { supabase } from '../../lib/supabase';
 import { Card } from '../../components/ui/Card';
+import { useServiceStore } from '../../stores/service-store';
 import { usePosyandu } from '../../hooks/usePosyandu';
 import { format } from 'date-fns';
 
@@ -42,13 +44,42 @@ export default function ReportsScreen() {
   const themeColor = isLansia ? '#6366F1' : '#0D9488';
   const themeBg = isLansia ? '#EEF2FF' : '#F0FDFA';
   
-  const { posyandu: activePosyandu } = usePosyandu();
+  const { activePosyanduId } = useServiceStore();
+  const { posyandu: firstPosyandu } = usePosyandu();
+  const [activePosyandu, setActivePosyandu] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [fetchingPosyandu, setFetchingPosyandu] = useState(true);
   
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [showPicker, setShowPicker] = useState(false);
+
+  useEffect(() => {
+    const getPosyanduInfo = async () => {
+      if (!activePosyanduId) {
+        setActivePosyandu(firstPosyandu);
+        setFetchingPosyandu(false);
+        return;
+      }
+      
+      try {
+        const { data } = await supabase
+          .from('posyandus')
+          .select('*')
+          .eq('id', activePosyanduId)
+          .single();
+        if (data) setActivePosyandu(data);
+        else setActivePosyandu(firstPosyandu);
+      } catch (e) {
+        setActivePosyandu(firstPosyandu);
+      } finally {
+        setFetchingPosyandu(false);
+      }
+    };
+    
+    getPosyanduInfo();
+  }, [activePosyanduId, firstPosyandu]);
 
   const handleGenerateReport = async () => {
     if (!activePosyandu) return;

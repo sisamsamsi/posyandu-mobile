@@ -12,29 +12,37 @@ import {
 } from 'lucide-react-native';
 import { Card } from '../../components/ui/Card';
 import { COLORS } from '../../lib/constants';
+import { useServiceStore } from '../../stores/service-store';
+import { WorkspaceSwitcher } from '../../components/ui/WorkspaceSwitcher';
 
 export default function LaporanTabScreen() {
   const router = useRouter();
+  const { activeWorkspace } = useServiceStore();
 
-  const reportItems = [
+  const allReportItems = [
     {
       title: 'Laporan Bulanan Balita',
       desc: 'SKDN, Prioritas Masalah Gizi & Daftar Penimbangan',
       icon: <FileText size={20} color="#0D9488" />,
-      route: '/admin/reports?type=balita'
+      route: '/admin/reports?type=balita',
+      ws: 'balita'
     },
     {
       title: 'Laporan Bulanan Lansia',
       desc: 'Pemeriksaan Fisik, Vital & Hasil Laboratorium',
       icon: <FileText size={20} color="#6366F1" />,
-      route: '/admin/reports?type=lansia'
+      route: '/admin/reports?type=lansia',
+      ws: 'lansia'
     }
   ];
+
+  const reportItems = allReportItems.filter(item => item.ws === activeWorkspace);
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Pusat Laporan</Text>
+        <WorkspaceSwitcher size={24} color="#1E293B" />
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -83,6 +91,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   headerTitle: { fontSize: 20, fontWeight: '800', color: '#1E293B' },
   content: { padding: 20 },

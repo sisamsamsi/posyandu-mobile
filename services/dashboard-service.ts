@@ -44,14 +44,14 @@ export class DashboardService {
       { data: balitaIdsWithVisit },
       { data: lansiaIdsWithVisit },
     ] = await Promise.all([
-      supabase.from('balitas').select('*', { count: 'exact', head: true }),
-      supabase.from('lansias').select('*', { count: 'exact', head: true }),
-      supabase.from('penimbangans').select('*', { count: 'exact', head: true }).gte('tanggal', startDate).lte('tanggal', endDate),
-      supabase.from('pemeriksaan_lansias').select('*', { count: 'exact', head: true }).gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate),
-      supabase.from('penimbangans').select('status_bb_u, status_tb_u, status_bb_tb').gte('tanggal', startDate).lte('tanggal', endDate),
-      supabase.from('pemeriksaan_lansias').select('tekanan_darah, gula_darah, kolesterol, asam_urat').gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate),
-      supabase.from('penimbangans').select('balita_id').gte('tanggal', startDate).lte('tanggal', endDate),
-      supabase.from('pemeriksaan_lansias').select('lansia_id').gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate),
+      supabase.from('balitas').select('*', { count: 'exact', head: true }).eq('posyandu_id', posyanduId || ''),
+      supabase.from('lansias').select('*', { count: 'exact', head: true }).eq('posyandu_id', posyanduId || ''),
+      supabase.from('penimbangans').select('*, balita:balitas!inner(posyandu_id)', { count: 'exact', head: true }).eq('balita.posyandu_id', posyanduId || '').gte('tanggal', startDate).lte('tanggal', endDate),
+      supabase.from('pemeriksaan_lansias').select('*, lansia:lansias!inner(posyandu_id)', { count: 'exact', head: true }).eq('lansia.posyandu_id', posyanduId || '').gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate),
+      supabase.from('penimbangans').select('status_bb_u, status_tb_u, status_bb_tb, balita:balitas!inner(posyandu_id)').eq('balita.posyandu_id', posyanduId || '').gte('tanggal', startDate).lte('tanggal', endDate),
+      supabase.from('pemeriksaan_lansias').select('tekanan_darah, gula_darah, kolesterol, asam_urat, lansia:lansias!inner(posyandu_id)').eq('lansia.posyandu_id', posyanduId || '').gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate),
+      supabase.from('penimbangans').select('balita_id, balita:balitas!inner(posyandu_id)').eq('balita.posyandu_id', posyanduId || '').gte('tanggal', startDate).lte('tanggal', endDate),
+      supabase.from('pemeriksaan_lansias').select('lansia_id, lansia:lansias!inner(posyandu_id)').eq('lansia.posyandu_id', posyanduId || '').gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate),
     ]);
 
     // Aggregate nutrition stats

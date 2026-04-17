@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { Baby, Users, Settings, ChevronRight, Calendar, ClipboardList } from 'lucide-react-native';
 import { useServiceStore } from '../../stores/service-store';
 import { COLORS } from '../../lib/constants';
+import { WorkspaceSwitcher } from '../../components/ui/WorkspaceSwitcher';
 
 export default function DataMasterScreen() {
   const router = useRouter();
@@ -74,10 +75,15 @@ export default function DataMasterScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Data Master</Text>
-        <Text style={styles.subtitle}>
-          Kelola informasi dan riwayat layanan untuk {activeWorkspace === 'balita' ? 'Balita' : 'Lansia'}
-        </Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>Data Master</Text>
+          <Text style={styles.subtitle}>
+            Kelola informasi dan riwayat layanan untuk {activeWorkspace === 'balita' ? 'Balita' : 'Lansia'}
+          </Text>
+        </View>
+        <View style={styles.headerRight}>
+          <WorkspaceSwitcher color="#1E293B" size={24} />
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -114,6 +120,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 24,
     paddingBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  headerRight: {
+    marginTop: 8,
   },
   title: {
     fontSize: 32,

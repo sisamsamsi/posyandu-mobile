@@ -27,6 +27,7 @@ import { Posyandu } from '../../lib/types';
 import { formatDistanceToNow } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { COLORS } from '../../lib/constants';
+import { WorkspaceSwitcher } from '../../components/ui/WorkspaceSwitcher';
 
 export default function ServiceDeskScreen() {
   const router = useRouter();
@@ -66,10 +67,13 @@ export default function ServiceDeskScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Layanan Terpadu</Text>
-        <Text style={styles.headerSubtitle}>
-          Modul Pemeriksaan {activeWorkspace === 'balita' ? 'Balita' : 'Lansia'}
-        </Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle}>Layanan Terpadu</Text>
+          <Text style={styles.headerSubtitle}>
+            Modul Pemeriksaan {activeWorkspace === 'balita' ? 'Balita' : 'Lansia'}
+          </Text>
+        </View>
+        <WorkspaceSwitcher size={28} color="#191C1D" />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -205,6 +209,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 24,
     paddingBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   headerTitle: {
     fontSize: 32,

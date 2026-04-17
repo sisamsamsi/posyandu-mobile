@@ -18,6 +18,7 @@ import { Balita } from '../../lib/types';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { calculateAgeMonths, getIndoMonthName } from '../../lib/utils';
+import { WorkspaceSwitcher } from '../../components/ui/WorkspaceSwitcher';
 
 export default function MonitoringBalitaScreen() {
   const router = useRouter();
@@ -116,9 +117,12 @@ export default function MonitoringBalitaScreen() {
           <ArrowLeft size={24} color="#1E293B" />
         </TouchableOpacity>
         <Text style={styles.title}>Monitoring Balita</Text>
-        <TouchableOpacity onPress={fetchData} style={styles.filterButton}>
-          <Calendar size={20} color="#0D9488" />
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <WorkspaceSwitcher size={22} color="#0D9488" />
+          <TouchableOpacity onPress={fetchData} style={styles.calendarButton}>
+            <Calendar size={20} color="#1E293B" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.searchBarContainer}>
@@ -140,7 +144,7 @@ export default function MonitoringBalitaScreen() {
         <StatItem label="Lulus" count={stats.lulus} color="#06B6D4" />
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipContainer} contentContainerStyle={styles.chipContent}>
+      <View style={styles.filterContainer}>
         {(['Semua', 'Sudah', 'Belum', 'Lulus'] as const).map((f) => (
           <TouchableOpacity 
             key={f} 
@@ -150,7 +154,7 @@ export default function MonitoringBalitaScreen() {
             <Text style={[styles.chipText, activeFilter === f && styles.chipTextActive]}>{f}</Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
+      </View>
 
       <View style={styles.monthHeader}>
         <Text style={styles.monthTitle}>Status Kehadiran: {getIndoMonthName(selectedMonth)} {selectedYear}</Text>
@@ -205,8 +209,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1E293B',
   },
-  filterButton: {
+  calendarButton: {
     padding: 4,
+    marginLeft: 12,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   searchBarContainer: {
     paddingHorizontal: 20,
@@ -247,37 +256,30 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 2,
   },
-  chipContainer: {
+  filterContainer: {
+    flexDirection: 'row',
     backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
     paddingVertical: 12,
-  },
-  chipContent: {
-    paddingHorizontal: 20,
     gap: 8,
   },
   chip: {
-    paddingHorizontal: 18,
+    flex: 1,
     paddingVertical: 10,
-    borderRadius: 25,
+    borderRadius: 14,
     backgroundColor: '#F1F5F9',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 80,
   },
   chipActive: {
     backgroundColor: '#0D9488',
     borderColor: '#0D9488',
-    elevation: 2,
-    shadowColor: '#0D9488',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
   },
   chipText: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
     color: '#64748B',
     textAlign: 'center',
   },
