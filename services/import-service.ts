@@ -1,11 +1,8 @@
 import * as XLSX from 'xlsx';
-import * as FileSystem from 'expo-file-system';
+// Menggunakan sub-module legacy sesuai rekomendasi Expo SDK 52 untuk API fungsional
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { supabase } from '../lib/supabase';
-import { Balita, Lansia } from '../lib/types';
-
-// Bypass missing type definitions for some expo-file-system versions
-const { cacheDirectory, readAsStringAsync, writeAsStringAsync, EncodingType } = FileSystem as any;
 
 export class ImportService {
   /**
@@ -13,7 +10,8 @@ export class ImportService {
    */
   static async parseExcel(fileUri: string): Promise<any[]> {
     try {
-      const base64 = await readAsStringAsync(fileUri, {
+      // Menggunakan API fungsional dari module legacy
+      const base64 = await FileSystem.readAsStringAsync(fileUri, {
         encoding: 'base64',
       });
 
@@ -33,18 +31,39 @@ export class ImportService {
    */
   static async downloadTemplate(type: 'balita' | 'lansia') {
     try {
+      // Data template yang sudah disesuaikan dengan field tabel database (lib/types.ts)
       const data = type === 'balita' ? [
         {
           nik: '1234567890123456',
           nama: 'Ananda Bagus',
+          tempat_lahir: 'Bantul',
           tanggal_lahir: '2023-01-01',
           jenis_kelamin: 'Laki-laki',
           nama_ortu: 'Siti Aminah',
+          nama_ibu: 'Siti Aminah',
+          nama_ayah: 'Ahmad Muzaki',
+          no_hp_ortu: '6281234567890',
           alamat: 'Jl. Merdeka No. 10',
           rt: 1,
           bb_lahir: 3.2,
           tb_lahir: 50,
           anak_ke: 1
+        },
+        {
+          nik: '1234567890123457',
+          nama: 'Citra Lestari',
+          tempat_lahir: 'Yogyakarta',
+          tanggal_lahir: '2023-05-20',
+          jenis_kelamin: 'Perempuan',
+          nama_ortu: 'Budi Santoso',
+          nama_ibu: 'Lestari',
+          nama_ayah: 'Budi Santoso',
+          no_hp_ortu: '6289876543210',
+          alamat: 'Jl. Mawar No. 5',
+          rt: 2,
+          bb_lahir: 2.8,
+          tb_lahir: 48,
+          anak_ke: 2
         }
       ] : [
         {
@@ -54,7 +73,16 @@ export class ImportService {
           jenis_kelamin: 'Laki-laki',
           alamat: 'Jl. Mawar No. 5',
           rt: 2,
-          penyakit_bawaan: 'Hipertensi'
+          penyakit_bawaan: 'Hipertensi, Diabetes'
+        },
+        {
+          nik: '1234567890123458',
+          nama: 'Ibu Sumarni',
+          tanggal_lahir: '1955-10-10',
+          jenis_kelamin: 'Perempuan',
+          alamat: 'Jl. Melati No. 12',
+          rt: 1,
+          penyakit_bawaan: 'Asam Urat'
         }
       ];
 
@@ -64,16 +92,18 @@ export class ImportService {
       
       const wbout = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
       const filename = `template_${type}_${Date.now()}.xlsx`;
-      const uri = (cacheDirectory || '') + filename;
       
-      await writeAsStringAsync(uri, wbout, {
-        encoding: EncodingType.Base64,
+      const baseDir = FileSystem.cacheDirectory || '';
+      const uri = baseDir.endsWith('/') ? `${baseDir}${filename}` : `${baseDir}/${filename}`;
+      
+      await FileSystem.writeAsStringAsync(uri, wbout, {
+        encoding: 'base64',
       });
 
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, {
           mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          dialogTitle: `Unduh Template ${type}`,
+          dialogTitle: `Unduh Template ${type.toUpperCase()}`,
           UTI: 'com.microsoft.excel.xlsx'
         });
       } else {
@@ -115,11 +145,15 @@ export class ImportService {
         }
 
         // 3. Prepare payload
-        const payload: any = { ...item, posyandu_id: posyanduId };
+        const payload: any = { 
+            ...item, 
+            posyandu_id: posyanduId,
+            nik: String(item.nik)
+        };
         
         // Handle special fields
         if (type === 'lansia' && item.penyakit_bawaan) {
-            payload.penyakit_bawaan = String(item.penyakit_bawaan).split(',').map(s => s.trim());
+            payload.penyakit_bawaan = String(item.penyakit_bawaan).split(',').map(s => s.trim()).filter(s => s !== '');
         }
 
         const { error } = await supabase.from(table).insert(payload);
