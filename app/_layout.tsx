@@ -18,15 +18,8 @@ function RootLayoutNav() {
   }, []);
 
   const ensureActivePosyandu = async () => {
-    const { activePosyanduId, setActivePosyandu } = useServiceStore.getState();
-    if (!activePosyanduId) {
-      console.log('Ensuring active Posyandu for Guest Mode...');
-      const { data } = await supabase.from('posyandus').select('id').limit(1).single();
-      if (data) {
-        setActivePosyandu(data.id);
-        console.log('Auto-selected Posyandu ID:', data.id);
-      }
-    }
+    // We removed the auto-pick logic to force the user to pick a 
+    // specific Posyandu in the selection screen.
   };
 
   useEffect(() => {

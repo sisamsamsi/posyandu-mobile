@@ -1,7 +1,7 @@
 // services/dashboard-service.ts
 import { supabase } from '../lib/supabase';
 import { Posyandu } from '../lib/types';
-import { startOfMonth, endOfMonth } from 'date-fns';
+import { startOfMonth, endOfMonth, format } from 'date-fns';
 
 export interface LansiaHealthBreakdown {
   hipertensi: number;
@@ -29,10 +29,8 @@ export interface DashboardStats {
 export class DashboardService {
   static async getStats(posyanduId?: string | null): Promise<DashboardStats> {
     const now = new Date();
-    const start = startOfMonth(now).toISOString();
-    const end = endOfMonth(now).toISOString();
-    const startDate = startOfMonth(now).toISOString().split('T')[0];
-    const endDate = endOfMonth(now).toISOString().split('T')[0];
+    const startDate = format(startOfMonth(now), 'yyyy-MM-dd');
+    const endDate = format(endOfMonth(now), 'yyyy-MM-dd');
 
     const [
       { count: totalBalita },

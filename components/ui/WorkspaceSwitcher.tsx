@@ -13,7 +13,7 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
   color = '#1E293B', 
   size = 22 
 }) => {
-  const { setActiveWorkspace, activeWorkspace } = useServiceStore();
+  const { setActiveWorkspace, setActivePosyandu, activeWorkspace } = useServiceStore();
 
   const handlePress = () => {
     Alert.alert(
@@ -25,6 +25,7 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
           text: 'Ya, Ganti', 
           onPress: () => {
             setActiveWorkspace(null);
+            setActivePosyandu(null);
           } 
         },
       ]

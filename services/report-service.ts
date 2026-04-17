@@ -73,8 +73,8 @@ export class ReportService {
     // 2. K (KMS) - Assume all have KMS
     const k = s || 0;
 
-    const startStr = startOfMonth(startDate).toISOString();
-    const endStr = endOfMonth(startDate).toISOString();
+    const startStr = format(startOfMonth(startDate), 'yyyy-MM-dd');
+    const endStr = format(endOfMonth(startDate), 'yyyy-MM-dd');
 
     // 3. D (Datang) - Unique balitas who visited this month (under 60 months)
     const { data: dData, error: dError } = await supabase
@@ -140,8 +140,8 @@ export class ReportService {
       `)
       .eq('balita.posyandu_id', posyanduId)
       .gt('balita.tanggal_lahir', birthThresholdStr)
-      .gte('tanggal', startOfMonth(startDate).toISOString())
-      .lte('tanggal', endOfMonth(startDate).toISOString());
+      .gte('tanggal', format(startOfMonth(startDate), 'yyyy-MM-dd'))
+      .lte('tanggal', format(endOfMonth(startDate), 'yyyy-MM-dd'));
 
     if (vError) console.error('ProblematicGroups Error:', vError);
 
@@ -250,8 +250,8 @@ export class ReportService {
       `)
       .eq('balita.posyandu_id', posyanduId)
       .gt('balita.tanggal_lahir', birthThresholdStr)
-      .gte('tanggal', startOfMonth(startDate).toISOString())
-      .lte('tanggal', endOfMonth(startDate).toISOString())
+      .gte('tanggal', format(startOfMonth(startDate), 'yyyy-MM-dd'))
+      .lte('tanggal', format(endOfMonth(startDate), 'yyyy-MM-dd'))
       .order('tanggal', { ascending: true });
 
     if (wError) console.error('WeighingList Error:', wError);
@@ -302,9 +302,9 @@ export class ReportService {
     const { data: checks, error: lError } = await supabase
       .from('pemeriksaan_lansias')
       .select('*, lansia:lansias!inner(*)')
-      .eq('lansia.posyandu_id', posyanduId)
-      .gte('tanggal_periksa', startOfMonth(startDate).toISOString())
-      .lte('tanggal_periksa', endOfMonth(startDate).toISOString())
+      .or(`posyandu_id.eq.${posyanduId},posyandu_id.is.null`, { foreignTable: 'lansia' })
+      .gte('tanggal_periksa', format(startOfMonth(startDate), 'yyyy-MM-dd'))
+      .lte('tanggal_periksa', format(endOfMonth(startDate), 'yyyy-MM-dd'))
       .order('tanggal_periksa', { ascending: true });
 
     if (lError) console.error('Lansia Report Error:', lError);
