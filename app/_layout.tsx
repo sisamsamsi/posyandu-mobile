@@ -22,10 +22,11 @@ function RootLayoutNav() {
     // specific Posyandu in the selection screen.
   };
 
+  const { activeWorkspace } = useServiceStore();
+
   useEffect(() => {
     if (!initialized) return;
 
-    const { activeWorkspace } = useServiceStore.getState();
     const isLoginScreen = segments[0] === 'login';
     const isSelectWorkspaceScreen = segments[0] === 'select-workspace';
 
@@ -42,7 +43,8 @@ function RootLayoutNav() {
         router.replace('/(tabs)');
       }
     }
-  }, [session, initialized, segments]);
+  }, [session, initialized, segments, activeWorkspace]);
+
 
   if (!initialized) {
     return (

@@ -4,10 +4,12 @@ import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { LansiaForm } from '../../components/forms/LansiaForm';
 import { useLansia } from '../../hooks/useLansia';
+import { useServiceStore } from '../../stores/service-store';
 
 export default function CreateLansia() {
   const router = useRouter();
   const { upsertLansia, loading } = useLansia();
+  const { activePosyanduId } = useServiceStore();
 
   const handleSubmit = async (data: any) => {
     try {
@@ -16,7 +18,9 @@ export default function CreateLansia() {
         return;
       }
 
-      await upsertLansia(data);
+      // Inject posyandu_id dari store agar lansia ter-link ke posyandu yang aktif
+      const dataWithPosyandu = { ...data, posyandu_id: activePosyanduId };
+      await upsertLansia(dataWithPosyandu);
       Alert.alert('Sukses', 'Data Lansia berhasil disimpan', [
         { text: 'OK', onPress: () => router.back() }
       ]);

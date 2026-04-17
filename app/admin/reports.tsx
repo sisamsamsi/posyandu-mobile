@@ -135,7 +135,7 @@ export default function ReportsScreen() {
       
       // Move (rename) and share
       sourceFile.move(destinationFile);
-      const finalUri = sourceFile.uri;
+      const finalUri = destinationFile.uri; // ✅ Ambil URI dari file tujuan, bukan sumber yang sudah dipindahkan
       
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(finalUri, { UTI: '.pdf', mimeType: 'application/pdf' });

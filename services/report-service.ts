@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabaseAdmin } from '../lib/supabase';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 
 export interface SKDNStats {
@@ -61,7 +61,7 @@ export class ReportService {
     const birthThreshold = subMonths(startDate, 60);
     const birthThresholdStr = format(birthThreshold, 'yyyy-MM-dd');
 
-    const { count: s, error: sError } = await supabase
+    const { count: s, error: sError } = await supabaseAdmin
       .from('balitas')
       .select('*', { count: 'exact', head: true })
       .eq('posyandu_id', posyanduId)
@@ -77,7 +77,7 @@ export class ReportService {
     const endStr = format(endOfMonth(startDate), 'yyyy-MM-dd');
 
     // 3. D (Datang) - Unique balitas who visited this month (under 60 months)
-    const { data: dData, error: dError } = await supabase
+    const { data: dData, error: dError } = await supabaseAdmin
       .from('penimbangans')
       .select(`
         balita_id, 
@@ -100,7 +100,7 @@ export class ReportService {
     const prevMonthEnd = endOfMonth(subMonths(startDate, 1)).toISOString();
 
     for (const p of filteredD) {
-      const { data: prevVisit } = await supabase
+      const { data: prevVisit } = await supabaseAdmin
         .from('penimbangans')
         .select('berat_badan')
         .eq('balita_id', p.balita_id)
@@ -127,7 +127,7 @@ export class ReportService {
     const endDate = endOfMonth(startDate);
 
     // Fetch penimbangans for the month with balita info
-    const { data: visits, error: vError } = await supabase
+    const { data: visits, error: vError } = await supabaseAdmin
       .from('penimbangans')
       .select(`
         id,
@@ -170,7 +170,7 @@ export class ReportService {
       }
 
       // 4. Check 2T (Tidak Naik 2x berturut-turut)
-      const { data: history } = await supabase
+      const { data: history } = await supabaseAdmin
         .from('penimbangans')
         .select('berat_badan, tanggal')
         .eq('balita_id', v.balita_id)
@@ -241,7 +241,7 @@ export class ReportService {
     const birthThresholdStr = format(subMonths(startDate, 60), 'yyyy-MM-dd');
     const endDate = endOfMonth(startDate);
 
-    const { data: visits, error: wError } = await supabase
+    const { data: visits, error: wError } = await supabaseAdmin
       .from('penimbangans')
       .select(`
         berat_badan,
@@ -293,30 +293,65 @@ export class ReportService {
   }
 
   /**
-   * Get Lansia report data
+   * Get Lansia report data — Two-step query untuk keandalan maksimal.
+   * Step 1: Ambil semua lansias yang terdaftar di posyandu ini.
+   * Step 2: Ambil pemeriksaan_lansias menggunakan ID yang ditemukan.
    */
   static async getLansiaReportData(posyanduId: string, month: number, year: number): Promise<LansiaReportItem[]> {
     const startDate = new Date(year, month - 1, 1);
-    const endDate = endOfMonth(startDate);
+    const startStr = format(startOfMonth(startDate), 'yyyy-MM-dd');
+    const endStr = format(endOfMonth(startDate), 'yyyy-MM-dd');
 
-    const { data: checks, error: lError } = await supabase
+    // ── STEP 1: Ambil lansias milik posyandu ini ─────────────────────────────
+    // Strategi: coba filter posyandu_id dulu.
+    // Jika 0 hasil (data lama mungkin punya posyandu_id NULL), fallback ke semua lansias.
+    let { data: lansias, error: lansiaError } = await supabaseAdmin
+      .from('lansias')
+      .select('id, nama, tanggal_lahir, rt, posyandu_id')
+      .eq('posyandu_id', posyanduId);
+
+    if (lansiaError) console.error('[LansiaReport] Step1 Error:', lansiaError);
+    console.log(`[LansiaReport] Step1 (with posyandu_id) → ${lansias?.length ?? 0} lansias ditemukan`);
+
+    // Fallback: jika posyandu_id tidak ter-link di data lama, ambil semua lansias
+    if (!lansias || lansias.length === 0) {
+      console.warn('[LansiaReport] Fallback: posyandu_id tidak ter-link. Mengambil semua lansias...');
+      const { data: allLansias, error: allError } = await supabaseAdmin
+        .from('lansias')
+        .select('id, nama, tanggal_lahir, rt, posyandu_id');
+
+      if (allError) console.error('[LansiaReport] Fallback Error:', allError);
+      console.log(`[LansiaReport] Fallback → ${allLansias?.length ?? 0} lansias total`);
+
+      lansias = allLansias;
+    }
+
+    if (!lansias || lansias.length === 0) return [];
+
+    const lansiaIds = lansias.map(l => l.id);
+    // Buat lookup map untuk akses cepat
+    const lansiaMap = new Map(lansias.map(l => [l.id, l]));
+
+    // ── STEP 2: Ambil pemeriksaan_lansias berdasarkan ID yang ditemukan ──────
+    const { data: checks, error: checkError } = await supabaseAdmin
       .from('pemeriksaan_lansias')
-      .select('*, lansia:lansias!inner(*)')
-      .or(`posyandu_id.eq.${posyanduId},posyandu_id.is.null`, { foreignTable: 'lansia' })
-      .gte('tanggal_periksa', format(startOfMonth(startDate), 'yyyy-MM-dd'))
-      .lte('tanggal_periksa', format(endOfMonth(startDate), 'yyyy-MM-dd'))
+      .select('*')
+      .in('lansia_id', lansiaIds)
+      .gte('tanggal_periksa', startStr)
+      .lte('tanggal_periksa', endStr)
       .order('tanggal_periksa', { ascending: true });
 
-    if (lError) console.error('Lansia Report Error:', lError);
+    if (checkError) console.error('[LansiaReport] Step2 Error:', checkError);
+    console.log(`[LansiaReport] Step2 — period=${month}/${year} (${startStr} s/d ${endStr}) → ${checks?.length ?? 0} pemeriksaan ditemukan`);
 
-    if (!checks) return [];
+    if (!checks || checks.length === 0) return [];
 
     return checks.map(c => {
-      const l = c.lansia as any;
+      const l = lansiaMap.get(c.lansia_id) as any;
       if (!l || !l.nama) return null;
-      
+
       const age = year - new Date(l.tanggal_lahir).getFullYear();
-      
+
       const bmi = (c.berat_badan && c.tinggi_badan) ? c.berat_badan / Math.pow(c.tinggi_badan / 100, 2) : null;
       let statusBmi = '-';
       if (bmi) {
