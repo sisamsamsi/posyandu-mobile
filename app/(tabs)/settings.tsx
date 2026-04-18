@@ -42,7 +42,6 @@ type SectionKey = 'profil' | 'jadwal' | 'info';
 export default function SettingsScreen() {
   const { signOut } = useAuthStore();
   const { activePosyanduId, setActiveWorkspace } = useServiceStore();
-  const { posyandu: defaultPosyandu, getAllPosyandus } = usePosyandu();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -72,7 +71,7 @@ export default function SettingsScreen() {
     jadwal_lansia_jam: '08:00',
   });
 
-  const posyanduId = activePosyanduId || defaultPosyandu?.id;
+  const posyanduId = activePosyanduId;
 
   const loadSettings = useCallback(async () => {
     if (!posyanduId) {
@@ -419,7 +418,19 @@ export default function SettingsScreen() {
                 <Text style={styles.infoValue}>Rawat Tumbuhnya, Jaga Tuanya</Text>
               </View>
 
-              <View style={styles.waFormatCard}>
+              {posyandu?.invite_code && (
+                <View style={styles.waFormatCard}>
+                  <Text style={[styles.waFormatTitle, { color: '#4338CA' }]}>🤝 Kode Undangan (Invite Code)</Text>
+                  <Text style={[styles.waFormatText, { color: '#3730A3' }]}>
+                    Bagikan kode ini kepada kader lain agar mereka bisa bergabung ke Posyandu Anda secara mandiri di halaman awal.
+                  </Text>
+                  <View style={styles.waFormatExample}>
+                    <Text style={[styles.waFormatCode, { fontSize: 24, letterSpacing: 3, fontWeight: '900', color: '#312E81' }]}>{posyandu.invite_code}</Text>
+                  </View>
+                </View>
+              )}
+
+              <View style={[styles.waFormatCard, !posyandu?.invite_code && { marginTop: 16 }]}>
                 <Text style={styles.waFormatTitle}>📱 Format Nomor WhatsApp</Text>
                 <Text style={styles.waFormatText}>
                   Saat mengisi nomor HP orang tua, gunakan format berikut:

@@ -4,48 +4,54 @@ import {
   Text, 
   StyleSheet, 
   TouchableOpacity, 
-  SafeAreaView, 
   ScrollView,
   ActivityIndicator,
   Animated,
   useAnimatedValue
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { 
   ArrowRight, 
   Heart, 
   MapPin, 
   Building2,
-  CheckCircle2
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react-native';
 import { useServiceStore } from '../stores/service-store';
-import { usePosyandu } from '../hooks/usePosyandu';
+import { usePosyandu, KaderPosyanduRel } from '../hooks/usePosyandu';
 import { COLORS } from '../lib/constants';
-import { Posyandu } from '../lib/types';
 
 export default function SelectWorkspaceScreen() {
   const router = useRouter();
   const { setActiveWorkspace, setActivePosyandu, activePosyanduId } = useServiceStore();
-  const { getAllPosyandus } = usePosyandu();
+  const { getLinkedPosyandus } = usePosyandu();
   
-  const [posyandus, setPosyandus] = useState<Posyandu[]>([]);
+  const [links, setLinks] = useState<KaderPosyanduRel[]>([]);
   const [loading, setLoading] = useState(false);
   const fadeAnim = useAnimatedValue(0);
 
   useEffect(() => {
-    loadPosyandus();
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
+    loadLinks();
   }, []);
 
-  const loadPosyandus = async () => {
+  const loadLinks = async () => {
     setLoading(true);
     try {
-      const data = await getAllPosyandus();
-      setPosyandus(data);
+      const data = await getLinkedPosyandus();
+      
+      if (data.length === 0) {
+        // No linked posyandus -> Onboarding
+        router.replace('/onboarding');
+      } else {
+        setLinks(data);
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }).start();
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -53,18 +59,17 @@ export default function SelectWorkspaceScreen() {
     }
   };
 
-  const handlePosyanduSelect = (p: Posyandu) => {
-    // Deteksi otomatis tipe layanan berdasarkan nama posyandu
-    // Jika mengandung "Lansia" -> masuk ke mode lansia
-    // Selain itu (ILP, Balita, dll) -> masuk ke mode balita
-    const name = p.nama_posyandu.toLowerCase();
-    const workspace = name.includes('lansia') ? 'lansia' : 'balita';
+  const handleSelect = (rel: KaderPosyanduRel) => {
+    setActivePosyandu(rel.posyandus.id);
     
-    // Set state secara atomik
-    setActivePosyandu(p.id);
-    setActiveWorkspace(workspace);
+    // Strict service isolation!
+    if (rel.fokus_layanan === 'balita' || rel.fokus_layanan === 'lansia') {
+      setActiveWorkspace(rel.fokus_layanan);
+    } else {
+      // If 'semua' (Admin), default to balita, but they can toggle inside dashboard
+      setActiveWorkspace('balita');
+    }
     
-    // Langsung navigasi ke dashboard
     router.replace('/(tabs)');
   };
 
@@ -76,9 +81,9 @@ export default function SelectWorkspaceScreen() {
           <View style={styles.logoBadge}>
             <Heart size={24} color={COLORS.primary} fill={COLORS.primary} />
           </View>
-          <Text style={styles.title}>Pilih Posyandu</Text>
+          <Text style={styles.title}>Ruang Kerja Anda</Text>
           <Text style={styles.subtitle}>
-            Silakan pilih lokasi Posyandu tempat Anda bertugas hari ini.
+            Posyandu tempat Anda bertugas sebagai Kader.
           </Text>
         </View>
 
@@ -89,27 +94,32 @@ export default function SelectWorkspaceScreen() {
         >
           {loading ? (
             <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 40 }} />
-          ) : posyandus.length === 0 ? (
+          ) : links.length === 0 ? (
             <View style={styles.emptyState}>
               <Building2 size={48} color="#CBD5E1" />
-              <Text style={styles.emptyText}>Tidak ada data posyandu ditemukan.</Text>
+              <Text style={styles.emptyText}>Memeriksa pangkalan data...</Text>
             </View>
           ) : (
-            posyandus.map((p) => (
+            links.map((rel) => (
               <TouchableOpacity 
-                key={p.id}
-                style={[styles.posyanduCard, activePosyanduId === p.id && styles.posyanduCardActive]}
-                onPress={() => handlePosyanduSelect(p)}
+                key={rel.id}
+                style={[styles.posyanduCard, activePosyanduId === rel.posyandus.id && styles.posyanduCardActive]}
+                onPress={() => handleSelect(rel)}
                 activeOpacity={0.7}
               >
-                <View style={[styles.posyanduIcon, activePosyanduId === p.id && { backgroundColor: '#CCFBF1' }]}>
-                  <MapPin size={24} color={activePosyanduId === p.id ? COLORS.primary : '#64748B'} />
+                <View style={[styles.posyanduIcon, activePosyanduId === rel.posyandus.id && { backgroundColor: '#CCFBF1' }]}>
+                  <MapPin size={24} color={activePosyanduId === rel.posyandus.id ? COLORS.primary : '#64748B'} />
                 </View>
                 <View style={styles.posyanduInfo}>
-                  <Text style={styles.posyanduName}>{p.nama_posyandu}</Text>
-                  <Text style={styles.posyanduAddr} numberOfLines={1}>{p.alamat_lengkap || 'Alamat belum diatur'}</Text>
+                  <Text style={styles.posyanduName}>{rel.posyandus.nama_posyandu}</Text>
+                  
+                  <View style={styles.roleBadge}>
+                    <Text style={styles.roleBadgeText}>
+                      Kader {rel.fokus_layanan.toUpperCase()} • {rel.role === 'ketua' ? 'Ketua' : 'Anggota'}
+                    </Text>
+                  </View>
                 </View>
-                {activePosyanduId === p.id 
+                {activePosyanduId === rel.posyandus.id 
                   ? <CheckCircle2 size={20} color={COLORS.primary} />
                   : <ArrowRight size={20} color="#CBD5E1" />}
               </TouchableOpacity>
@@ -118,10 +128,15 @@ export default function SelectWorkspaceScreen() {
         </ScrollView>
 
         <View style={styles.footer}>
+          <AlertCircle size={16} color="#94A3B8" />
           <Text style={styles.footerText}>
-            Sistem akan otomatis menyesuaikan jenis pelayanan sesuai dengan Posyandu yang dipilih.
+            Akses layanan Anda dibatasi secara ketat sesuai dengan penugasan divisi (Balita/Lansia/Semua).
           </Text>
         </View>
+        
+        <TouchableOpacity style={styles.joinOtherBtn} onPress={() => router.push('/onboarding')}>
+            <Text style={styles.joinOtherText}>+ Daftarkan Posyandu Lain</Text>
+        </TouchableOpacity>
       </Animated.View>
     </SafeAreaView>
   );
@@ -214,11 +229,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#1E293B',
+    marginBottom: 4,
   },
-  posyanduAddr: {
-    fontSize: 13,
-    color: '#94A3B8',
-    marginTop: 2,
+  roleBadge: {
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  roleBadgeText: {
+    fontSize: 11,
+    color: '#6366F1',
+    fontWeight: '700',
   },
   emptyState: {
     alignItems: 'center',
@@ -231,15 +254,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   footer: {
+    flexDirection: 'row',
     marginTop: 32,
     alignItems: 'center',
+    backgroundColor: '#FFF',
+    padding: 12,
+    borderRadius: 12,
+    gap: 8,
   },
   footerText: {
-    fontSize: 13,
-    color: '#94A3B8',
-    textAlign: 'center',
-    fontStyle: 'italic',
-    lineHeight: 18,
-    paddingHorizontal: 20,
+    flex: 1,
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 16,
   },
+  joinOtherBtn: {
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  joinOtherText: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '700',
+  }
 });

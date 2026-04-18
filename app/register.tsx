@@ -1,87 +1,66 @@
-// app/login.tsx
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Alert, 
+  ActivityIndicator, 
+  KeyboardAvoidingView, 
+  ScrollView, 
+  Platform 
+} from 'react-native';
 import { supabase } from '../lib/supabase';
-import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'expo-router';
 import { COLORS } from '../lib/constants';
-import { Eye, EyeOff } from 'lucide-react-native';
+import { Eye, EyeOff, UserPlus } from 'lucide-react-native';
 
-export default function LoginScreen() {
+export default function RegisterScreen() {
   const router = useRouter();
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  async function signInWithEmail() {
+  async function signUp() {
+    if (!fullName.trim() || !email.trim() || !password.trim()) {
+      Alert.alert('Data Tidak Lengkap', 'Mohon isi semua bidang yang tersedia.');
+      return;
+    }
+
     try {
       setLoading(true);
-      console.log('Attempting login with:', email);
-      const { data, error } = await supabase.auth.signInWithPassword({
+      console.log('Attempting registration with:', email);
+      
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            full_name: fullName,
+          }
+        }
       });
 
-      console.log('Login result:', { hasData: !!data, hasSession: !!data?.session, error: error?.message });
-
       if (error) {
-        Alert.alert('Login Gagal', error.message);
+        Alert.alert('Pendaftaran Gagal', error.message);
       } else {
-        // Explicitly move to workspace selection
-        router.replace('/select-workspace');
+        // Assume email confirm is off or user is auto-logged in,
+        // Since we are making a Mass Usage app without complex email infrastructure right now.
+        // If session exists, user is successfully logged in.
+        Alert.alert(
+          'Sukses', 
+          'Akun berhasil dibuat! Mengarahkan...',
+          [
+            { text: "OK", onPress: () => router.replace('/select-workspace') }
+          ]
+        );
       }
     } catch (err: any) {
-      console.error('Login error exception:', err);
+      console.error('Registration error Exception:', err);
       Alert.alert('Error', err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleRepair() {
-    try {
-      setLoading(true);
-      const url = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-      const serviceKey = process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
-
-      if (!serviceKey) {
-        Alert.alert('Error', 'Service Role Key tidak ditemukan di .env');
-        return;
-      }
-
-      console.log('Running Emergency Repair...');
-      const adminClient = createClient(url, serviceKey);
-
-      const email = 'kader@posyandu.com';
-      const password = 'password123';
-
-      // Ensure user exists and has confirmed email
-      const { data: { users }, error: listError } = await adminClient.auth.admin.listUsers();
-      if (listError) throw listError;
-
-      const user = users.find(u => u.email === email);
-
-      if (!user) {
-        console.log('Creating user...');
-        const { error: createError } = await adminClient.auth.admin.createUser({
-          email,
-          password,
-          email_confirm: true
-        });
-        if (createError) throw createError;
-        Alert.alert('Sukses', `Akun ${email} berhasil dibuat dengan password ${password}`);
-      } else {
-        console.log('Resetting password for user ID:', user.id);
-        const { error: updateError } = await adminClient.auth.admin.updateUserById(user.id, {
-          password: password
-        });
-        if (updateError) throw updateError;
-        Alert.alert('Sukses', `Password untuk ${email} telah di-reset menjadi: ${password}`);
-      }
-    } catch (err: any) {
-      console.error('Repair failed:', err);
-      Alert.alert('Repair Gagal', err.message);
     } finally {
       setLoading(false);
     }
@@ -97,13 +76,22 @@ export default function LoginScreen() {
         <View style={styles.card}>
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <Text style={styles.logoEmoji}>🛡️</Text>
+              <UserPlus size={32} color={COLORS.primary} />
             </View>
-            <Text style={styles.title}>AYOMI</Text>
-            <Text style={styles.subtitle}>Rawat Tumbuhnya, Jaga Tuanya</Text>
+            <Text style={styles.title}>Daftar Kader</Text>
+            <Text style={styles.subtitle}>Bergabunglah untuk mulai mengelola Posyandu Anda</Text>
           </View>
 
           <View style={styles.form}>
+            <Text style={styles.label}>Nama Lengkap</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Siti Aminah"
+              value={fullName}
+              onChangeText={setFullName}
+              autoCapitalize="words"
+            />
+
             <Text style={styles.label}>Email</Text>
             <TextInput
               style={styles.input}
@@ -118,7 +106,7 @@ export default function LoginScreen() {
             <View style={styles.passwordContainer}>
               <TextInput
                 style={styles.passwordInput}
-                placeholder="********"
+                placeholder="Minimal 6 karakter"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -130,28 +118,20 @@ export default function LoginScreen() {
 
             <TouchableOpacity 
               style={[styles.button, loading && styles.buttonDisabled]} 
-              onPress={signInWithEmail}
+              onPress={signUp}
               disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.buttonText}>Masuk</Text>
+                <Text style={styles.buttonText}>Daftar Sekarang</Text>
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.repairButton} 
-              onPress={handleRepair}
-              disabled={loading}
-            >
-              <Text style={styles.repairButtonText}>Masalah Masuk? Perbaiki & Reset Akun</Text>
-            </TouchableOpacity>
-
-            <View style={styles.registerPrompt}>
-              <Text style={styles.registerPromptText}>Belum punya akun? </Text>
-              <TouchableOpacity onPress={() => router.push('/register')} disabled={loading}>
-                <Text style={styles.registerPromptLink}>Daftar di sini</Text>
+            <View style={styles.loginPrompt}>
+              <Text style={styles.loginPromptText}>Sudah punya akun? </Text>
+              <TouchableOpacity onPress={() => router.push('/login')} disabled={loading}>
+                <Text style={styles.loginPromptLink}>Masuk di sini</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -191,9 +171,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  logoEmoji: {
-    fontSize: 32,
-  },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
@@ -205,7 +182,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 8,
+    paddingHorizontal: 10,
   },
   form: {
     gap: 16,
@@ -253,30 +231,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  repairButton: {
-    marginTop: 20,
-    padding: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 8,
-    borderStyle: 'dashed',
-  },
-  repairButtonText: {
-    color: '#64748b',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  registerPrompt: {
+  loginPrompt: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: 24,
   },
-  registerPromptText: {
+  loginPromptText: {
     color: '#64748b',
     fontSize: 14,
   },
-  registerPromptLink: {
+  loginPromptLink: {
     color: COLORS.primary,
     fontSize: 14,
     fontWeight: 'bold',

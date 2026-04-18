@@ -18,6 +18,7 @@ export interface Posyandu {
   jadwal_lansia_jam: string | null;
   // Logo
   logo_url: string | null;
+  invite_code?: string; // New field
   created_at: string;
 }
 

@@ -28,18 +28,20 @@ function RootLayoutNav() {
     if (!initialized) return;
 
     const isLoginScreen = segments[0] === 'login';
+    const isRegisterScreen = segments[0] === 'register';
     const isSelectWorkspaceScreen = segments[0] === 'select-workspace';
+    const isOnboardingScreen = segments[0] === 'onboarding';
 
     if (!session) {
-      if (!isLoginScreen) {
+      if (!isLoginScreen && !isRegisterScreen) {
         router.replace('/login');
       }
     } else if (!activeWorkspace) {
-      if (!isSelectWorkspaceScreen) {
+      if (!isSelectWorkspaceScreen && !isOnboardingScreen) {
         router.replace('/select-workspace');
       }
     } else {
-      if (isLoginScreen || isSelectWorkspaceScreen) {
+      if (isLoginScreen || isRegisterScreen || isSelectWorkspaceScreen || isOnboardingScreen) {
         router.replace('/(tabs)');
       }
     }
@@ -57,7 +59,9 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="login" options={{ headerShown: false }} />
+      <Stack.Screen name="register" options={{ headerShown: false }} />
       <Stack.Screen name="select-workspace" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
     </Stack>
   );

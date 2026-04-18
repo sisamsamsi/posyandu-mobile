@@ -1,36 +1,52 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Posyandu } from '../lib/types';
 import { useAuthStore } from '../stores/auth-store';
 
+export type KaderPosyanduRel = {
+  id: string;
+  role: string;
+  fokus_layanan: 'balita' | 'lansia' | 'semua';
+  posyandus: Posyandu;
+};
+
 export const usePosyandu = () => {
   const [loading, setLoading] = useState(false);
-  const [posyandu, setPosyandu] = useState<Posyandu | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuthStore();
 
-  const fetchPosyandu = async () => {
+  const getLinkedPosyandus = useCallback(async (): Promise<KaderPosyanduRel[]> => {
+    if (!user) return [];
+    
     try {
       setLoading(true);
       setError(null);
       
-      // For now, we fetch the first posyandu or filter by some logic
-      // In a real app, we might associate Kader with a specific Posyandu ID
       const { data, error } = await supabase
-        .from('posyandus')
-        .select('*')
-        .limit(1)
-        .single();
+        .from('kader_posyandu')
+        .select(`
+          id,
+          role,
+          fokus_layanan,
+          posyandus (*)
+        `)
+        .eq('user_id', user.id);
 
       if (error) throw error;
-      setPosyandu(data);
+      
+      // Clean up the return to match type
+      return (data as any) as KaderPosyanduRel[];
     } catch (err: any) {
+      console.error('Error fetching linked posyandus:', err);
       setError(err.message);
+      return [];
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
+  // Expose this for backwards compatibility if needed elsewhere, 
+  // though we mostly want linked posyandus now.
   const getAllPosyandus = async () => {
     try {
       setLoading(true);
@@ -49,11 +65,5 @@ export const usePosyandu = () => {
     }
   };
 
-  useEffect(() => {
-    if (user) {
-      fetchPosyandu();
-    }
-  }, [user]);
-
-  return { posyandu, loading, error, refresh: fetchPosyandu, getAllPosyandus };
+  return { loading, error, getLinkedPosyandus, getAllPosyandus };
 };

@@ -46,7 +46,7 @@ const screenWidth = Dimensions.get('window').width;
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { activePosyanduId, activeWorkspace } = useServiceStore();
+  const { setActiveWorkspace, activePosyanduId, activeWorkspace } = useServiceStore();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -127,6 +127,24 @@ export default function DashboardScreen() {
           jadwalLansiaTanggal={stats?.posyanduInfo?.jadwal_lansia_tanggal || null}
           jadwalLansiaJam={stats?.posyanduInfo?.jadwal_lansia_jam || null}
         />
+
+        {/* ==================================== */}
+        {/* TOGGLE LAYANAN (UNTUK ADMIN)         */}
+        {/* ==================================== */}
+        <TouchableOpacity 
+          style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9', padding: 12, borderRadius: 12, marginVertical: 12, justifyContent: 'space-between' }}
+          onPress={() => setActiveWorkspace(activeWorkspace === 'balita' ? 'lansia' : 'balita')}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            {activeWorkspace === 'balita' ? <Baby size={20} color="#0D9488" /> : <Users size={20} color="#6366F1" />}
+            <Text style={{ fontWeight: '700', color: '#1E293B' }}>
+              Mode: {activeWorkspace === 'balita' ? 'Layanan Balita' : 'Layanan Lansia'}
+            </Text>
+          </View>
+          <View style={{ backgroundColor: '#E2E8F0', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#475569' }}>Ganti Mode</Text>
+          </View>
+        </TouchableOpacity>
 
         {/* ==================================== */}
         {/* DAILY TIP (WORKSPACE AWARE)          */}
