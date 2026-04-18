@@ -7,7 +7,8 @@ import {
   TouchableOpacity, 
   ActivityIndicator,
   TextInput,
-  ScrollView
+  ScrollView,
+  Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -116,7 +117,11 @@ export default function MonitoringBalitaScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <ArrowLeft size={24} color="#1E293B" />
         </TouchableOpacity>
-        <Text style={styles.title}>Monitoring Balita</Text>
+        <Image 
+          source={require('../../assets/images/logo.png')} 
+          style={{ width: 160, height: 50, flex: 1, marginLeft: 8 }} 
+          resizeMode="contain" 
+        />
         <View style={styles.headerRight}>
           <WorkspaceSwitcher size={22} color="#0D9488" />
           <TouchableOpacity onPress={fetchData} style={styles.calendarButton}>

@@ -12,7 +12,8 @@ import {
   Platform,
   ScrollView,
   Share,
-  Pressable
+  Pressable,
+  Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -458,7 +459,11 @@ export default function BalitaServiceDesk() {
       >
         <View style={styles.header}>
            <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={24} color="#1E293B" /></TouchableOpacity>
-           <Text style={styles.headerTitle}>Layanan Balita</Text>
+           <Image 
+             source={require('../../assets/images/logo.png')} 
+             style={{ width: 160, height: 55, marginLeft: 16 }} 
+             resizeMode="contain" 
+           />
            <QuickTransition 
               currentType="balita" 
               onSwitch={() => router.replace('/service-desk/lansia')} 
@@ -702,10 +707,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  resultItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
+ 
   resultLabel: {
     fontSize: 10,
     color: '#5EAD9D',

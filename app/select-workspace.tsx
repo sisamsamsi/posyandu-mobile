@@ -7,7 +7,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Animated,
-  useAnimatedValue
+  useAnimatedValue,
+  Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -78,8 +79,12 @@ export default function SelectWorkspaceScreen() {
       <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
         {/* Header Section */}
         <View style={styles.header}>
-          <View style={styles.logoBadge}>
-            <Heart size={24} color={COLORS.primary} fill={COLORS.primary} />
+          <View style={styles.logoImageContainer}>
+            <Image 
+              source={require('../assets/images/logo.png')} 
+              style={styles.logoImage} 
+              resizeMode="contain" 
+            />
           </View>
           <Text style={styles.title}>Ruang Kerja Anda</Text>
           <Text style={styles.subtitle}>
@@ -158,19 +163,16 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: '100%',
   },
-  logoBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: '#CCFBF1',
-    justifyContent: 'center',
+  logoImageContainer: {
+    width: '100%',
+    height: 110,
     alignItems: 'center',
-    marginBottom: 20,
-    elevation: 2,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    justifyContent: 'center',
+    marginBottom: -10,
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   title: {
     fontSize: 28,

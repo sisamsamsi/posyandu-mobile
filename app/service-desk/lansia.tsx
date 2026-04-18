@@ -11,7 +11,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Pressable
+  Pressable,
+  Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -397,7 +398,11 @@ export default function LansiaServiceDesk() {
       >
         <View style={styles.header}>
            <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={24} color="#1E293B" /></TouchableOpacity>
-           <Text style={styles.headerTitle}>Layanan Lansia</Text>
+           <Image 
+             source={require('../../assets/images/logo.png')} 
+             style={{ width: 160, height: 55, marginLeft: 16 }} 
+             resizeMode="contain" 
+           />
            <QuickTransition 
               currentType="lansia" 
               onSwitch={() => router.replace('/service-desk/balita')} 

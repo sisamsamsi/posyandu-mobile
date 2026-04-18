@@ -9,7 +9,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Dimensions,
-  Modal
+  Modal,
+  Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -93,16 +94,23 @@ export default function DashboardScreen() {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.headerIconRow}>
-            <View style={styles.posyanduBadge}>
-              <Activity size={16} color="#0D9488" />
+            <View style={[styles.posyanduBadge, { padding: 0, overflow: 'hidden' }]}>
+              <Image 
+                source={require('../../assets/icon.png')} 
+                style={{ width: '100%', height: '100%' }} 
+                resizeMode="cover" 
+              />
             </View>
             <View style={styles.headerTextBlock}>
               <Text style={styles.posyanduNameHeader}>{posyanduName}</Text>
               <Text style={styles.dateText}>{today}</Text>
             </View>
           </View>
-          <Text style={styles.greeting}>AYOMI</Text>
-          <Text style={styles.subGreeting}>Rawat Tumbuhnya, Jaga Tuanya</Text>
+          <Image 
+            source={require('../../assets/images/logo.png')} 
+            style={{ width: 180, height: 60, marginLeft: -8, marginTop: 4, marginBottom: 8 }} 
+            resizeMode="contain" 
+          />
         </View>
         <View style={styles.headerRight}>
           <WorkspaceSwitcher size={24} color="#1E293B" />

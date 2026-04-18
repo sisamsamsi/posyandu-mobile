@@ -1,10 +1,23 @@
 // app/(tabs)/_layout.tsx
 import React from 'react';
+import { Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Home, Stethoscope, ClipboardList, BarChart3, FileText, Settings } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../../lib/constants';
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+
+  // Hitung padding bawah secara dinamis:
+  // - Jika ada tombol navigasi Android (insets.bottom > 0), gunakan nilai tersebut
+  // - Jika tidak ada (gesture navigation), beri padding minimum agar tidak terlalu mepet
+  const bottomPadding = Platform.OS === 'android' 
+    ? Math.max(insets.bottom, 8)
+    : insets.bottom + 4;
+
+  const tabBarHeight = 56 + bottomPadding;
+
   return (
     <Tabs
       screenOptions={{
@@ -13,11 +26,11 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: '700',
-          paddingBottom: 4,
+          paddingBottom: 2,
         },
         tabBarStyle: {
-          height: 65,
-          paddingBottom: 10,
+          height: tabBarHeight,
+          paddingBottom: bottomPadding,
           paddingTop: 8,
           borderTopWidth: 0,
           backgroundColor: '#FFFFFF',

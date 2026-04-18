@@ -16,7 +16,6 @@ export interface DashboardStats {
   visitsThisMonth: number;
   nutritionStats: { label: string; count: number; color: string }[];
   healthAlertStats: { label: string; count: number; color: string }[];
-  // NEW
   balitaVisitsThisMonth: number;
   lansiaVisitsThisMonth: number;
   belumTimbangBalita: number;
@@ -28,6 +27,28 @@ export interface DashboardStats {
 
 export class DashboardService {
   static async getStats(posyanduId?: string | null): Promise<DashboardStats> {
+    if (!posyanduId) {
+      return {
+        totalBalita: 0,
+        totalLansia: 0,
+        visitsThisMonth: 0,
+        nutritionStats: [],
+        healthAlertStats: [],
+        balitaVisitsThisMonth: 0,
+        lansiaVisitsThisMonth: 0,
+        belumTimbangBalita: 0,
+        belumPeriksaLansia: 0,
+        risikoTinggiBalita: 0,
+        lansiaHealthBreakdown: {
+          hipertensi: 0,
+          gulaTinggi: 0,
+          kolesterolTinggi: 0,
+          asamUratTinggi: 0
+        },
+        posyanduInfo: null
+      };
+    }
+
     const now = new Date();
     const startDate = format(startOfMonth(now), 'yyyy-MM-dd');
     const endDate = format(endOfMonth(now), 'yyyy-MM-dd');
@@ -41,8 +62,8 @@ export class DashboardService {
     };
 
     // ── STEP 1: Dapatkan ID Pasien di Posyandu ini ──
-    const { data: balitas } = await supabase.from('balitas').select('id').eq('posyandu_id', posyanduId || '');
-    const { data: lansias } = await supabase.from('lansias').select('id').eq('posyandu_id', posyanduId || '');
+    const { data: balitas } = await supabase.from('balitas').select('id').eq('posyandu_id', posyanduId);
+    const { data: lansias } = await supabase.from('lansias').select('id').eq('posyandu_id', posyanduId);
     
     const balitaIds = balitas?.map(b => b.id) || [];
     const lansiaIds = lansias?.map(l => l.id) || [];
@@ -61,10 +82,10 @@ export class DashboardService {
       { data: balitaIdsWithVisit },
       { data: lansiaIdsWithVisit },
     ] = await Promise.all([
-      runQuery(supabase.from('balitas').select('*', { count: 'exact', head: true }).eq('posyandu_id', posyanduId || ''), 'totalBalita'),
-      runQuery(supabase.from('lansias').select('*', { count: 'exact', head: true }).eq('posyandu_id', posyanduId || ''), 'totalLansia'),
-      runQuery(supabase.from('penimbangans').select('*', { count: 'exact', head: true }).in('balita_id', safeBalitaIds).gte('tanggal', startDate).lte('tanggal', endDate), 'balitaVisits'),
-      runQuery(supabase.from('pemeriksaan_lansias').select('*', { count: 'exact', head: true }).in('lansia_id', safeLansiaIds).gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate), 'lansiaVisits'),
+      runQuery(supabase.from('balitas').select('id', { count: 'exact', head: true }).eq('posyandu_id', posyanduId), 'totalBalita'),
+      runQuery(supabase.from('lansias').select('id', { count: 'exact', head: true }).eq('posyandu_id', posyanduId), 'totalLansia'),
+      runQuery(supabase.from('penimbangans').select('id', { count: 'exact', head: true }).in('balita_id', safeBalitaIds).gte('tanggal', startDate).lte('tanggal', endDate), 'balitaVisits'),
+      runQuery(supabase.from('pemeriksaan_lansias').select('id', { count: 'exact', head: true }).in('lansia_id', safeLansiaIds).gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate), 'lansiaVisits'),
       runQuery(supabase.from('penimbangans').select('status_bb_u, status_tb_u, status_bb_tb').in('balita_id', safeBalitaIds).gte('tanggal', startDate).lte('tanggal', endDate), 'nutritionData'),
       runQuery(supabase.from('pemeriksaan_lansias').select('tekanan_darah, gula_darah, kolesterol, asam_urat').in('lansia_id', safeLansiaIds).gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate), 'lansiaData'),
       runQuery(supabase.from('penimbangans').select('balita_id').in('balita_id', safeBalitaIds).gte('tanggal', startDate).lte('tanggal', endDate), 'balitaIdsWithVisit'),
