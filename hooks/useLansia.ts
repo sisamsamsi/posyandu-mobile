@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Lansia } from '../lib/types';
 import { useAuthStore } from '../stores/auth-store';
+import { useServiceStore } from '../stores/service-store';
 
 export const useLansia = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuthStore();
+  const { activePosyanduId } = useServiceStore();
 
   const getLansias = async (searchQuery?: string) => {
     try {
@@ -17,6 +19,7 @@ export const useLansia = () => {
           *,
           posyandu:posyandus(*)
         `)
+        .eq('posyandu_id', activePosyanduId || '')
         .order('nama', { ascending: true });
 
       if (searchQuery) {

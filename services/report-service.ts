@@ -76,23 +76,29 @@ export class ReportService {
     const startStr = format(startOfMonth(startDate), 'yyyy-MM-dd');
     const endStr = format(endOfMonth(startDate), 'yyyy-MM-dd');
 
-    // 3. D (Datang) - Unique balitas who visited this month (under 60 months)
+    // ── STEP 1: Ambil balitas milik posyandu ini ──
+    const { data: balitas, error: bError } = await supabaseAdmin
+      .from('balitas')
+      .select('id, tanggal_lahir')
+      .eq('posyandu_id', posyanduId)
+      .gt('tanggal_lahir', birthThresholdStr);
+
+    if (bError) console.error('SKDN Error (Balitas):', bError);
+    const balitaIds = balitas?.map(b => b.id) || [];
+    const safeBalitaIds = balitaIds.length > 0 ? balitaIds : ['00000000-0000-0000-0000-000000000000'];
+
+    // 3. D (Datang) - Unique balitas who visited this month
     const { data: dData, error: dError } = await supabaseAdmin
       .from('penimbangans')
-      .select(`
-        balita_id, 
-        berat_badan,
-        balita:balitas!inner(posyandu_id, tanggal_lahir)
-      `)
-      .eq('balita.posyandu_id', posyanduId)
-      .gt('balita.tanggal_lahir', birthThresholdStr)
+      .select('balita_id, berat_badan')
+      .in('balita_id', safeBalitaIds)
       .gte('tanggal', startStr)
       .lte('tanggal', endStr);
     
     if (dError) console.error('SKDN Error (D):', dError);
     console.log(`[ReportService] Total D (Visits) for ${posyanduId}: ${dData?.length || 0}`);
     const filteredD = dData || [];
-    const d = filteredD.length;
+    const d = new Set(filteredD.map(p => p.balita_id)).size; // Unique visits
 
     // 4. N (Naik)
     let n = 0;
@@ -126,7 +132,18 @@ export class ReportService {
     const birthThresholdStr = format(subMonths(startDate, 60), 'yyyy-MM-dd');
     const endDate = endOfMonth(startDate);
 
-    // Fetch penimbangans for the month with balita info
+    // ── STEP 1: Ambil balitas ──
+    const { data: balitas, error: bError } = await supabaseAdmin
+      .from('balitas')
+      .select('id, nama, nik, posyandu_id, tanggal_lahir')
+      .eq('posyandu_id', posyanduId)
+      .gt('tanggal_lahir', birthThresholdStr);
+      
+    const balitaIds = balitas?.map(b => b.id) || [];
+    const safeBalitaIds = balitaIds.length > 0 ? balitaIds : ['00000000-0000-0000-0000-000000000000'];
+    const balitaMap = new Map((balitas || []).map(b => [b.id, b]));
+
+    // ── STEP 2: Ambil penimbangans ──
     const { data: visits, error: vError } = await supabaseAdmin
       .from('penimbangans')
       .select(`
@@ -135,11 +152,9 @@ export class ReportService {
         status_bb_u,
         status_tb_u,
         status_bb_tb,
-        berat_badan,
-        balita:balitas!inner(nama, nik, posyandu_id, tanggal_lahir)
+        berat_badan
       `)
-      .eq('balita.posyandu_id', posyanduId)
-      .gt('balita.tanggal_lahir', birthThresholdStr)
+      .in('balita_id', safeBalitaIds)
       .gte('tanggal', format(startOfMonth(startDate), 'yyyy-MM-dd'))
       .lte('tanggal', format(endOfMonth(startDate), 'yyyy-MM-dd'));
 
@@ -151,7 +166,7 @@ export class ReportService {
 
     for (const v of visits) {
       const issues: string[] = [];
-      const balita = v.balita as any;
+      const balita = balitaMap.get(v.balita_id);
       if (!balita) continue;
 
       // 1. Check Stunting (TB/U)
@@ -241,15 +256,26 @@ export class ReportService {
     const birthThresholdStr = format(subMonths(startDate, 60), 'yyyy-MM-dd');
     const endDate = endOfMonth(startDate);
 
+    // ── STEP 1: Ambil balitas ──
+    const { data: balitas, error: bError } = await supabaseAdmin
+      .from('balitas')
+      .select('id, nama, tanggal_lahir, jenis_kelamin, nama_ortu, rt, posyandu_id')
+      .eq('posyandu_id', posyanduId)
+      .gt('tanggal_lahir', birthThresholdStr);
+      
+    const balitaIds = balitas?.map(b => b.id) || [];
+    const safeBalitaIds = balitaIds.length > 0 ? balitaIds : ['00000000-0000-0000-0000-000000000000'];
+    const balitaMap = new Map((balitas || []).map(b => [b.id, b]));
+
+    // ── STEP 2: Ambil penimbangans ──
     const { data: visits, error: wError } = await supabaseAdmin
       .from('penimbangans')
       .select(`
+        balita_id,
         berat_badan,
-        tinggi_badan,
-        balita:balitas!inner(nama, tanggal_lahir, jenis_kelamin, nama_ortu, rt, posyandu_id)
+        tinggi_badan
       `)
-      .eq('balita.posyandu_id', posyanduId)
-      .gt('balita.tanggal_lahir', birthThresholdStr)
+      .in('balita_id', safeBalitaIds)
       .gte('tanggal', format(startOfMonth(startDate), 'yyyy-MM-dd'))
       .lte('tanggal', format(endOfMonth(startDate), 'yyyy-MM-dd'))
       .order('tanggal', { ascending: true });
@@ -259,7 +285,7 @@ export class ReportService {
     if (!visits) return [];
 
     return visits.map(v => {
-      const b = v.balita as any;
+      const b = balitaMap.get(v.balita_id);
       if (!b) return null;
       const ageMonths = (year - new Date(b.tanggal_lahir).getFullYear()) * 12 + (month - 1 - new Date(b.tanggal_lahir).getMonth());
       return {

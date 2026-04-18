@@ -1,6 +1,6 @@
 // app/login.tsx
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, ScrollView, Platform, Image } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'expo-router';
@@ -96,11 +96,14 @@ export default function LoginScreen() {
       <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} showsVerticalScrollIndicator={false} bounces={false}>
         <View style={styles.card}>
           <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <Text style={styles.logoEmoji}>🛡️</Text>
+            <View style={styles.logoImageContainer}>
+              <Image 
+                source={require('../assets/images/logo.jpeg')} 
+                style={styles.logoImage} 
+                resizeMode="contain" 
+              />
             </View>
-            <Text style={styles.title}>AYOMI</Text>
-            <Text style={styles.subtitle}>Rawat Tumbuhnya, Jaga Tuanya</Text>
+            <Text style={styles.brandSubtitle}>Posyandu Berbasis Keluarga</Text>
           </View>
 
           <View style={styles.form}>
@@ -182,30 +185,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 32,
   },
-  logoContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: '#F0FDFA',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  logoEmoji: {
-    fontSize: 32,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
+  brandSubtitle: {
     fontSize: 14,
     color: '#64748b',
     textAlign: 'center',
     marginBottom: 32,
+  },
+  logoImageContainer: {
+    width: 250,
+    height: 70,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   form: {
     gap: 16,

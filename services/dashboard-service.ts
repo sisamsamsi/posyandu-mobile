@@ -32,6 +32,25 @@ export class DashboardService {
     const startDate = format(startOfMonth(now), 'yyyy-MM-dd');
     const endDate = format(endOfMonth(now), 'yyyy-MM-dd');
 
+    const runQuery = async (query: any, name: string) => {
+      const { data, count, error } = await query;
+      if (error) {
+        console.error(`Dashboard Query Error [${name}]:`, error);
+      }
+      return { data, count };
+    };
+
+    // ── STEP 1: Dapatkan ID Pasien di Posyandu ini ──
+    const { data: balitas } = await supabase.from('balitas').select('id').eq('posyandu_id', posyanduId || '');
+    const { data: lansias } = await supabase.from('lansias').select('id').eq('posyandu_id', posyanduId || '');
+    
+    const balitaIds = balitas?.map(b => b.id) || [];
+    const lansiaIds = lansias?.map(l => l.id) || [];
+
+    // Jika kosong, cegah error query .in() dengan menaruh dummy id
+    const safeBalitaIds = balitaIds.length > 0 ? balitaIds : ['00000000-0000-0000-0000-000000000000'];
+    const safeLansiaIds = lansiaIds.length > 0 ? lansiaIds : ['00000000-0000-0000-0000-000000000000'];
+
     const [
       { count: totalBalita },
       { count: totalLansia },
@@ -42,19 +61,19 @@ export class DashboardService {
       { data: balitaIdsWithVisit },
       { data: lansiaIdsWithVisit },
     ] = await Promise.all([
-      supabase.from('balitas').select('*', { count: 'exact', head: true }).eq('posyandu_id', posyanduId || ''),
-      supabase.from('lansias').select('*', { count: 'exact', head: true }).eq('posyandu_id', posyanduId || ''),
-      supabase.from('penimbangans').select('*, balita:balitas!inner(posyandu_id)', { count: 'exact', head: true }).eq('balita.posyandu_id', posyanduId || '').gte('tanggal', startDate).lte('tanggal', endDate),
-      supabase.from('pemeriksaan_lansias').select('*, lansia:lansias!inner(posyandu_id)', { count: 'exact', head: true }).eq('lansia.posyandu_id', posyanduId || '').gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate),
-      supabase.from('penimbangans').select('status_bb_u, status_tb_u, status_bb_tb, balita:balitas!inner(posyandu_id)').eq('balita.posyandu_id', posyanduId || '').gte('tanggal', startDate).lte('tanggal', endDate),
-      supabase.from('pemeriksaan_lansias').select('tekanan_darah, gula_darah, kolesterol, asam_urat, lansia:lansias!inner(posyandu_id)').eq('lansia.posyandu_id', posyanduId || '').gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate),
-      supabase.from('penimbangans').select('balita_id, balita:balitas!inner(posyandu_id)').eq('balita.posyandu_id', posyanduId || '').gte('tanggal', startDate).lte('tanggal', endDate),
-      supabase.from('pemeriksaan_lansias').select('lansia_id, lansia:lansias!inner(posyandu_id)').eq('lansia.posyandu_id', posyanduId || '').gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate),
+      runQuery(supabase.from('balitas').select('*', { count: 'exact', head: true }).eq('posyandu_id', posyanduId || ''), 'totalBalita'),
+      runQuery(supabase.from('lansias').select('*', { count: 'exact', head: true }).eq('posyandu_id', posyanduId || ''), 'totalLansia'),
+      runQuery(supabase.from('penimbangans').select('*', { count: 'exact', head: true }).in('balita_id', safeBalitaIds).gte('tanggal', startDate).lte('tanggal', endDate), 'balitaVisits'),
+      runQuery(supabase.from('pemeriksaan_lansias').select('*', { count: 'exact', head: true }).in('lansia_id', safeLansiaIds).gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate), 'lansiaVisits'),
+      runQuery(supabase.from('penimbangans').select('status_bb_u, status_tb_u, status_bb_tb').in('balita_id', safeBalitaIds).gte('tanggal', startDate).lte('tanggal', endDate), 'nutritionData'),
+      runQuery(supabase.from('pemeriksaan_lansias').select('tekanan_darah, gula_darah, kolesterol, asam_urat').in('lansia_id', safeLansiaIds).gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate), 'lansiaData'),
+      runQuery(supabase.from('penimbangans').select('balita_id').in('balita_id', safeBalitaIds).gte('tanggal', startDate).lte('tanggal', endDate), 'balitaIdsWithVisit'),
+      runQuery(supabase.from('pemeriksaan_lansias').select('lansia_id').in('lansia_id', safeLansiaIds).gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate), 'lansiaIdsWithVisit'),
     ]);
 
     // Aggregate nutrition stats
     const nutritionCounts: Record<string, number> = {};
-    nutritionData?.forEach(p => {
+    nutritionData?.forEach((p: any) => {
       if (p.status_bb_u) {
         nutritionCounts[p.status_bb_u] = (nutritionCounts[p.status_bb_u] || 0) + 1;
       }
@@ -68,7 +87,7 @@ export class DashboardService {
 
     // Count risiko tinggi balita (stunting atau wasting atau underweight berat)
     let risikoTinggiBalita = 0;
-    nutritionData?.forEach(p => {
+    nutritionData?.forEach((p: any) => {
       const isRisk =
         (p.status_bb_u && (p.status_bb_u.includes('Sangat Kurang') || p.status_bb_u.includes('Kurang'))) ||
         (p.status_tb_u && (p.status_tb_u.includes('Sangat Pendek') || p.status_tb_u.includes('Pendek'))) ||
@@ -85,14 +104,15 @@ export class DashboardService {
     };
 
     let atRiskCount = 0;
-    lansiaData?.forEach(p => {
-      const [sis, dias] = (p.tekanan_darah || '0/0').split('/').map(Number);
+    lansiaData?.forEach((p: any) => {
+      const { tekanan_darah, gula_darah, kolesterol, asam_urat } = p;
+      const [sis, dias] = (tekanan_darah || '0/0').split('/').map(Number);
       if (sis >= 140 || dias >= 90) lansiaHealthBreakdown.hipertensi++;
-      if ((p.gula_darah || 0) > 200) lansiaHealthBreakdown.gulaTinggi++;
-      if ((p.kolesterol || 0) > 200) lansiaHealthBreakdown.kolesterolTinggi++;
-      if ((p.asam_urat || 0) > 7) lansiaHealthBreakdown.asamUratTinggi++;
+      if ((gula_darah || 0) > 200) lansiaHealthBreakdown.gulaTinggi++;
+      if ((kolesterol || 0) > 200) lansiaHealthBreakdown.kolesterolTinggi++;
+      if ((asam_urat || 0) > 7) lansiaHealthBreakdown.asamUratTinggi++;
       
-      const isAtRisk = sis > 140 || (p.gula_darah || 0) > 200 || (p.kolesterol || 0) > 200 || (p.asam_urat || 0) > 7;
+      const isAtRisk = sis > 140 || (gula_darah || 0) > 200 || (kolesterol || 0) > 200 || (asam_urat || 0) > 7;
       if (isAtRisk) atRiskCount++;
     });
 
