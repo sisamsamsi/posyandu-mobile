@@ -13,13 +13,24 @@ export const useLansia = () => {
   const getLansias = async (searchQuery?: string) => {
     try {
       setLoading(true);
+      
+      if (!activePosyanduId) {
+        console.warn('[useLansia] activePosyanduId is null/empty, skipping query');
+        return [];
+      }
+
+      console.log('[useLansia] Fetching lansias for posyandu:', activePosyanduId, 'search:', searchQuery);
+
+      const { data: debugAll, error: debugError } = await supabase.from('lansias').select('id, nama, posyandu_id').limit(5);
+      console.log('[DEBUG-BRUTE-FORCE] All lansias in table:', debugAll?.length, 'Sample:', debugAll?.[0], 'Error:', debugError?.message);
+
       let query = supabase
         .from('lansias')
         .select(`
           *,
           posyandu:posyandus(*)
         `)
-        .eq('posyandu_id', activePosyanduId || '')
+        .eq('posyandu_id', activePosyanduId)
         .order('nama', { ascending: true });
 
       if (searchQuery) {
@@ -27,9 +38,13 @@ export const useLansia = () => {
       }
 
       const { data, error } = await query;
+      
+      console.log('[useLansia] Result:', data?.length, 'records, error:', error?.message);
+      
       if (error) throw error;
       return data as Lansia[];
     } catch (err: any) {
+      console.error('[useLansia] Error:', err.message);
       setError(err.message);
       return [];
     } finally {

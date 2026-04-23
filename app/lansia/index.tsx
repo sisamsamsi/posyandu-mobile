@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useLansia } from '../../hooks/useLansia';
+import { useServiceStore } from '../../stores/service-store';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -19,6 +20,7 @@ import { Lansia } from '../../lib/types';
 export default function LansiaIndex() {
   const router = useRouter();
   const { getLansias, loading } = useLansia();
+  const { activePosyanduId } = useServiceStore();
   const [lansias, setLansias] = useState<Lansia[]>([]);
   const [search, setSearch] = useState('');
 
@@ -28,8 +30,10 @@ export default function LansiaIndex() {
   };
 
   useEffect(() => {
-    fetchLansias();
-  }, []);
+    if (activePosyanduId) {
+      fetchLansias();
+    }
+  }, [activePosyanduId]);
 
   const handleSearch = (text: string) => {
     setSearch(text);

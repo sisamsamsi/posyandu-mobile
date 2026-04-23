@@ -34,6 +34,7 @@ import { useAuthStore } from '../../stores/auth-store';
 import { useServiceStore } from '../../stores/service-store';
 import { usePosyandu } from '../../hooks/usePosyandu';
 import { SettingsService, PosyanduSettingsUpdate } from '../../services/settings-service';
+import { supabase } from '../../lib/supabase';
 import { COLORS } from '../../lib/constants';
 import { Posyandu } from '../../lib/types';
 
@@ -161,6 +162,35 @@ export default function SettingsScreen() {
       [
         { text: 'Batal', style: 'cancel' },
         { text: 'Keluar', style: 'destructive', onPress: signOut },
+      ]
+    );
+  };
+
+  const handleMigrasiData = async () => {
+    if (!posyanduId) return;
+    
+    Alert.alert(
+      'Migrasi Data Testing',
+      'Apakah Anda ingin menarik data lansia dari database testing ke posyandu ini?',
+      [
+        { text: 'Batal', style: 'cancel' },
+        { 
+          text: 'Ya, Migrasi', 
+          onPress: async () => {
+            try {
+              const { data, error, count } = await supabase
+                .from('lansias')
+                .update({ posyandu_id: posyanduId })
+                .eq('posyandu_id', '00000000-0000-0000-0000-000000000003');
+
+              if (error) throw error;
+              
+              Alert.alert('Sukses', `Berhasil memindahkan data testing ke posyandu Anda.`);
+            } catch (e: any) {
+              Alert.alert('Gagal', e.message);
+            }
+          }
+        },
       ]
     );
   };
@@ -460,6 +490,15 @@ export default function SettingsScreen() {
           <TouchableOpacity style={[styles.logoutButton, { marginTop: 12 }]} onPress={handleLogout}>
             <LogOut size={20} color="#DC2626" />
             <Text style={styles.logoutText}>Keluar Akun</Text>
+          </TouchableOpacity>
+
+          {/* Migration Tools (Temporary) */}
+          <TouchableOpacity 
+            style={[styles.logoutButton, { marginTop: 40, borderStyle: 'dashed', borderWidth: 1, borderColor: '#6366F1', backgroundColor: '#EEF2FF' }]} 
+            onPress={handleMigrasiData}
+          >
+            <Users size={20} color="#6366F1" />
+            <Text style={[styles.logoutText, { color: '#6366F1' }]}>[Maintenance] Tarik Data Lansia</Text>
           </TouchableOpacity>
 
           <View style={{ height: 40 }} />
