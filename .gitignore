@@ -39,3 +39,9 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# sensitive files
+.env
+migrate-data.js
+test-db-lansia.js
+test-db.js
