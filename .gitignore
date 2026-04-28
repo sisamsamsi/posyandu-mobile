@@ -45,3 +45,4 @@ yarn-error.*
 migrate-data.js
 test-db-lansia.js
 test-db.js
+groq-apikey.txt
