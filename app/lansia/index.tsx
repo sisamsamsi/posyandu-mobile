@@ -16,6 +16,7 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Plus, User, ArrowLeft } from 'lucide-react-native';
 import { Lansia } from '../../lib/types';
+import { COLORS, RADIUS, SHADOW } from '../../lib/constants';
 
 export default function LansiaIndex() {
   const router = useRouter();
@@ -44,13 +45,13 @@ export default function LansiaIndex() {
     <TouchableOpacity onPress={() => router.push(`/lansia/${item.id}`)}>
       <Card style={styles.personCard}>
         <View style={styles.personAvatar}>
-          <User size={24} color="#6366F1" />
+          <User size={22} color={COLORS.lansia} />
         </View>
         <View style={styles.personInfo}>
           <Text style={styles.personName}>{item.nama}</Text>
           <Text style={styles.personNik}>{item.nik}</Text>
           <View style={styles.badgeRow}>
-            <Badge label={item.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'} variant="primary" />
+            <Badge label={item.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'} variant="lansia" />
             <Text style={styles.personRt}>RT {item.rt}</Text>
           </View>
         </View>
@@ -62,9 +63,12 @@ export default function LansiaIndex() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color="#1E293B" />
+          <ArrowLeft size={22} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Data Lansia</Text>
+        <View style={styles.headerTitleGroup}>
+          <Text style={styles.title}>Data Lansia</Text>
+          <View style={[styles.headerAccent, { backgroundColor: COLORS.lansia }]} />
+        </View>
       </View>
 
       <View style={styles.searchContainer}>
@@ -78,7 +82,7 @@ export default function LansiaIndex() {
 
       {loading && lansias.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#6366F1" />
+          <ActivityIndicator size="large" color={COLORS.lansia} />
         </View>
       ) : (
         <FlatList
@@ -88,6 +92,7 @@ export default function LansiaIndex() {
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
+              <User size={48} color={COLORS.surfaceBorder} />
               <Text style={styles.emptyText}>Tidak ada data lansia ditemukan.</Text>
             </View>
           }
@@ -99,8 +104,9 @@ export default function LansiaIndex() {
       <TouchableOpacity 
         style={styles.fab} 
         onPress={() => router.push('/lansia/create')}
+        activeOpacity={0.8}
       >
-        <Plus size={28} color="#FFFFFF" />
+        <Plus size={24} color={COLORS.textOnDark} />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -109,31 +115,47 @@ export default function LansiaIndex() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.background,
   },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceBorder,
   },
   backButton: {
-    marginRight: 16,
+    marginRight: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.surfaceDim,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1E293B',
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+  },
+  headerAccent: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   searchContainer: {
-    padding: 20,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    padding: 16,
+    backgroundColor: COLORS.surface,
   },
   listContent: {
-    padding: 20,
+    padding: 16,
     paddingBottom: 100,
   },
   loadingContainer: {
@@ -146,59 +168,56 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   personAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#CCFBF1',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.lansiaLight,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 14,
   },
   personInfo: {
     flex: 1,
   },
   personName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1E293B',
-    marginBottom: 2,
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
   },
   personNik: {
-    fontSize: 14,
-    color: '#64748B',
-    marginBottom: 6,
+    fontSize: 12,
+    color: COLORS.textTertiary,
+    marginTop: 2,
+    marginBottom: 4,
   },
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   personRt: {
-    fontSize: 12,
-    color: '#94A3B8',
+    fontSize: 11,
+    color: COLORS.textTertiary,
     marginLeft: 8,
   },
   emptyContainer: {
     alignItems: 'center',
-    marginTop: 100,
+    marginTop: 80,
+    gap: 12,
   },
   emptyText: {
-    color: '#64748B',
-    fontSize: 16,
+    color: COLORS.textTertiary,
+    fontSize: 14,
   },
   fab: {
     position: 'absolute',
     right: 20,
-    bottom: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#6366F1',
+    bottom: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: COLORS.lansia,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    ...SHADOW.lg,
   },
 });

@@ -35,7 +35,7 @@ import { useServiceStore } from '../../stores/service-store';
 import { usePosyandu } from '../../hooks/usePosyandu';
 import { SettingsService, PosyanduSettingsUpdate } from '../../services/settings-service';
 import { supabase } from '../../lib/supabase';
-import { COLORS } from '../../lib/constants';
+import { COLORS, RADIUS, SHADOW } from '../../lib/constants';
 import { Posyandu } from '../../lib/types';
 
 type SectionKey = 'profil' | 'jadwal' | 'info';
@@ -581,44 +581,43 @@ function FormField({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.background,
     gap: 12,
   },
   loadingText: {
-    color: '#64748B',
+    color: COLORS.textTertiary,
     fontSize: 14,
   },
   emptyTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#334155',
+    color: COLORS.textPrimary,
     marginTop: 16,
   },
   emptyText: {
     fontSize: 14,
-    color: '#94A3B8',
+    color: COLORS.textTertiary,
     textAlign: 'center',
     paddingHorizontal: 40,
     marginTop: 4,
     lineHeight: 20,
   },
 
-  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 18,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: COLORS.surfaceBorder,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -628,20 +627,20 @@ const styles = StyleSheet.create({
   headerIconCircle: {
     width: 44,
     height: 44,
-    borderRadius: 14,
-    backgroundColor: '#F0FDFA',
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.balitaLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: -0.5,
+    fontSize: 20,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    letterSpacing: -0.3,
   },
   headerSub: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: COLORS.textTertiary,
     fontWeight: '500',
     marginTop: 1,
   },

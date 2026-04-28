@@ -4,14 +4,11 @@ import { Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Home, Stethoscope, ClipboardList, BarChart3, FileText, Settings } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS } from '../../lib/constants';
+import { COLORS, SHADOW } from '../../lib/constants';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
 
-  // Hitung padding bawah secara dinamis:
-  // - Jika ada tombol navigasi Android (insets.bottom > 0), gunakan nilai tersebut
-  // - Jika tidak ada (gesture navigation), beri padding minimum agar tidak terlalu mepet
   const bottomPadding = Platform.OS === 'android' 
     ? Math.max(insets.bottom, 8)
     : insets.bottom + 4;
@@ -22,34 +19,34 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: '#94A3B8',
+        tabBarInactiveTintColor: COLORS.textTertiary,
         tabBarLabelStyle: {
           fontSize: 10,
-          fontWeight: '700',
+          fontWeight: '600',
           paddingBottom: 2,
+          letterSpacing: 0.2,
         },
         tabBarStyle: {
           height: tabBarHeight,
           paddingBottom: bottomPadding,
           paddingTop: 8,
-          borderTopWidth: 0,
-          backgroundColor: '#FFFFFF',
-          elevation: 24,
-          shadowColor: '#006A63',
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.04,
-          shadowRadius: 12,
+          borderTopWidth: 1,
+          borderTopColor: COLORS.surfaceBorder,
+          backgroundColor: COLORS.surface,
+          ...SHADOW.lg,
         },
         headerStyle: {
-          backgroundColor: '#FFFFFF',
+          backgroundColor: COLORS.surface,
           elevation: 0,
           shadowOpacity: 0,
+          borderBottomWidth: 1,
+          borderBottomColor: COLORS.surfaceBorder,
         },
         headerTitleStyle: {
-          fontWeight: '900',
+          fontWeight: '800',
           fontSize: 18,
-          color: '#1E293B',
-          letterSpacing: -0.5,
+          color: COLORS.textPrimary,
+          letterSpacing: -0.3,
         },
       }}
     >

@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, TextInput, StyleSheet } from 'react-native';
+import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import { Search, X } from 'lucide-react-native';
+import { COLORS, RADIUS } from '../../lib/constants';
 
 interface SearchBarProps {
   value: string;
@@ -17,21 +18,18 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 }) => {
   return (
     <View style={styles.container}>
-      <Search size={20} color="#94A3B8" style={styles.icon} />
+      <Search size={18} color={COLORS.textTertiary} style={styles.icon} />
       <TextInput
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="#94A3B8"
+        placeholderTextColor={COLORS.textTertiary}
       />
       {value.length > 0 && (
-        <X 
-          size={20} 
-          color="#94A3B8" 
-          onPress={onClear} 
-          style={styles.clearIcon} 
-        />
+        <TouchableOpacity onPress={onClear} style={styles.clearBtn}>
+          <X size={16} color={COLORS.textTertiary} />
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -41,22 +39,23 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 48,
+    backgroundColor: COLORS.surfaceDim,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 14,
+    height: 46,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: COLORS.surfaceBorder,
   },
   icon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   input: {
     flex: 1,
-    fontSize: 16,
-    color: '#1E293B',
+    fontSize: 15,
+    color: COLORS.textPrimary,
   },
-  clearIcon: {
-    marginLeft: 8,
+  clearBtn: {
+    padding: 6,
+    marginLeft: 4,
   },
 });

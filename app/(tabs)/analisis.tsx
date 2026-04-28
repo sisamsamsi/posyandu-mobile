@@ -15,15 +15,15 @@ import { AnalysisService, BalitaAnalysis, LansiaAnalysis, TrendPoint } from '../
 import { LineChart } from 'react-native-chart-kit';
 import { useServiceStore } from '../../stores/service-store';
 import { WorkspaceSwitcher } from '../../components/ui/WorkspaceSwitcher';
+import { COLORS as SYSTEM_COLORS, RADIUS, SHADOW } from '../../lib/constants';
 
 const screenWidth = Dimensions.get('window').width;
 
 type AnalysisTab = 'balita' | 'lansia' | 'tren';
 
-// Category Colors
 const COLORS = {
-  balita: '#0D9488',
-  lansia: '#6366F1',
+  balita: SYSTEM_COLORS.balita,
+  lansia: SYSTEM_COLORS.lansia,
   trend: '#F59E0B'
 };
 
@@ -345,18 +345,20 @@ function TabButton({ active, icon, label, activeColor, onPress }: { active: bool
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, backgroundColor: SYSTEM_COLORS.background },
   header: {
     padding: 20,
-    backgroundColor: '#FFF',
+    backgroundColor: SYSTEM_COLORS.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: SYSTEM_COLORS.surfaceBorder,
   },
-  headerTitle: { fontSize: 22, fontWeight: '900', color: '#1E293B', letterSpacing: -0.5 },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: SYSTEM_COLORS.textPrimary, letterSpacing: -0.3 },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#FFF',
+    backgroundColor: SYSTEM_COLORS.surface,
     paddingHorizontal: 20,
     paddingBottom: 16,
     gap: 10,
@@ -367,35 +369,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    borderRadius: 14,
-    backgroundColor: '#F1F5F9',
+    borderRadius: RADIUS.md,
+    backgroundColor: SYSTEM_COLORS.surfaceDim,
     gap: 6,
   },
-  tabLabel: { fontSize: 13, fontWeight: '600', color: '#64748B' },
+  tabLabel: { fontSize: 13, fontWeight: '600', color: SYSTEM_COLORS.textTertiary },
   content: { padding: 20 },
   loader: { padding: 100, alignItems: 'center' },
-  loadingText: { marginTop: 12, color: '#64748B', fontSize: 13 },
-  statsGrid: { flexDirection: 'row', gap: 16, marginBottom: 20 },
+  loadingText: { marginTop: 12, color: SYSTEM_COLORS.textTertiary, fontSize: 13 },
+  statsGrid: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   statCard: { flex: 1, padding: 16 },
-  statLabel: { fontSize: 12, color: '#64748B', marginBottom: 4, fontWeight: '600' },
-  statValue: { fontSize: 24, fontWeight: '900' },
+  statLabel: { fontSize: 12, color: SYSTEM_COLORS.textTertiary, marginBottom: 4, fontWeight: '600' },
+  statValue: { fontSize: 24, fontWeight: '800' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  alertCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF2F2', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#FCA5A5', marginTop: 12 },
-  alertTitle: { fontSize: 14, fontWeight: 'bold', color: '#991B1B' },
+  alertCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: SYSTEM_COLORS.errorLight, padding: 16, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: '#FCA5A5', marginTop: 12 },
+  alertTitle: { fontSize: 14, fontWeight: '700', color: '#991B1B' },
   alertText: { fontSize: 13, color: '#991B1B', marginTop: 2, lineHeight: 18 },
   chartContainer: { padding: 16 },
-  chartTitle: { fontSize: 15, fontWeight: '800', color: '#0F172A', marginBottom: 20 },
-  lineChart: { borderRadius: 16, marginVertical: 8 },
+  chartTitle: { fontSize: 15, fontWeight: '700', color: SYSTEM_COLORS.textPrimary, marginBottom: 20 },
+  lineChart: { borderRadius: RADIUS.lg, marginVertical: 8 },
   
-  // List Section Styles
   listSection: { marginTop: 12, marginBottom: 40 },
   listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  listTitle: { fontSize: 16, fontWeight: '800', color: '#1E293B' },
-  closeBtn: { color: '#EF4444', fontWeight: 'bold', fontSize: 13 },
+  listTitle: { fontSize: 16, fontWeight: '700', color: SYSTEM_COLORS.textPrimary },
+  closeBtn: { color: SYSTEM_COLORS.error, fontWeight: '700', fontSize: 13 },
   peopleCard: { padding: 0, overflow: 'hidden' },
-  peopleItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  personName: { fontSize: 14, fontWeight: '700', color: '#1E293B' },
-  personSub: { fontSize: 12, color: '#64748B', marginTop: 2 },
-  emptyList: { padding: 40, alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 16, borderStyle: 'dashed', borderWidth: 1, borderColor: '#CBD5E1' },
-  emptyText: { color: '#94A3B8', fontSize: 13 }
+  peopleItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: SYSTEM_COLORS.surfaceDim },
+  personName: { fontSize: 14, fontWeight: '700', color: SYSTEM_COLORS.textPrimary },
+  personSub: { fontSize: 12, color: SYSTEM_COLORS.textSecondary, marginTop: 2 },
+  emptyList: { padding: 40, alignItems: 'center', backgroundColor: SYSTEM_COLORS.surfaceDim, borderRadius: RADIUS.lg, borderStyle: 'dashed', borderWidth: 1, borderColor: SYSTEM_COLORS.surfaceBorder },
+  emptyText: { color: SYSTEM_COLORS.textTertiary, fontSize: 13 }
 });

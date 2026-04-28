@@ -2,6 +2,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Baby, Users, Clock, Calendar } from 'lucide-react-native';
+import { COLORS, RADIUS, SHADOW } from '../../lib/constants';
 
 interface ScheduleCardProps {
   jadwalBalitaTanggal: number | null;
@@ -10,9 +11,6 @@ interface ScheduleCardProps {
   jadwalLansiaJam: string | null;
 }
 
-/**
- * Hitung countdown dari hari ini ke tanggal posyandu terdekat
- */
 function getNextScheduleDate(tanggal: number): { date: Date; daysLeft: number } {
   const now = new Date();
   const thisMonth = new Date(now.getFullYear(), now.getMonth(), tanggal);
@@ -22,7 +20,6 @@ function getNextScheduleDate(tanggal: number): { date: Date; daysLeft: number } 
     return { date: thisMonth, daysLeft };
   }
 
-  // Sudah lewat bulan ini, ambil bulan depan
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, tanggal);
   const daysLeft = Math.ceil((nextMonth.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   return { date: nextMonth, daysLeft };
@@ -35,10 +32,10 @@ function getCountdownLabel(daysLeft: number): string {
 }
 
 function getCountdownColor(daysLeft: number): string {
-  if (daysLeft <= 1) return '#EF4444';
-  if (daysLeft <= 3) return '#F59E0B';
-  if (daysLeft <= 7) return '#0D9488';
-  return '#64748B';
+  if (daysLeft <= 1) return COLORS.error;
+  if (daysLeft <= 3) return COLORS.warning;
+  if (daysLeft <= 7) return COLORS.balita;
+  return COLORS.textTertiary;
 }
 
 const MONTHS = [
@@ -56,7 +53,7 @@ export function ScheduleCard({
     return (
       <View style={styles.container}>
         <View style={styles.emptyContainer}>
-          <Calendar size={20} color="#CBD5E1" />
+          <Calendar size={20} color={COLORS.textTertiary} />
           <Text style={styles.emptyText}>
             Jadwal posyandu belum diatur. Atur di menu Pengaturan.
           </Text>
@@ -65,7 +62,6 @@ export function ScheduleCard({
     );
   }
 
-  // Find closest schedule
   let closestDays = Infinity;
 
   if (jadwalBalitaTanggal) {
@@ -81,12 +77,14 @@ export function ScheduleCard({
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          <Calendar size={16} color="#0D9488" />
+          <View style={styles.calendarIcon}>
+            <Calendar size={14} color={COLORS.balita} />
+          </View>
           <Text style={styles.headerTitle}>Jadwal Terdekat</Text>
         </View>
         {closestDays !== Infinity && (
           <View style={[styles.countdownBadge, { backgroundColor: `${getCountdownColor(closestDays)}15` }]}>
-            <Clock size={12} color={getCountdownColor(closestDays)} />
+            <Clock size={11} color={getCountdownColor(closestDays)} />
             <Text style={[styles.countdownText, { color: getCountdownColor(closestDays) }]}>
               {getCountdownLabel(closestDays)}
             </Text>
@@ -97,22 +95,22 @@ export function ScheduleCard({
       <View style={styles.scheduleGrid}>
         {jadwalBalitaTanggal && (
           <ScheduleItem
-            icon={<Baby size={18} color="#0D9488" />}
+            icon={<Baby size={16} color={COLORS.balita} />}
             label="Balita"
             tanggal={jadwalBalitaTanggal}
             jam={jadwalBalitaJam || '08:00'}
-            accentColor="#0D9488"
-            bgColor="#F0FDFA"
+            accentColor={COLORS.balita}
+            bgColor={COLORS.balitaLight}
           />
         )}
         {jadwalLansiaTanggal && (
           <ScheduleItem
-            icon={<Users size={18} color="#6366F1" />}
+            icon={<Users size={16} color={COLORS.lansia} />}
             label="Lansia"
             tanggal={jadwalLansiaTanggal}
             jam={jadwalLansiaJam || '08:00'}
-            accentColor="#6366F1"
-            bgColor="#EEF2FF"
+            accentColor={COLORS.lansia}
+            bgColor={COLORS.lansiaLight}
           />
         )}
       </View>
@@ -139,40 +137,42 @@ function ScheduleItem({
   const monthLabel = MONTHS[date.getMonth()];
 
   return (
-    <View style={[styles.scheduleItem, { backgroundColor: bgColor, borderColor: `${accentColor}30` }]}>
+    <View style={[styles.scheduleItem, { backgroundColor: bgColor }]}>
       <View style={styles.scheduleItemHeader}>
         {icon}
         <Text style={[styles.scheduleLabel, { color: accentColor }]}>{label}</Text>
       </View>
-      <Text style={styles.scheduleDateText}>Tgl {tanggal} {monthLabel}</Text>
-      <Text style={styles.scheduleTimeText}>⏰ {jam}</Text>
+      <Text style={styles.scheduleDateBig}>{tanggal}</Text>
+      <Text style={styles.scheduleDateMonth}>{monthLabel}</Text>
+      <View style={styles.scheduleTimeRow}>
+        <Clock size={10} color={COLORS.textTertiary} />
+        <Text style={styles.scheduleTimeText}>{jam}</Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 32,
-    padding: 24,
-    elevation: 4,
-    shadowColor: '#006A63',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.04,
-    shadowRadius: 24,
-    marginBottom: 16,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.xl,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceBorder,
+    ...SHADOW.sm,
+    marginBottom: 12,
   },
   emptyContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    padding: 12,
+    padding: 8,
   },
   emptyText: {
     flex: 1,
-    fontSize: 14,
-    color: '#94A3B8',
-    lineHeight: 20,
+    fontSize: 13,
+    color: COLORS.textTertiary,
+    lineHeight: 18,
   },
   headerRow: {
     flexDirection: 'row',
@@ -185,53 +185,78 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  calendarIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.balitaLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   headerTitle: {
     fontSize: 14,
-    fontWeight: '800',
-    color: '#334155',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
   },
   countdownBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 24,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: RADIUS.lg,
   },
   countdownText: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '700',
   },
   scheduleGrid: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 12,
   },
   scheduleItem: {
     flex: 1,
-    padding: 20,
-    borderRadius: 24,
+    borderRadius: RADIUS.lg,
+    padding: 16,
+    alignItems: 'center',
   },
   scheduleItemHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
+    gap: 6,
+    marginBottom: 8,
   },
   scheduleLabel: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  scheduleDateText: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#191C1D',
+  scheduleDateBig: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    letterSpacing: -1,
+  },
+  scheduleDateMonth: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    marginTop: -2,
+  },
+  scheduleTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: RADIUS.sm,
   },
   scheduleTimeText: {
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: 6,
+    fontSize: 11,
     fontWeight: '600',
+    color: COLORS.textSecondary,
   },
 });

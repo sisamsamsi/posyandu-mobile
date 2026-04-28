@@ -4,68 +4,76 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Baby, Users, Settings, ChevronRight, Calendar, ClipboardList } from 'lucide-react-native';
 import { useServiceStore } from '../../stores/service-store';
-import { COLORS } from '../../lib/constants';
+import { COLORS, RADIUS, SHADOW } from '../../lib/constants';
 import { WorkspaceSwitcher } from '../../components/ui/WorkspaceSwitcher';
 
 export default function DataMasterScreen() {
   const router = useRouter();
   const { activeWorkspace } = useServiceStore();
+  const isBalita = activeWorkspace === 'balita';
 
   const allMenuItems = [
     {
       title: 'Data Balita',
       subtitle: 'Pendaftaran & data induk anak',
-      icon: <Baby size={24} color={COLORS.primaryDark} />,
+      icon: <Baby size={22} color={COLORS.balita} />,
       route: '/balita',
-      color: '#E0F2F1', // Very light teal
+      color: COLORS.balitaLight,
+      accentColor: COLORS.balita,
       ws: 'balita',
     },
     {
       title: 'Riwayat Penimbangan',
       subtitle: 'Aktivitas KMS & pencatatan bulanan',
-      icon: <Calendar size={24} color={COLORS.primaryDark} />,
+      icon: <Calendar size={22} color={COLORS.balita} />,
       route: '/penimbangan',
-      color: '#E0F2F1',
+      color: COLORS.balitaLight,
+      accentColor: COLORS.balita,
       ws: 'balita',
     },
     {
       title: 'Monitoring Balita',
       subtitle: 'Analisis status kehadiran',
-      icon: <ClipboardList size={24} color={COLORS.primaryDark} />,
+      icon: <ClipboardList size={22} color={COLORS.balita} />,
       route: '/monitoring/balita',
-      color: '#E0F2F1',
+      color: COLORS.balitaLight,
+      accentColor: COLORS.balita,
       ws: 'balita',
     },
     {
       title: 'Data Lansia',
       subtitle: 'Pendaftaran & profil kesehatan lansia',
-      icon: <Users size={24} color={COLORS.secondary} />,
+      icon: <Users size={22} color={COLORS.lansia} />,
       route: '/lansia',
-      color: '#E3F2FD', // Very light blue
+      color: COLORS.lansiaLight,
+      accentColor: COLORS.lansia,
       ws: 'lansia',
     },
     {
       title: 'Riwayat Pemeriksaan',
       subtitle: 'Catatan tensi & kesehatan',
-      icon: <Calendar size={24} color={COLORS.secondary} />,
+      icon: <Calendar size={22} color={COLORS.lansia} />,
       route: '/pemeriksaan',
-      color: '#E3F2FD',
+      color: COLORS.lansiaLight,
+      accentColor: COLORS.lansia,
       ws: 'lansia',
     },
     {
       title: 'Monitoring Lansia',
       subtitle: 'Pantau kunjungan bulanan',
-      icon: <ClipboardList size={24} color={COLORS.secondary} />,
+      icon: <ClipboardList size={22} color={COLORS.lansia} />,
       route: '/monitoring/lansia',
-      color: '#E3F2FD',
+      color: COLORS.lansiaLight,
+      accentColor: COLORS.lansia,
       ws: 'lansia',
     },
     {
       title: 'Pengaturan',
       subtitle: 'Konfigurasi unit posyandu',
-      icon: <Settings size={24} color="#64748B" />,
+      icon: <Settings size={22} color={COLORS.textTertiary} />,
       route: '/settings',
-      color: '#F1F5F9',
+      color: COLORS.surfaceDim,
+      accentColor: COLORS.textTertiary,
       ws: 'both',
     },
   ];
@@ -76,13 +84,13 @@ export default function DataMasterScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Data Master</Text>
+          <Text style={styles.title}>Data Warga</Text>
           <Text style={styles.subtitle}>
-            Kelola informasi dan riwayat layanan untuk {activeWorkspace === 'balita' ? 'Balita' : 'Lansia'}
+            Kelola informasi {isBalita ? 'Balita' : 'Lansia'} & riwayat layanan
           </Text>
         </View>
         <View style={styles.headerRight}>
-          <WorkspaceSwitcher color="#1E293B" size={24} />
+          <WorkspaceSwitcher color={COLORS.textPrimary} size={22} />
         </View>
       </View>
 
@@ -91,7 +99,7 @@ export default function DataMasterScreen() {
           <TouchableOpacity 
             key={index} 
             onPress={() => router.push(item.route as any)}
-            activeOpacity={0.8}
+            activeOpacity={0.7}
             style={styles.menuCard}
           >
             <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
@@ -102,7 +110,7 @@ export default function DataMasterScreen() {
               <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
             </View>
             <View style={styles.actionCircle}>
-              <ChevronRight size={16} color="#94A3B8" />
+              <ChevronRight size={16} color={COLORS.textTertiary} />
             </View>
           </TouchableOpacity>
         ))}
@@ -117,66 +125,66 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
     paddingBottom: 16,
     flexDirection: 'row',
     alignItems: 'flex-start',
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceBorder,
   },
   headerRight: {
-    marginTop: 8,
+    marginTop: 4,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#191C1D',
-    letterSpacing: -1,
+    fontSize: 26,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 15,
-    color: '#64748B',
-    marginTop: 6,
-    lineHeight: 22,
+    fontSize: 14,
+    color: COLORS.textTertiary,
+    marginTop: 4,
+    lineHeight: 20,
   },
   content: {
-    paddingHorizontal: 24,
+    padding: 20,
     paddingBottom: 40,
-    gap: 16,
+    gap: 10,
   },
   menuCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.surface,
-    padding: 20,
-    borderRadius: 32, // Large radius per Serene Guardian
-    elevation: 4,
-    shadowColor: '#006A63',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.04,
-    shadowRadius: 24,
+    padding: 16,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceBorder,
+    ...SHADOW.sm,
   },
   iconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.lg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   textContainer: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 14,
     marginRight: 8,
   },
   menuTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#191C1D',
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
   },
   menuSubtitle: {
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: 4,
-    lineHeight: 18,
+    fontSize: 12,
+    color: COLORS.textTertiary,
+    marginTop: 2,
   },
   actionCircle: {
     width: 32,

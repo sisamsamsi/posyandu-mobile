@@ -16,6 +16,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Plus, Baby, ArrowLeft, GraduationCap } from 'lucide-react-native';
 import { Balita } from '../../lib/types';
 import { differenceInMonths } from 'date-fns';
+import { COLORS, RADIUS, SHADOW } from '../../lib/constants';
 
 export default function BalitaIndex() {
   const router = useRouter();
@@ -45,23 +46,23 @@ export default function BalitaIndex() {
       <TouchableOpacity onPress={() => router.push(`/balita/${item.id}`)}>
         <Card style={styles.childCard}>
           <View style={styles.childAvatar}>
-            <Baby size={24} color="#0D9488" />
+            <Baby size={22} color={COLORS.balita} />
           </View>
           <View style={styles.childInfo}>
             <View style={styles.nameRow}>
               <Text style={styles.childName}>{item.nama}</Text>
               {isGraduated && (
                 <View style={styles.lulusBadge}>
-                  <GraduationCap size={12} color="#FFFFFF" />
+                  <GraduationCap size={11} color={COLORS.textOnDark} />
                   <Text style={styles.lulusText}>LULUS</Text>
                 </View>
               )}
             </View>
             <Text style={styles.childNik}>{item.nik}</Text>
             <View style={styles.badgeRow}>
-              <Badge label={item.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'} variant="primary" />
+              <Badge label={item.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'} variant="balita" />
               <Text style={styles.childRt}>RT {item.rt}</Text>
-              <Text style={styles.childAge}> • {ageMonths} bln</Text>
+              <Text style={styles.childAge}> {ageMonths} bln</Text>
             </View>
           </View>
         </Card>
@@ -73,9 +74,12 @@ export default function BalitaIndex() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color="#1E293B" />
+          <ArrowLeft size={22} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Data Balita</Text>
+        <View style={styles.headerTitleGroup}>
+          <Text style={styles.title}>Data Balita</Text>
+          <View style={[styles.headerAccent, { backgroundColor: COLORS.balita }]} />
+        </View>
       </View>
 
       <View style={styles.searchContainer}>
@@ -89,7 +93,7 @@ export default function BalitaIndex() {
 
       {loading && balitas.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0D9488" />
+          <ActivityIndicator size="large" color={COLORS.balita} />
         </View>
       ) : (
         <FlatList
@@ -99,6 +103,7 @@ export default function BalitaIndex() {
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
+              <Baby size={48} color={COLORS.surfaceBorder} />
               <Text style={styles.emptyText}>Tidak ada data balita ditemukan.</Text>
             </View>
           }
@@ -110,8 +115,9 @@ export default function BalitaIndex() {
       <TouchableOpacity 
         style={styles.fab} 
         onPress={() => router.push('/balita/create')}
+        activeOpacity={0.8}
       >
-        <Plus size={28} color="#FFFFFF" />
+        <Plus size={24} color={COLORS.textOnDark} />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -120,31 +126,47 @@ export default function BalitaIndex() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.background,
   },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceBorder,
   },
   backButton: {
-    marginRight: 16,
+    marginRight: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.surfaceDim,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1E293B',
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+  },
+  headerAccent: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   searchContainer: {
-    padding: 20,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    padding: 16,
+    backgroundColor: COLORS.surface,
   },
   listContent: {
-    padding: 20,
+    padding: 16,
     paddingBottom: 100,
   },
   loadingContainer: {
@@ -157,83 +179,79 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   childAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#CCFBF1',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.balitaLight,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 14,
   },
   childInfo: {
     flex: 1,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   childName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1E293B',
-    marginBottom: 2,
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  lulusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: COLORS.success,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  lulusText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: COLORS.textOnDark,
   },
   childNik: {
-    fontSize: 14,
-    color: '#64748B',
-    marginBottom: 6,
+    fontSize: 12,
+    color: COLORS.textTertiary,
+    marginTop: 2,
+    marginBottom: 4,
   },
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   childRt: {
-    fontSize: 12,
-    color: '#94A3B8',
+    fontSize: 11,
+    color: COLORS.textTertiary,
     marginLeft: 8,
   },
   childAge: {
-    fontSize: 12,
-    color: '#94A3B8',
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  lulusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F59E0B',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    gap: 4,
-  },
-  lulusText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#FFFFFF',
+    fontSize: 11,
+    color: COLORS.textTertiary,
   },
   emptyContainer: {
     alignItems: 'center',
-    marginTop: 100,
+    marginTop: 80,
+    gap: 12,
   },
   emptyText: {
-    color: '#64748B',
-    fontSize: 16,
+    color: COLORS.textTertiary,
+    fontSize: 14,
   },
   fab: {
     position: 'absolute',
     right: 20,
-    bottom: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#0D9488',
+    bottom: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: COLORS.balita,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    ...SHADOW.lg,
   },
 });
