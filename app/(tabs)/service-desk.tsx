@@ -26,17 +26,22 @@ import { Badge } from '../../components/ui/Badge';
 import { Posyandu } from '../../lib/types';
 import { formatDistanceToNow } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
-import { COLORS } from '../../lib/constants';
+import { COLORS, RADIUS, SHADOW } from '../../lib/constants';
 import { WorkspaceSwitcher } from '../../components/ui/WorkspaceSwitcher';
 
 export default function ServiceDeskScreen() {
   const router = useRouter();
   const { activePosyanduId, setActivePosyandu, history, activeWorkspace } = useServiceStore();
-  const { posyandu: defaultPosyandu, getAllPosyandus } = usePosyandu();
+  const { getAllPosyandus } = usePosyandu();
   
   const [showPosyanduPicker, setShowPosyanduPicker] = useState(false);
   const [allPosyandus, setAllPosyandus] = useState<Posyandu[]>([]);
   const [activePosyanduName, setActivePosyanduName] = useState<string>('Pilih Posyandu');
+
+  const isBalita = activeWorkspace === 'balita';
+  const wsColor = isBalita ? COLORS.balita : COLORS.lansia;
+  const wsBg = isBalita ? COLORS.balitaLight : COLORS.lansiaLight;
+  const wsDark = isBalita ? COLORS.balitaDark : COLORS.lansiaDark;
 
   useEffect(() => {
     loadPosyandus();
@@ -46,9 +51,9 @@ export default function ServiceDeskScreen() {
     const list = await getAllPosyandus();
     setAllPosyandus(list);
     
-    if (!activePosyanduId && defaultPosyandu) {
-      setActivePosyandu(defaultPosyandu.id);
-      setActivePosyanduName(defaultPosyandu.nama_posyandu);
+    if (!activePosyanduId && list.length > 0) {
+      setActivePosyandu(list[0].id);
+      setActivePosyanduName(list[0].nama_posyandu);
     } else if (activePosyanduId) {
       const active = list.find(p => p.id === activePosyanduId);
       if (active) setActivePosyanduName(active.nama_posyandu);
@@ -61,7 +66,6 @@ export default function ServiceDeskScreen() {
     setShowPosyanduPicker(false);
   };
 
-  // Filter history based on active workspace
   const filteredHistory = history.filter(item => item.type === activeWorkspace);
 
   return (
@@ -70,10 +74,10 @@ export default function ServiceDeskScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Layanan Terpadu</Text>
           <Text style={styles.headerSubtitle}>
-            Modul Pemeriksaan {activeWorkspace === 'balita' ? 'Balita' : 'Lansia'}
+            Modul Pemeriksaan {isBalita ? 'Balita' : 'Lansia'}
           </Text>
         </View>
-        <WorkspaceSwitcher size={28} color="#191C1D" />
+        <WorkspaceSwitcher size={22} color={COLORS.textPrimary} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -81,49 +85,51 @@ export default function ServiceDeskScreen() {
         <TouchableOpacity 
           style={styles.posyanduCard}
           onPress={() => setShowPosyanduPicker(true)}
-          activeOpacity={0.8}
+          activeOpacity={0.7}
         >
           <View style={styles.posyanduIcon}>
-             <MapPin size={24} color={COLORS.primaryDark} />
+             <MapPin size={20} color={COLORS.primaryDark} />
           </View>
           <View style={styles.posyanduInfo}>
              <Text style={styles.posyanduLabel}>LOKASI POSYANDU</Text>
              <Text style={styles.posyanduName}>{activePosyanduName}</Text>
           </View>
-          <ChevronRight size={20} color="#94A3B8" />
+          <View style={styles.chevronCircle}>
+            <ChevronRight size={16} color={COLORS.textTertiary} />
+          </View>
         </TouchableOpacity>
 
         {/* WORKSPACE SPECIFIC MAIN ACTION */}
-        {activeWorkspace === 'balita' ? (
+        {isBalita ? (
           <TouchableOpacity 
-            style={[styles.mainActionCard, { backgroundColor: '#4DB6AC' }]}
+            style={[styles.mainActionCard, { backgroundColor: COLORS.balitaAccent }]}
             onPress={() => router.push('/service-desk/balita')}
-            activeOpacity={0.9}
+            activeOpacity={0.8}
           >
             <View style={styles.mainActionIconCircle}>
-              <Baby size={40} color="#006A63" />
+              <Baby size={36} color={COLORS.balitaDark} />
             </View>
             <Text style={styles.mainActionTitle}>Mulai Timbang & Gizi</Text>
             <Text style={styles.mainActionDesc}>Input data antropometri pertumbuhan anak hari ini.</Text>
             <View style={styles.arrowRow}>
               <Text style={styles.arrowText}>Proses Pelayanan</Text>
-              <ArrowRight size={20} color="#FFF" />
+              <ArrowRight size={18} color="#FFF" />
             </View>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity 
-            style={[styles.mainActionCard, { backgroundColor: '#64B5F6' }]}
+            style={[styles.mainActionCard, { backgroundColor: COLORS.lansiaAccent }]}
             onPress={() => router.push('/service-desk/lansia')}
-            activeOpacity={0.9}
+            activeOpacity={0.8}
           >
             <View style={styles.mainActionIconCircle}>
-              <Users size={40} color="#004B75" />
+              <Users size={36} color={COLORS.lansiaDark} />
             </View>
             <Text style={styles.mainActionTitle}>Pemeriksaan Fisik</Text>
             <Text style={styles.mainActionDesc}>Input data vital dan skrining kesehatan lansia.</Text>
             <View style={styles.arrowRow}>
               <Text style={styles.arrowText}>Mulai Skrining</Text>
-              <ArrowRight size={20} color="#FFF" />
+              <ArrowRight size={18} color="#FFF" />
             </View>
           </TouchableOpacity>
         )}
@@ -131,7 +137,7 @@ export default function ServiceDeskScreen() {
         {/* RECENT HISTORY */}
         <View style={styles.historySection}>
            <View style={styles.historyHeader}>
-              <Text style={styles.historyTitle}>Riwayat {activeWorkspace === 'balita' ? 'Anak' : 'Lansia'} Hari Ini</Text>
+              <Text style={styles.historyTitle}>Riwayat {isBalita ? 'Anak' : 'Lansia'} Hari Ini</Text>
               {filteredHistory.length > 0 && <Badge label={filteredHistory.length.toString()} variant="info" />}
            </View>
 
@@ -139,10 +145,10 @@ export default function ServiceDeskScreen() {
              filteredHistory.map((item, idx) => (
                <View key={`${item.id}-${idx}`} style={styles.historyItemCard}>
                   <View style={styles.historyLeft}>
-                    <View style={[styles.historyIcon, { backgroundColor: activeWorkspace === 'balita' ? '#E0F2F1' : '#E3F2FD' }]}>
-                       {activeWorkspace === 'balita' ? 
-                          <Baby size={22} color={COLORS.primaryDark} /> : 
-                          <UserCheck size={22} color={COLORS.secondary} />
+                    <View style={[styles.historyIcon, { backgroundColor: isBalita ? COLORS.balitaLight : COLORS.lansiaLight }]}>
+                       {isBalita ? 
+                          <Baby size={20} color={COLORS.balita} /> : 
+                          <UserCheck size={20} color={COLORS.lansia} />
                        }
                     </View>
                     <View>
@@ -156,13 +162,13 @@ export default function ServiceDeskScreen() {
                     style={styles.actionBtn}
                     onPress={() => router.push(`/${activeWorkspace}/${item.id}`)}
                   >
-                    <ChevronRight size={18} color="#94A3B8" />
+                    <ChevronRight size={16} color={COLORS.textTertiary} />
                   </TouchableOpacity>
                </View>
              ))
            ) : (
              <View style={styles.emptyHistory}>
-                <ClipboardCheck size={56} color="#CBD5E1" />
+                <ClipboardCheck size={48} color={COLORS.surfaceBorder} />
                 <Text style={styles.emptyText}>Belum ada pelayanan {activeWorkspace} yang tercatat.</Text>
              </View>
            )}
@@ -187,7 +193,7 @@ export default function ServiceDeskScreen() {
                       style={styles.pickerItem}
                       onPress={() => handleSelectPosyandu(item)}
                     >
-                       <MapPin size={20} color="#94A3B8" />
+                       <MapPin size={18} color={COLORS.textTertiary} />
                        <Text style={styles.pickerItemText}>{item.nama_posyandu}</Text>
                        {activePosyanduId === item.id && <View style={styles.activeDot} />}
                     </TouchableOpacity>
@@ -206,223 +212,221 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
     paddingBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceBorder,
   },
   headerTitle: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#191C1D',
-    letterSpacing: -1,
+    fontSize: 24,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    letterSpacing: -0.5,
   },
   headerSubtitle: {
-    fontSize: 15,
-    color: '#64748B',
-    marginTop: 4,
+    fontSize: 13,
+    color: COLORS.textTertiary,
+    marginTop: 3,
   },
   scrollContent: {
-    padding: 24,
+    padding: 20,
     paddingBottom: 40,
   },
   posyanduCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    borderRadius: 32, // Large pill radius
-    marginBottom: 24,
-    elevation: 4,
-    shadowColor: '#006A63',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.04,
-    shadowRadius: 24,
+    backgroundColor: COLORS.surface,
+    padding: 16,
+    borderRadius: RADIUS.xl,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceBorder,
+    ...SHADOW.sm,
   },
   posyanduIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#E0F2F1',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.balitaLight,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 14,
   },
   posyanduInfo: {
     flex: 1,
   },
   posyanduLabel: {
     fontSize: 10,
-    color: '#94A3B8',
-    fontWeight: '800',
-    letterSpacing: 1,
+    color: COLORS.textTertiary,
+    fontWeight: '700',
+    letterSpacing: 0.8,
   },
   posyanduName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#191C1D',
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
     marginTop: 2,
   },
+  chevronCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.surfaceDim,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   
-  // Big Main Action Card
   mainActionCard: {
-    borderRadius: 36,
-    padding: 32,
-    marginBottom: 32,
-    elevation: 8,
-    shadowColor: '#006A63',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.15,
-    shadowRadius: 32,
+    borderRadius: RADIUS.xl,
+    padding: 28,
+    marginBottom: 24,
+    ...SHADOW.lg,
   },
   mainActionIconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: 'rgba(255,255,255,0.85)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   mainActionTitle: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: -0.5,
+    fontSize: 22,
+    fontWeight: '800',
+    color: COLORS.textOnDark,
+    letterSpacing: -0.3,
   },
   mainActionDesc: {
-    fontSize: 15,
-    color: 'rgba(255,255,255,0.9)',
-    marginTop: 8,
-    lineHeight: 22,
-    fontWeight: '500',
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: 6,
+    lineHeight: 20,
   },
   arrowRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: 20,
     gap: 8,
   },
   arrowText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.textOnDark,
   },
 
-  // History Section
   historySection: {
-    marginTop: 8,
+    marginTop: 4,
   },
   historyHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 8,
+    marginBottom: 12,
   },
   historyTitle: {
     fontSize: 14,
-    fontWeight: '800',
-    color: '#64748B',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
   },
   historyItemCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    borderRadius: 24,
-    marginBottom: 12,
+    backgroundColor: COLORS.surface,
+    padding: 14,
+    borderRadius: RADIUS.xl,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceBorder,
   },
   historyLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   historyIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 12,
   },
   historyName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#191C1D',
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
   },
   historyTime: {
-    fontSize: 12,
-    color: '#94A3B8',
-    marginTop: 4,
-    fontWeight: '500',
+    fontSize: 11,
+    color: COLORS.textTertiary,
+    marginTop: 2,
   },
   actionBtn: {
-    width: 40,
-    height: 40,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    backgroundColor: COLORS.surfaceDim,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
   emptyHistory: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
+    paddingVertical: 40,
   },
   emptyText: {
-    fontSize: 14,
-    color: '#94A3B8',
-    marginTop: 16,
-    fontWeight: '500',
+    fontSize: 13,
+    color: COLORS.textTertiary,
+    marginTop: 12,
   },
 
-  // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(25, 28, 29, 0.4)',
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 36,
-    borderTopRightRadius: 36,
-    padding: 32,
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
+    padding: 24,
     maxHeight: '80%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   modalTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#191C1D',
+    fontSize: 20,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
   },
   closeBtn: {
-    color: '#EF4444',
-    fontWeight: '800',
-    fontSize: 15,
+    color: COLORS.error,
+    fontWeight: '700',
+    fontSize: 14,
   },
   pickerItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 18,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F5',
+    borderBottomColor: COLORS.surfaceDim,
   },
   pickerItemText: {
     flex: 1,
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#191C1D',
-    marginLeft: 16,
+    color: COLORS.textPrimary,
+    marginLeft: 12,
   },
   activeDot: {
     width: 10,

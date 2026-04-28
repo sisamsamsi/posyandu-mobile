@@ -4,8 +4,8 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityInd
 import { supabase } from '../lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'expo-router';
-import { COLORS } from '../lib/constants';
-import { Eye, EyeOff } from 'lucide-react-native';
+import { COLORS, RADIUS, SHADOW } from '../lib/constants';
+import { Eye, EyeOff, LogIn } from 'lucide-react-native';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -95,6 +95,7 @@ export default function LoginScreen() {
     >
       <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} showsVerticalScrollIndicator={false} bounces={false}>
         <View style={styles.card}>
+          {/* Logo & Brand */}
           <View style={styles.header}>
             <View style={styles.logoImageContainer}>
               <Image 
@@ -106,40 +107,54 @@ export default function LoginScreen() {
             <Text style={styles.brandSubtitle}>Posyandu Berbasis Keluarga</Text>
           </View>
 
-          <View style={styles.form}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="nama@email.com"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
+          {/* Divider */}
+          <View style={styles.divider} />
 
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordContainer}>
+          {/* Form */}
+          <View style={styles.form}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email</Text>
               <TextInput
-                style={styles.passwordInput}
-                placeholder="********"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
+                style={styles.input}
+                placeholder="nama@email.com"
+                placeholderTextColor={COLORS.textTertiary}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
               />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                {showPassword ? <EyeOff size={20} color="#64748b" /> : <Eye size={20} color="#64748b" />}
-              </TouchableOpacity>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Masukkan password"
+                  placeholderTextColor={COLORS.textTertiary}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+                  {showPassword ? <EyeOff size={18} color={COLORS.textTertiary} /> : <Eye size={18} color={COLORS.textTertiary} />}
+                </TouchableOpacity>
+              </View>
             </View>
 
             <TouchableOpacity 
               style={[styles.button, loading && styles.buttonDisabled]} 
               onPress={signInWithEmail}
               disabled={loading}
+              activeOpacity={0.8}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.buttonText}>Masuk</Text>
+                <View style={styles.buttonContent}>
+                  <LogIn size={18} color="#fff" />
+                  <Text style={styles.buttonText}>Masuk</Text>
+                </View>
               )}
             </TouchableOpacity>
 
@@ -150,13 +165,14 @@ export default function LoginScreen() {
             >
               <Text style={styles.repairButtonText}>Masalah Masuk? Perbaiki & Reset Akun</Text>
             </TouchableOpacity>
+          </View>
 
-            <View style={styles.registerPrompt}>
-              <Text style={styles.registerPromptText}>Belum punya akun? </Text>
-              <TouchableOpacity onPress={() => router.push('/register')} disabled={loading}>
-                <Text style={styles.registerPromptLink}>Daftar di sini</Text>
-              </TouchableOpacity>
-            </View>
+          {/* Register prompt */}
+          <View style={styles.registerPrompt}>
+            <Text style={styles.registerPromptText}>Belum punya akun? </Text>
+            <TouchableOpacity onPress={() => router.push('/register')} disabled={loading}>
+              <Text style={styles.registerPromptLink}>Daftar di sini</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -169,96 +185,109 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
     justifyContent: 'center',
-    padding: 20,
+    padding: 24,
   },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 8,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.xl,
+    padding: 28,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceBorder,
+    ...SHADOW.lg,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
-  },
-  brandSubtitle: {
-    fontSize: 14,
-    color: '#64748b',
-    textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 8,
   },
   logoImageContainer: {
     width: '100%',
-    height: 130,
+    height: 110,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: -10,
   },
   logoImage: {
-    width: '100%',
+    width: '80%',
     height: '100%',
+  },
+  brandSubtitle: {
+    fontSize: 13,
+    color: COLORS.textTertiary,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.surfaceBorder,
+    marginVertical: 24,
   },
   form: {
     gap: 16,
   },
+  inputGroup: {
+    gap: 6,
+  },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: COLORS.secondary,
-    marginBottom: -8,
+    color: COLORS.textSecondary,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
+    borderColor: COLORS.surfaceBorder,
+    borderRadius: RADIUS.md,
+    padding: 14,
+    fontSize: 15,
+    color: COLORS.textPrimary,
+    backgroundColor: COLORS.surfaceDim,
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 8,
+    borderColor: COLORS.surfaceBorder,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surfaceDim,
   },
   passwordInput: {
     flex: 1,
-    padding: 12,
-    fontSize: 16,
+    padding: 14,
+    fontSize: 15,
+    color: COLORS.textPrimary,
   },
   eyeIcon: {
-    padding: 12,
+    padding: 14,
   },
   button: {
     backgroundColor: COLORS.primary,
     padding: 16,
-    borderRadius: 8,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 4,
+    ...SHADOW.sm,
   },
   buttonDisabled: {
-    opacity: 0.7,
+    opacity: 0.6,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   buttonText: {
-    color: '#fff',
+    color: COLORS.textOnDark,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   repairButton: {
-    marginTop: 20,
-    padding: 10,
+    padding: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 8,
+    borderColor: COLORS.surfaceBorder,
+    borderRadius: RADIUS.md,
     borderStyle: 'dashed',
   },
   repairButtonText: {
-    color: '#64748b',
+    color: COLORS.textTertiary,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -268,12 +297,12 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   registerPromptText: {
-    color: '#64748b',
+    color: COLORS.textTertiary,
     fontSize: 14,
   },
   registerPromptLink: {
     color: COLORS.primary,
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
 });

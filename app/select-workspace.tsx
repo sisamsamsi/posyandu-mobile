@@ -22,7 +22,7 @@ import {
 } from 'lucide-react-native';
 import { useServiceStore } from '../stores/service-store';
 import { usePosyandu, KaderPosyanduRel } from '../hooks/usePosyandu';
-import { COLORS } from '../lib/constants';
+import { COLORS, RADIUS, SHADOW } from '../lib/constants';
 
 export default function SelectWorkspaceScreen() {
   const router = useRouter();
@@ -150,7 +150,7 @@ export default function SelectWorkspaceScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.background,
   },
   content: {
     flex: 1,
@@ -175,18 +175,18 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   title: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#0F172A',
+    fontSize: 26,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
     letterSpacing: -0.5,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 15,
-    color: '#64748B',
+    fontSize: 14,
+    color: COLORS.textTertiary,
     textAlign: 'center',
     marginTop: 12,
-    lineHeight: 22,
+    lineHeight: 20,
     paddingHorizontal: 10,
   },
   scrollList: {
@@ -194,32 +194,28 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 20,
-    gap: 12,
+    gap: 10,
   },
   posyanduCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.surface,
     padding: 16,
-    borderRadius: 16,
+    borderRadius: RADIUS.xl,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
+    borderColor: COLORS.surfaceBorder,
+    ...SHADOW.sm,
   },
   posyanduCardActive: {
     borderColor: COLORS.primary,
     borderWidth: 2,
-    backgroundColor: '#F0FDFA',
+    backgroundColor: COLORS.balitaLight,
   },
   posyanduIcon: {
     width: 48,
     height: 48,
-    borderRadius: 12,
-    backgroundColor: '#F1F5F9',
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surfaceDim,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -228,21 +224,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   posyanduName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#1E293B',
+    color: COLORS.textPrimary,
     marginBottom: 4,
   },
   roleBadge: {
-    backgroundColor: '#EEF2FF',
+    backgroundColor: COLORS.lansiaLight,
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
+    paddingVertical: 3,
+    borderRadius: RADIUS.sm,
     alignSelf: 'flex-start',
   },
   roleBadgeText: {
     fontSize: 11,
-    color: '#6366F1',
+    color: COLORS.lansia,
     fontWeight: '700',
   },
   emptyState: {
@@ -252,23 +248,25 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: '#94A3B8',
+    color: COLORS.textTertiary,
     textAlign: 'center',
   },
   footer: {
     flexDirection: 'row',
     marginTop: 32,
     alignItems: 'center',
-    backgroundColor: '#FFF',
-    padding: 12,
-    borderRadius: 12,
+    backgroundColor: COLORS.surface,
+    padding: 14,
+    borderRadius: RADIUS.md,
     gap: 8,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceBorder,
   },
   footerText: {
     flex: 1,
     fontSize: 12,
-    color: '#64748B',
-    lineHeight: 16,
+    color: COLORS.textSecondary,
+    lineHeight: 17,
   },
   joinOtherBtn: {
     padding: 16,
