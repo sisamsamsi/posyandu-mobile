@@ -31,6 +31,7 @@ import {
   TrendingUp,
   ClipboardCheck,
   Activity,
+  Syringe,
 } from 'lucide-react-native';
 import { DashboardService, DashboardStats } from '../../services/dashboard-service';
 import { PieChart } from 'react-native-chart-kit';
@@ -368,6 +369,12 @@ export default function DashboardScreen() {
             label="Analisis"
             bgColor="#FFFBEB"
             onPress={() => router.push('/(tabs)/analisis')}
+          />
+          <QuickAction
+            icon={<Syringe size={22} color="#EF4444" />}
+            label="Imunisasi"
+            bgColor="#FEF2F2"
+            onPress={() => router.push('/imunisasi')}
           />
         </View>
 

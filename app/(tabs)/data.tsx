@@ -29,6 +29,14 @@ export default function DataMasterScreen() {
       ws: 'balita',
     },
     {
+      title: 'Data Imunisasi',
+      subtitle: 'Pantau kelengkapan vaksin anak',
+      icon: <Baby size={24} color={COLORS.primaryDark} />,
+      route: '/imunisasi',
+      color: '#E0F2F1',
+      ws: 'balita',
+    },
+    {
       title: 'Monitoring Balita',
       subtitle: 'Analisis status kehadiran',
       icon: <ClipboardList size={24} color={COLORS.primaryDark} />,

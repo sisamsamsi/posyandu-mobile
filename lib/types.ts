@@ -40,9 +40,35 @@ export interface Balita {
   bb_lahir?: number | null;
   tb_lahir?: number | null;
   no_hp_ortu?: string | null; // Format: 628xxxxxxxxxx
-  created_at: string;
+  created_at:string;
   posyandu?: Posyandu;
   penimbangans?: Penimbangan[];
+  imunisasi?: Imunisasi;
+}
+
+export interface Imunisasi {
+  id: string;
+  balita_id: string;
+  hb0_date: string | null;
+  bcg_date: string | null;
+  penta_1_date: string | null;
+  penta_2_date: string | null;
+  penta_3_date: string | null;
+  ipv_1_date: string | null;
+  ipv_2_date: string | null;
+  ipv_3_date: string | null;
+  pcv_1_date: string | null;
+  pcv_2_date: string | null;
+  pcv_3_date: string | null;
+  rv_1_date: string | null;
+  rv_2_date: string | null;
+  rv_3_date: string | null;
+  mr_date: string | null;
+  je_date: string | null;
+  booster_penta_date: string | null;
+  booster_mr_date: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Penimbangan {
