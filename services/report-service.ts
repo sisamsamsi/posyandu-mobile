@@ -24,6 +24,9 @@ export interface WeighingItem {
   rt: number;
   berat_badan: number;
   tinggi_badan: number;
+  zscore_bb_u?: number | null;
+  zscore_tb_u?: number | null;
+  zscore_bb_tb?: number | null;
 }
 
 export interface NutritionSummary {
@@ -273,7 +276,10 @@ export class ReportService {
       .select(`
         balita_id,
         berat_badan,
-        tinggi_badan
+        tinggi_badan,
+        zscore_bb_u,
+        zscore_tb_u,
+        zscore_bb_tb
       `)
       .in('balita_id', safeBalitaIds)
       .gte('tanggal', format(startOfMonth(startDate), 'yyyy-MM-dd'))
@@ -295,7 +301,10 @@ export class ReportService {
         nama_ortu: b.nama_ortu,
         rt: b.rt,
         berat_badan: v.berat_badan,
-        tinggi_badan: v.tinggi_badan
+        tinggi_badan: v.tinggi_badan,
+        zscore_bb_u: (v as any).zscore_bb_u,
+        zscore_tb_u: (v as any).zscore_tb_u,
+        zscore_bb_tb: (v as any).zscore_bb_tb
       };
     }).filter(Boolean) as WeighingItem[];
   }

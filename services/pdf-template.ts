@@ -28,16 +28,18 @@ export const generateMonthlyReportHtml = (
     ? weighings.map((w, i) => `
         <tr>
           <td style="text-align:center;">${i + 1}</td>
-          <td>${w.nama}</td>
+          <td style="font-weight: bold;">${w.nama}</td>
           <td style="text-align:center;">${w.umur_bulan} bln</td>
           <td style="text-align:center;">${w.jenis_kelamin}</td>
-          <td>${w.nama_ortu}</td>
           <td style="text-align:center;">RT ${String(w.rt).padStart(2, '0')}</td>
-          <td style="text-align:center; font-weight:bold;">${w.berat_badan} kg</td>
-          <td style="text-align:center;">${w.tinggi_badan} cm</td>
+          <td style="text-align:center; font-weight:bold;">${w.berat_badan}</td>
+          <td style="text-align:center;">${w.tinggi_badan}</td>
+          <td style="text-align:center; color: #0d9488; font-weight:bold;">${w.zscore_bb_u?.toFixed(2) || '-'}</td>
+          <td style="text-align:center; color: #0d9488; font-weight:bold;">${w.zscore_tb_u?.toFixed(2) || '-'}</td>
+          <td style="text-align:center; color: #0d9488; font-weight:bold;">${w.zscore_bb_tb?.toFixed(2) || '-'}</td>
         </tr>
       `).join('')
-    : '<tr><td colspan="8" style="text-align:center; padding: 20px;">Tidak ada data penimbangan.</td></tr>';
+    : '<tr><td colspan="10" style="text-align:center; padding: 20px;">Tidak ada data penimbangan.</td></tr>';
 
   return `
     <html>
@@ -199,14 +201,16 @@ export const generateMonthlyReportHtml = (
           <table>
             <thead>
               <tr>
-                <th style="width: 30px;">No</th>
+                <th style="width: 20px;">No</th>
                 <th>Nama Balita</th>
-                <th style="text-align:center;">Umur</th>
-                <th style="text-align:center;">L/P</th>
-                <th>Nama Orang Tua</th>
-                <th style="text-align:center;">Wilayah</th>
-                <th style="text-align:center;">BB (kg)</th>
-                <th style="text-align:center;">TB (cm)</th>
+                <th style="text-align:center; width: 40px;">Umur</th>
+                <th style="text-align:center; width: 20px;">L/P</th>
+                <th style="text-align:center; width: 40px;">RT</th>
+                <th style="text-align:center; width: 35px;">BB</th>
+                <th style="text-align:center; width: 35px;">TB</th>
+                <th style="text-align:center; width: 35px; background-color: #f0fdfa;">BB/U</th>
+                <th style="text-align:center; width: 35px; background-color: #f0fdfa;">TB/U</th>
+                <th style="text-align:center; width: 35px; background-color: #f0fdfa;">BB/TB</th>
               </tr>
             </thead>
             <tbody>
