@@ -31,7 +31,7 @@ import { supabase } from '../../lib/supabase';
 import { Balita, Penimbangan } from '../../lib/types';
 import { COLORS } from '../../lib/constants';
 import { Card } from '../../components/ui/Card';
-import { GroqService, ZScoreData, PreviousCounseling } from '../../services/groq-service';
+import { GroqService, ZScoreData, PreviousCounseling, AdaptiveQuestion, InterviewQA } from '../../services/groq-service';
 import { WhatsAppService } from '../../services/whatsapp-service';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
@@ -58,9 +58,14 @@ export default function CounselingSessionScreen() {
   const [posyandu, setPosyandu] = useState<any>(null);
   const [previousSession, setPreviousSession] = useState<PreviousCounseling | null>(null);
   
-  // AI Generated Questions & Kader Answers
-  const [questions, setQuestions] = useState<string[]>([]);
-  const [answers, setAnswers] = useState<string[]>([]);
+  // Wizard & Adaptive States (Skema B)
+  const [currentStep, setCurrentStep] = useState<number>(1);
+  const [activeQuestion, setActiveQuestion] = useState<AdaptiveQuestion | null>(null);
+  const [questionsHistory, setQuestionsHistory] = useState<AdaptiveQuestion[]>([]);
+  const [qaList, setQaList] = useState<InterviewQA[]>([]);
+  const [currentAnswer, setCurrentAnswer] = useState<string>('');
+  const [catatanKader, setCatatanKader] = useState<string>('');
+  const [loadingNext, setLoadingNext] = useState<boolean>(false);
   const [aiRecommendation, setAiRecommendation] = useState<string>('');
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -108,22 +113,23 @@ export default function CounselingSessionScreen() {
         .order('created_at', { ascending: false })
         .limit(1);
 
+      let prevSessionObj: PreviousCounseling | null = null;
       if (prevErr) {
-        // Jika tabel penyuluhans belum dibuat/di-migrate di Supabase, cetak warning tapi jangan crash
         console.warn('Penyuluhans table might not exist or failed to query:', prevErr);
       } else if (prevData && prevData.length > 0) {
         const lastSession = prevData[0];
-        setPreviousSession({
+        prevSessionObj = {
           tanggal: lastSession.tanggal,
           pertanyaan: lastSession.pertanyaan,
           jawaban: lastSession.jawaban,
           rekomendasi: lastSession.rekomendasi,
-        });
+        };
+        setPreviousSession(prevSessionObj);
       }
 
-      // 4. Tahap Pembuatan Pertanyaan AI
+      // 4. Tahap Pembuatan Pertanyaan Langkah 1 AI (Gizi & MPASI)
       setStage('generating-questions');
-      setLoadingText('AI sedang merumuskan pertanyaan wawancara khusus...');
+      setLoadingText('AI sedang menganalisis status tumbuh kembang & merumuskan pertanyaan gizi khusus...');
 
       const ageMonths = calculateAgeMonths(balitaData.tanggal_lahir, todayStr);
       const metrics: ZScoreData = {
@@ -139,15 +145,19 @@ export default function CounselingSessionScreen() {
         status_bb_tb: penimbanganData.status_bb_tb,
       };
 
-      const generatedQ = await GroqService.generateQuestions(
+      const firstQ = await GroqService.generateNextQuestion(
         balitaData as Balita,
         metrics,
         ageMonths,
-        prevData && prevData.length > 0 ? (prevData[0] as PreviousCounseling) : null
+        [],
+        prevSessionObj
       );
 
-      setQuestions(generatedQ);
-      setAnswers(new Array(generatedQ.length).fill(''));
+      setActiveQuestion(firstQ);
+      setQuestionsHistory([firstQ]);
+      setQaList([]);
+      setCurrentStep(1);
+      setCurrentAnswer('');
       setStage('interview');
     } catch (e: any) {
       console.error(e);
@@ -165,27 +175,93 @@ export default function CounselingSessionScreen() {
     return (measure.getFullYear() - birth.getFullYear()) * 12 + (measure.getMonth() - birth.getMonth());
   };
 
-  const handleAnswerChange = (index: number, text: string) => {
-    const updated = [...answers];
-    updated[index] = text;
-    setAnswers(updated);
-  };
+  const handleNextStep = () => {
+    if (!activeQuestion) return;
 
-  const handleSubmitInterview = async () => {
-    // Validasi input jawaban minimal diisi
-    const unfilledCount = answers.filter(a => a.trim().length === 0).length;
-    if (unfilledCount > 0) {
+    if (currentAnswer.trim().length === 0) {
       Alert.alert(
         'Jawaban Belum Lengkap',
-        `Masih ada ${unfilledCount} jawaban kosong. Apakah Anda ingin melanjutkan dan membiarkan AI mengisi sisanya?`,
+        'Kader disarankan mengisi jawaban orang tua agar analisis AI lebih mendalam. Apakah Anda yakin ingin membiarkannya kosong?',
         [
-          { text: 'Lengkapi Dulu', style: 'cancel' },
-          { text: 'Lanjutkan', onPress: () => processRecommendation() }
+          { text: 'Lengkapi Jawaban', style: 'cancel' },
+          { text: 'Tetap Lanjut', onPress: () => proceedToNext() }
         ]
       );
     } else {
-      processRecommendation();
+      proceedToNext();
     }
+  };
+
+  const proceedToNext = async () => {
+    if (!activeQuestion || !balita || !penimbangan) return;
+
+    const answerText = currentAnswer.trim() || 'Tidak dijawab / kondisi umum anak baik.';
+    const updatedQaList = [
+      ...qaList,
+      { question: activeQuestion.question, answer: answerText }
+    ];
+    setQaList(updatedQaList);
+    setCurrentAnswer('');
+
+    if (currentStep < 3) {
+      setLoadingNext(true);
+      try {
+        const ageMonths = calculateAgeMonths(balita.tanggal_lahir, todayStr);
+        const metrics: ZScoreData = {
+          berat_badan: penimbangan.berat_badan,
+          tinggi_badan: penimbangan.tinggi_badan,
+          lingkar_kepala: penimbangan.lingkar_kepala,
+          lingkar_lengan: penimbangan.lingkar_lengan || null,
+          zscore_bb_u: penimbangan.zscore_bb_u,
+          status_bb_u: penimbangan.status_bb_u,
+          zscore_tb_u: penimbangan.zscore_tb_u,
+          status_tb_u: penimbangan.status_tb_u,
+          zscore_bb_tb: penimbangan.zscore_bb_tb,
+          status_bb_tb: penimbangan.status_bb_tb,
+        };
+
+        // Dapatkan pertanyaan berikutnya secara adaptif dari AI
+        const nextQ = await GroqService.generateNextQuestion(
+          balita,
+          metrics,
+          ageMonths,
+          updatedQaList,
+          previousSession
+        );
+
+        setQuestionsHistory([...questionsHistory, nextQ]);
+        setActiveQuestion(nextQ);
+        setCurrentStep(currentStep + 1);
+      } catch (err: any) {
+        console.error(err);
+        Alert.alert('Gagal Merancang Pertanyaan', err.message || 'Terjadi gangguan jaringan atau kunci Groq bermasalah.');
+      } finally {
+        setLoadingNext(false);
+      }
+    } else {
+      // Pindah ke Langkah 4: Rangkuman & Catatan Khusus Kader (Opsional)
+      setCurrentStep(4);
+    }
+  };
+
+  const handlePrevStep = () => {
+    if (currentStep === 1) return;
+
+    const prevIndex = currentStep - 2; // Step 2 -> Index 0, Step 3 -> Index 1, Step 4 -> Index 2
+    const restoredQA = qaList[prevIndex];
+
+    // Kurangi qaList ke indeks sebelumnya
+    const updatedQaList = qaList.slice(0, prevIndex);
+    setQaList(updatedQaList);
+
+    // Kembalikan isi jawaban kader sebelumnya ke input teks
+    setCurrentAnswer(restoredQA ? restoredQA.answer : '');
+
+    // Set active question dari history
+    setActiveQuestion(questionsHistory[prevIndex]);
+
+    // Kurangi langkah
+    setCurrentStep(currentStep - 1);
   };
 
   const processRecommendation = async () => {
@@ -209,13 +285,8 @@ export default function CounselingSessionScreen() {
         status_bb_tb: penimbangan.status_bb_tb,
       };
 
-      const qaList = questions.map((q, idx) => ({
-        question: q,
-        answer: answers[idx]?.trim() || 'Tidak dijawab / kondisi umum anak baik.',
-      }));
-
       // 1. Generate rekomendasi dari Groq
-      const rec = await GroqService.generateRecommendations(balita, metrics, ageMonths, qaList);
+      const rec = await GroqService.generateRecommendations(balita, metrics, ageMonths, qaList, catatanKader);
       setAiRecommendation(rec);
 
       // 2. Simpan Sesi Penyuluhan ke Supabase
@@ -224,8 +295,8 @@ export default function CounselingSessionScreen() {
         penimbangan_id: penimbangan.id,
         kader_id: user?.id || null,
         tanggal: todayStr,
-        pertanyaan: questions,
-        jawaban: answers.map(a => a.trim() || 'Tidak dijawab'),
+        pertanyaan: qaList.map(item => item.question),
+        jawaban: qaList.map(item => item.answer),
         rekomendasi: rec,
       };
 
@@ -243,6 +314,7 @@ export default function CounselingSessionScreen() {
       console.error(e);
       Alert.alert('Gagal Memproses Rekomendasi', e.message || 'Terjadi gangguan jaringan.');
       setStage('interview');
+      setCurrentStep(4); // Kembalikan ke halaman konfirmasi
     }
   };
 
@@ -278,6 +350,35 @@ export default function CounselingSessionScreen() {
     }
   };
 
+  const getStepTitle = (step: number) => {
+    switch (step) {
+      case 1: return 'Nutrisi & MPASI';
+      case 2: return 'Kesehatan & Infeksi';
+      case 3: return 'Pola Asuh & Sanitasi';
+      case 4: return 'Catatan Khusus';
+      default: return '';
+    }
+  };
+
+  const getStepDesc = (step: number) => {
+    switch (step) {
+      case 1: return 'AI menggali kualitas asupan gizi, frekuensi makan, dan protein hewani si kecil.';
+      case 2: return 'AI menganalisis kerentanan anak terhadap infeksi dan perlindungan imunisasinya.';
+      case 3: return 'AI mengevaluasi kebiasaan asuhan makan (feeding rules) serta kebersihan air/sanitasi.';
+      case 4: return 'Tinjau kembali seluruh rangkuman jawaban orang tua dan tambahkan catatan klinis lapangan Anda.';
+      default: return '';
+    }
+  };
+
+  const getPlaceholderText = (step: number) => {
+    switch (step) {
+      case 1: return 'Contoh: Makan bubur lumat 3x sehari porsi 3 sdm, lauk hati ayam blender halus & telur kocok setengah butir. Tidak ada penolakan saat disuapi.';
+      case 2: return 'Contoh: Sempat batuk pilek ringan selama 3 hari minggu lalu, tanpa demam. Imunisasi dasar lengkap sesuai usia. Nafsu makan anak sedikit turun saat sakit.';
+      case 3: return 'Contoh: Ibu menyuapi langsung secara telaten tanpa memaksa. Anak tidak makan sambil bermain HP. Air minum bersumber dari sumur bersih yang dimasak matang.';
+      default: return '';
+    }
+  };
+
   // Rendering Helper
   const renderStageContent = () => {
     switch (stage) {
@@ -298,12 +399,30 @@ export default function CounselingSessionScreen() {
         );
 
       case 'interview':
+        if (loadingNext) {
+          return (
+            <View style={styles.centerContainer}>
+              <View style={styles.spinnerWrapper}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+                <View style={styles.spinnerPulse}>
+                  <Brain size={24} color={COLORS.primary} />
+                </View>
+              </View>
+              <Text style={styles.loadingTitle}>AI Sedang Berpikir...</Text>
+              <Text style={styles.loadingDesc}>
+                AI sedang menganalisis respon Anda dan merumuskan pertanyaan berikutnya secara spesifik & adaptif...
+              </Text>
+            </View>
+          );
+        }
+
         return (
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={{ flex: 1 }}
           >
             <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+              
               {/* Profile Card Header */}
               <View style={styles.profileSummaryCard}>
                 <View style={styles.profileSummaryHeader}>
@@ -331,44 +450,134 @@ export default function CounselingSessionScreen() {
                 </View>
               </View>
 
-              {/* Memory Box Alert if previous memory exists */}
-              {previousSession && (
+              {/* Step Progress Tracker */}
+              <View style={styles.stepTrackerCard}>
+                <View style={styles.stepTrackerHeader}>
+                  <Text style={styles.stepTrackerStep}>LANGKAH {currentStep} DARI 4</Text>
+                  <Text style={styles.stepTrackerTitle}>{getStepTitle(currentStep)}</Text>
+                </View>
+                <Text style={styles.stepTrackerDesc}>{getStepDesc(currentStep)}</Text>
+                
+                {/* Visual Premium Line Tracker */}
+                <View style={styles.trackerProgressBar}>
+                  <View style={[styles.trackerProgressBarFill, { width: `${(currentStep / 4) * 100}%` }]} />
+                </View>
+              </View>
+
+              {/* Memory Box Alert if previous memory exists (Hanya di langkah 1) */}
+              {currentStep === 1 && previousSession && (
                 <View style={styles.memoryAlert}>
                   <Brain size={18} color="#0D9488" />
                   <Text style={styles.memoryAlertText}>
-                    AI mendeteksi memori penyuluhan bulan lalu (${format(new Date(previousSession.tanggal), 'MMMM yyyy', { locale: idLocale })}). Pertanyaan di bawah ini dirancang berkembang dari riwayat tersebut.
+                    AI mendeteksi memori penyuluhan bulan lalu ({format(new Date(previousSession.tanggal), 'MMMM yyyy', { locale: idLocale })}). Pertanyaan pertama dirancang berkembang dari riwayat asuhan tersebut.
                   </Text>
                 </View>
               )}
 
-              {/* Dynamic Questions List */}
-              <Text style={styles.sectionTitle}>Pertanyaan Wawancara Meja 4/5</Text>
-              {questions.map((q, index) => (
-                <Card key={index} style={styles.questionCard}>
-                  <View style={styles.questionHeader}>
-                    <View style={styles.questionNumberCircle}>
-                      <Text style={styles.questionNumberText}>{index + 1}</Text>
+              {/* Dynamic Step Content */}
+              {currentStep <= 3 ? (
+                <View>
+                  {/* Card Pertanyaan AI */}
+                  <Card style={styles.questionCard}>
+                    <View style={styles.questionHeader}>
+                      <View style={styles.questionNumberCircle}>
+                        <Text style={styles.questionNumberText}>{currentStep}</Text>
+                      </View>
+                      <Text style={styles.questionText}>{activeQuestion?.question}</Text>
                     </View>
-                    <Text style={styles.questionText}>{q}</Text>
-                  </View>
-                  <View style={styles.inputGroup}>
-                    <MessageSquare size={18} color="#94A3B8" style={{ marginTop: 12, marginRight: 8, alignSelf: 'flex-start' }} />
-                    <TextInput
-                      style={styles.answerInput}
-                      placeholder="Masukkan jawaban atau respon orang tua..."
-                      multiline
-                      numberOfLines={3}
-                      value={answers[index]}
-                      onChangeText={(text) => handleAnswerChange(index, text)}
-                    />
-                  </View>
-                </Card>
-              ))}
 
-              <TouchableOpacity style={styles.submitBtn} onPress={handleSubmitInterview}>
-                <Sparkles size={20} color="#FFF" />
-                <Text style={styles.submitBtnText}>Proses Hasil Penyuluhan AI</Text>
-              </TouchableOpacity>
+                    {/* Box Panduan Eksplorasi Kader Posyandu (💡 PANDUAN PENGGALIAN KADER) */}
+                    <View style={styles.guidanceContainer}>
+                      <View style={styles.guidanceHeader}>
+                        <Brain size={16} color="#0F766E" />
+                        <Text style={styles.guidanceTitle}>💡 PANDUAN WAWANCARA KADER</Text>
+                      </View>
+                      <Text style={styles.guidanceText}>{activeQuestion?.guidance}</Text>
+                    </View>
+
+                    {/* Input Jawaban */}
+                    <Text style={styles.inputLabel}>Tulis Respon Orang Tua:</Text>
+                    <View style={styles.inputGroup}>
+                      <MessageSquare size={18} color="#94A3B8" style={{ marginTop: 12, marginRight: 8, alignSelf: 'flex-start' }} />
+                      <TextInput
+                        style={styles.answerInput}
+                        placeholder={getPlaceholderText(currentStep)}
+                        multiline
+                        numberOfLines={4}
+                        value={currentAnswer}
+                        onChangeText={setCurrentAnswer}
+                      />
+                    </View>
+                  </Card>
+
+                  {/* Navigation Button Row */}
+                  <View style={styles.buttonRow}>
+                    {currentStep > 1 && (
+                      <TouchableOpacity style={styles.backStepBtn} onPress={handlePrevStep}>
+                        <ArrowLeft size={18} color="#64748B" />
+                        <Text style={styles.backStepBtnText}>Kembali</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity style={styles.nextStepBtn} onPress={handleNextStep}>
+                      <Text style={styles.nextStepBtnText}>
+                        {currentStep === 3 ? 'Simpan & Tinjau' : 'Lanjut'}
+                      </Text>
+                      <ChevronRight size={18} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                /* Langkah 4: Rangkuman Q&A & Catatan Khusus Kader */
+                <View>
+                  <Text style={styles.sectionTitle}>Rangkuman Tanya Jawab Sesi Ini</Text>
+                  
+                  {qaList.map((item, idx) => (
+                    <Card key={idx} style={styles.summaryCard}>
+                      <View style={styles.summaryQuestionHeader}>
+                        <Text style={styles.summaryQuestionNumber}>Langkah {idx + 1}: {getStepTitle(idx + 1)}</Text>
+                        <Text style={styles.summaryQuestionText}>{item.question}</Text>
+                      </View>
+                      <View style={styles.summaryAnswerContainer}>
+                        <Text style={styles.summaryAnswerLabel}>Respon:</Text>
+                        <Text style={styles.summaryAnswerText}>"{item.answer}"</Text>
+                      </View>
+                    </Card>
+                  ))}
+
+                  {/* Input Catatan Khusus Kader (Opsional) */}
+                  <Card style={styles.notesCard}>
+                    <View style={styles.notesHeader}>
+                      <ClipboardList size={20} color={COLORS.primary} />
+                      <Text style={styles.notesTitle}>Catatan Khusus Kader (Opsional)</Text>
+                    </View>
+                    <Text style={styles.notesDesc}>
+                      Tuliskan pengamatan lapangan penting secara bebas (misal: fisik anak lesu, rambut kusam pirang, riwayat TBC keluarga, atau masalah pengasuhan) untuk memperkuat rekomendasi AI.
+                    </Text>
+                    <View style={styles.notesInputGroup}>
+                      <TextInput
+                        style={styles.notesInput}
+                        placeholder="Contoh: Kulit anak agak kusam, mata lesu. Ibu bercerita bahwa anak sering rewel semenjak disapih dan tinggal dengan nenek karena ibu bekerja di pabrik..."
+                        multiline
+                        numberOfLines={4}
+                        value={catatanKader}
+                        onChangeText={setCatatanKader}
+                      />
+                    </View>
+                  </Card>
+
+                  {/* Navigation Button Row */}
+                  <View style={styles.buttonRow}>
+                    <TouchableOpacity style={styles.backStepBtn} onPress={handlePrevStep}>
+                      <ArrowLeft size={18} color="#64748B" />
+                      <Text style={styles.backStepBtnText}>Kembali</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.nextStepBtn, { backgroundColor: COLORS.primary }]} onPress={processRecommendation}>
+                      <Sparkles size={18} color="#FFF" />
+                      <Text style={styles.nextStepBtnText}>Proses Rekomendasi AI</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
             </ScrollView>
           </KeyboardAvoidingView>
         );
@@ -488,6 +697,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#1E293B',
     marginBottom: 8,
+    textAlign: 'center',
   },
   loadingDesc: {
     fontSize: 14,
@@ -548,6 +758,49 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textAlign: 'center',
   },
+  stepTrackerCard: {
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 16,
+  },
+  stepTrackerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  stepTrackerStep: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: COLORS.primaryDark,
+    letterSpacing: 1,
+  },
+  stepTrackerTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#1E293B',
+  },
+  stepTrackerDesc: {
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 18,
+    fontWeight: '500',
+    marginBottom: 14,
+  },
+  trackerProgressBar: {
+    height: 6,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  trackerProgressBarFill: {
+    height: '100%',
+    backgroundColor: COLORS.primary,
+    borderRadius: 3,
+  },
   memoryAlert: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -567,11 +820,11 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   sectionTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: '#64748B',
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
     marginBottom: 12,
     marginLeft: 4,
   },
@@ -585,26 +838,59 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   questionNumberCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#F0FDFA',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: 12,
     marginTop: 2,
   },
   questionNumberText: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '900',
     color: COLORS.primaryDark,
   },
   questionText: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '900',
     color: '#1E293B',
-    lineHeight: 22,
+    lineHeight: 24,
+  },
+  guidanceContainer: {
+    backgroundColor: '#F0FDFA',
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+  },
+  guidanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  guidanceTitle: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#0F766E',
+    letterSpacing: 0.5,
+  },
+  guidanceText: {
+    fontSize: 12,
+    color: '#134E4A',
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#64748B',
+    marginBottom: 8,
+    marginLeft: 2,
   },
   inputGroup: {
     flexDirection: 'row',
@@ -621,25 +907,122 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     textAlignVertical: 'top',
   },
-  submitBtn: {
-    backgroundColor: COLORS.primary,
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  backStepBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 18,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
     borderRadius: 20,
-    gap: 8,
-    marginTop: 12,
-    elevation: 4,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    paddingVertical: 16,
+    backgroundColor: '#FFF',
+    gap: 6,
   },
-  submitBtnText: {
-    color: '#FFF',
-    fontSize: 16,
+  backStepBtnText: {
+    color: '#64748B',
+    fontSize: 15,
     fontWeight: '800',
+  },
+  nextStepBtn: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    borderRadius: 20,
+    paddingVertical: 16,
+    gap: 6,
+    elevation: 2,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  nextStepBtnText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  summaryCard: {
+    marginBottom: 16,
+    padding: 16,
+  },
+  summaryQuestionHeader: {
+    marginBottom: 10,
+  },
+  summaryQuestionNumber: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: COLORS.primary,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  summaryQuestionText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1E293B',
+    lineHeight: 20,
+  },
+  summaryAnswerContainer: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  summaryAnswerLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#94A3B8',
+    marginBottom: 2,
+  },
+  summaryAnswerText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+    fontStyle: 'italic',
+  },
+  notesCard: {
+    marginBottom: 24,
+    padding: 20,
+  },
+  notesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  notesTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#1E293B',
+  },
+  notesDesc: {
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 18,
+    fontWeight: '500',
+    marginBottom: 14,
+  },
+  notesInputGroup: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+  },
+  notesInput: {
+    fontSize: 14,
+    color: '#1E293B',
+    paddingVertical: 12,
+    textAlignVertical: 'top',
   },
   successHeader: {
     alignItems: 'center',

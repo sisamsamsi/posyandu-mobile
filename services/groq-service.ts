@@ -26,6 +26,11 @@ export interface InterviewQA {
   answer: string;
 }
 
+export interface AdaptiveQuestion {
+  question: string;
+  guidance: string; // Detail panduan kader untuk menggali info lebih dalam (frekuensi, porsi, bahan pangan)
+}
+
 export class GroqService {
   private static API_URL = 'https://api.groq.com/openai/v1/chat/completions';
   private static DEFAULT_MODEL = 'llama-3.3-70b-versatile';
@@ -71,36 +76,60 @@ export class GroqService {
   }
 
   /**
-   * Tahap 1: Membuat 3-4 pertanyaan interview gizi secara dinamis.
-   * Pertanyaan bersifat berkembang jika ada riwayat bulan lalu, atau basic jika cold start.
+   * Skema B: Membuat pertanyaan secara dinamis per langkah (Langkah 1 s.d. 3) secara adaptif.
    */
-  static async generateQuestions(
+  static async generateNextQuestion(
     balita: Balita,
     metrics: ZScoreData,
     ageMonths: number,
+    previousQA: InterviewQA[],
     previousSession?: PreviousCounseling | null
-  ): Promise<string[]> {
-    const systemPrompt = `Anda adalah Ahli Gizi dan Tumbuh Kembang Posyandu (Kemenkes RI) yang sangat ramah, hangat, dan profesional. 
-Tugas Anda adalah merumuskan 3-4 pertanyaan wawancara terarah untuk orang tua balita yang akan diajukan oleh kader posyandu.
+  ): Promise<AdaptiveQuestion> {
+    const step = previousQA.length + 1;
+    let focusArea = '';
+    let instructions = '';
 
-Aturan Kritis Penulisan Pertanyaan:
+    if (step === 1) {
+      focusArea = 'GIZI, MPASI, DAN PROTEIN HEWANI (Asupan Nutrisi)';
+      instructions = `Fokus pada asupan gizi anak sesuai usianya (${ageMonths} bulan). Tanyakan MPASI atau ASI secara mendalam.
+Aturan Kritis:
+- Pertanyaan harus spesifik menggali jenis protein hewani yang dikonsumsi (telur, ikan, daging, ayam, hati ayam), frekuensi makan, porsi makan dalam takaran sendok makan, dan tekstur makanan (apakah lumat, cincang kasar, atau padat).
+- DILARANG mengajukan pertanyaan naratif atau generalis yang memicu jawaban ya/tidak, seperti 'apakah anak sudah MPASI?' atau 'apakah asupannya sudah baik?'.
+- Panduan Kader ('guidance') harus berisi petunjuk taktis bagi kader tentang poin-poin yang harus ditanyakan secara bertahap kepada orang tua agar kader tidak hanya pasif menerima jawaban 'sudah' atau 'belum'.`;
+    } else if (step === 2) {
+      focusArea = 'RIWAYAT KESEHATAN, IMUNISASI, DAN PENYAKIT INFEKSI';
+      instructions = `Fokus pada riwayat kesehatan dan infeksi anak dalam 2 minggu terakhir.
+Aturan Kritis:
+- Tanyakan apakah anak sempat demam, batuk-pilek, diare, atau infeksi lain baru-baru ini.
+- Hubungkan dengan jawaban pertama jika relevan (Jawaban Gizi Langkah 1: "${previousQA[0]?.answer}").
+- Tanyakan bagaimana nafsu makan anak saat atau setelah sakit tersebut.
+- Panduan Kader ('guidance') harus menginstruksikan kader untuk menggali durasi sakit, rujukan dokter/puskesmas, serta kelengkapan imunisasi dasar dan pemberian Vitamin A.`;
+    } else {
+      focusArea = 'POLA PENGASUHAN, MAKAN AKTIF (FEEDING RULES), DAN SANITASI LINGKUNGAN';
+      instructions = `Fokus pada pola asuh makan anak dan kebersihan lingkungan sekitar.
+Aturan Kritis:
+- Tanyakan siapa yang menyuapi anak sehari-hari, bagaimana perilaku anak saat makan (apakah rewel, dilepeh, harus dipaksa, atau makan sambil menonton HP/jalan-jalan).
+- Tanyakan akses air bersih untuk memasak dan kebiasaan cuci tangan pakai sabun sebelum mengolah makanan anak.
+- Hubungkan secara cerdas dengan jawaban sebelumnya (Langkah 1: "${previousQA[0]?.answer}", Langkah 2: "${previousQA[1]?.answer}").
+- Panduan Kader ('guidance') harus menginstruksikan kader untuk meneliti kebiasaan mencuci tangan pakai sabun, perilaku feeding rules yang benar, dan kualitas air minum di rumah.`;
+    }
+
+    const systemPrompt = `Anda adalah Ahli Gizi dan Tumbuh Kembang Posyandu (Kemenkes RI) yang sangat ramah, hangat, dan profesional.
+Tugas Anda adalah merumuskan Pertanyaan Langkah ${step} yang spesifik dan Panduan Kader untuk wawancara gizi balita.
+
+FOKUS AREA LANGKAH ${step}: ${focusArea}
+${instructions}
+
+ATURAN KRITIS PENULISAN:
 1. SENSOR SOSIAL-EKONOMI PRIVAT: Dilarang keras menanyakan tentang nominal pendapatan, harta, kekayaan, aset, kendaraan, kondisi rumah tangga privat, atau pekerjaan spesifik orang tua.
-2. FOKUS SOSIAL-EKONOMI MIKRO YANG ETIS: Tanyakan aspek sosial-ekonomi mikro yang mempengaruhi asupan anak secara sopan, misalnya:
-   - Ketersediaan protein terjangkau di pasar terdekat (seperti tempe, tahu, atau telur).
-   - Pola pengasuhan sehari-hari (siapa yang menyuapi jika ibu bekerja/sibuk).
-   - Akses air bersih untuk pengolahan makanan anak.
-3. KELANJUTAN MEMORI (EVOLVING MEMORY): 
-   - Jika data penyuluhan bulan lalu ada, bandingkan dan tanyakan kelanjutan masalah lama (contoh: jika bulan lalu anak susah makan karena tumbuh gigi, tanyakan apakah giginya sudah tumbuh sempurna dan nafsu makan membaik).
-   - Jika TIDAK ada data bulan lalu (Cold Start), mulailah dengan pertanyaan dasar (basic) seputar frekuensi menyusui (ASI), porsi MPASI, atau milestone tumbuh kembang basic sesuai usianya.
-4. TATA BAHASA: Gunakan bahasa Indonesia yang hangat, sopan, komunikatif, dan mudah dipahami oleh kader dan orang tua dari kalangan masyarakat menengah ke bawah.
+2. FOKUS SOSIAL-EKONOMI MIKRO YANG ETIS: Tanyakan aspek sosial-ekonomi mikro yang mempengaruhi asupan anak secara sopan (ketersediaan lauk murah di pasar lokal, pengasuh utama).
+3. PERTANYAAN DETIL & SPESIFIK: Jangan membuat pertanyaan naratif atau generalis yang bisa dijawab ya/tidak. Berikan contoh bahan makanan konkret atau gejala konkret.
+4. PANDUAN KADER (GUIDANCE): Wajib menuliskan instruksi yang sangat taktis bagi kader untuk menggali lebih dalam, mendeteksi jawaban menghindar, dan memberikan instruksi konkret apa saja yang harus kader tanyakan. Jangan membuat panduan yang bersifat terlalu umum.
 
 Anda HARUS mengembalikan respon dalam format JSON objek dengan format sebagai berikut:
 {
-  "questions": [
-    "Pertanyaan 1",
-    "Pertanyaan 2",
-    "Pertanyaan 3"
-  ]
+  "question": "Kalimat pertanyaan langsung yang hangat, spesifik, dan sopan kepada orang tua",
+  "guidance": "Instruksi konkret bagi kader untuk menggali jawaban lebih dalam"
 }`;
 
     const userPrompt = `### PROFIL BALITA:
@@ -117,10 +146,92 @@ ${previousSession
 Pertanyaan Sebelumnya: ${JSON.stringify(previousSession.pertanyaan)}
 Jawaban Orang Tua Sebelumnya: ${JSON.stringify(previousSession.jawaban)}
 Rekomendasi Sebelumnya: ${previousSession.rekomendasi}`
-  : 'TIDAK ADA RIWAYAT PENYULUHAN (Sesi pertama balita ini / Cold Start). Mulailah dengan pertanyaan dasar penggalian informasi awal.'
+  : 'TIDAK ADA RIWAYAT PENYULUHAN BULAN LALU (Cold Start).'
 }
 
-Buatkan 3 hingga 4 pertanyaan interview yang spesifik, relevan dengan profil tumbuh kembang balita di atas, dan sesuai dengan panduan etika sosial-ekonomi.`;
+${previousQA.length > 0 ? `### JAWABAN PERTANYAAN SEBELUMNYA DI SESI INI:\n${previousQA.map((qa, i) => `Langkah ${i+1} - Tanya: "${qa.question}"\nJawaban: "${qa.answer}"`).join('\n')}` : ''}
+
+Buatkan 1 objek JSON berisi "question" dan "guidance" yang paling relevan untuk Langkah ${step}.`;
+
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ];
+
+    try {
+      const response = await this.callGroq(messages, true);
+      const parsed = JSON.parse(response);
+      if (parsed && typeof parsed.question === 'string' && typeof parsed.guidance === 'string') {
+        return parsed as AdaptiveQuestion;
+      }
+    } catch (e) {
+      console.error('Failed to parse Groq adaptive question JSON response, using fallback:', e);
+    }
+
+    // Fallbacks jika terjadi kegagalan sistem
+    if (step === 1) {
+      return {
+        question: "Dalam 24 jam terakhir, apa saja makanan utama dan selingan yang dikonsumsi si kecil? Sebutkan jenis protein hewani (seperti telur, ikan, atau ayam), seberapa sering ia makan, dan berapa sendok makan porsinya.",
+        guidance: "Panduan Kader: Jangan bertanya 'apakah anak sudah makan?' karena akan dijawab 'sudah' saja. Gali lebih dalam: tanyakan bahan pangan spesifik, porsi makan dalam sendok makan, teksturnya (apakah lumat, cincang kasar, atau padat), dan apakah ada protein hewani."
+      };
+    } else if (step === 2) {
+      return {
+        question: "Apakah si kecil sempat mengalami batuk, pilek, demam, atau diare dalam dua minggu terakhir? Jika ya, berapa hari sakitnya dan bagaimana pengaruhnya terhadap keinginan makannya?",
+        guidance: "Panduan Kader: Gali riwayat penyakit infeksi dalam 2 minggu terakhir. Penyakit infeksi berulang sangat berkorelasi dengan penurunan berat badan yang memicu stunting. Tanyakan juga apakah imunisasi dasar lengkapnya sudah sesuai usia."
+      };
+    } else {
+      return {
+        question: "Siapa yang biasanya menyiapkan makanan dan menyuapi si kecil sehari-hari? Bagaimana suasana saat si kecil makan (apakah lahap, rewel, harus dipaksa, atau makan sambil menonton HP)?",
+        guidance: "Panduan Kader: Gali pola pengasuhan makan (feeding rules). Tanyakan apakah anak diberi makan secara aktif/responsif. Tanyakan pula apakah air yang digunakan untuk memasak bersumber dari air bersih/PDAM dan kebiasaan cuci tangan pakai sabun sebelum menyuapi."
+      };
+    }
+  }
+
+  /**
+   * Tahap 1: Membuat 3-4 pertanyaan interview gizi secara dinamis sekaligus (untuk backwards compatibility).
+   */
+  static async generateQuestions(
+    balita: Balita,
+    metrics: ZScoreData,
+    ageMonths: number,
+    previousSession?: PreviousCounseling | null
+  ): Promise<string[]> {
+    const systemPrompt = `Anda adalah Ahli Gizi dan Tumbuh Kembang Posyandu (Kemenkes RI) yang sangat ramah, hangat, dan profesional. 
+Tugas Anda adalah merumuskan 3-4 pertanyaan wawancara terarah untuk orang tua balita yang akan diajukan oleh kader posyandu.
+
+Aturan Kritis Penulisan Pertanyaan:
+1. SENSOR SOSIAL-EKONOMI PRIVAT: Dilarang keras menanyakan tentang nominal pendapatan, harta, kekayaan, aset, kendaraan, kondisi rumah tangga privat, atau pekerjaan spesifik orang tua.
+2. FOKUS SOSIAL-EKONOMI MIKRO YANG ETIS: Tanyakan aspek sosial-ekonomi mikro yang mempengaruhi asupan anak secara sopan.
+3. KELANJUTAN MEMORI (EVOLVING MEMORY): Bandingkan dan tanyakan kelanjutan masalah lama jika ada data bulan lalu.
+4. TATA BAHASA: Gunakan bahasa Indonesia yang hangat, sopan, komunikatif, dan mudah dipahami.
+
+Anda HARUS mengembalikan respon dalam format JSON objek dengan format sebagai berikut:
+{
+  "questions": [
+    "Pertanyaan 1",
+    "Pertanyaan 2",
+    "Pertanyaan 3"
+  ]
+}`;
+
+    const userPrompt = `### PROFIL BALITA:
+- Nama: ${balita.nama}
+- Jenis Kelamin: ${balita.jenis_kelamin}
+- Usia saat ini: ${ageMonths} bulan
+- Berat Badan: ${metrics.berat_badan} kg (Status BB/U: ${metrics.status_bb_u ?? 'Normal'})
+- Tinggi Badan: ${metrics.tinggi_badan} cm (Status TB/U: ${metrics.status_tb_u ?? 'Normal'})
+- Status Gizi (BB/TB): ${metrics.status_bb_tb ?? 'Normal'}
+
+### MEMORI PENYULUHAN BULAN LALU:
+${previousSession 
+  ? `Tanggal: ${previousSession.tanggal}
+Pertanyaan Sebelumnya: ${JSON.stringify(previousSession.pertanyaan)}
+Jawaban Orang Tua Sebelumnya: ${JSON.stringify(previousSession.jawaban)}
+Rekomendasi Sebelumnya: ${previousSession.rekomendasi}`
+  : 'TIDAK ADA RIWAYAT PENYULUHAN.'
+}
+
+Buatkan 3 hingga 4 pertanyaan interview yang spesifik.`;
 
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -140,7 +251,6 @@ Buatkan 3 hingga 4 pertanyaan interview yang spesifik, relevan dengan profil tum
       ];
     } catch (e) {
       console.error('Failed to parse Groq questions JSON response:', response);
-      // Fallback
       return [
         'Bagaimana nafsu makan si kecil dalam seminggu terakhir?',
         'Bahan protein apa saja yang biasanya mudah diperoleh dan dikonsumsi si kecil sehari-hari?',
@@ -156,17 +266,19 @@ Buatkan 3 hingga 4 pertanyaan interview yang spesifik, relevan dengan profil tum
     balita: Balita,
     metrics: ZScoreData,
     ageMonths: number,
-    qaList: InterviewQA[]
+    qaList: InterviewQA[],
+    catatanKader?: string
   ): Promise<string> {
     const systemPrompt = `Anda adalah Ahli Gizi dan Tumbuh Kembang Posyandu (Kemenkes RI) yang sangat ramah, hangat, dan profesional.
-Tugas Anda adalah merumuskan ringkasan saran/rekomendasi gizi, MPASI praktis, dan panduan tumbuh kembang yang spesifik untuk anak berdasarkan hasil penimbangan serta jawaban wawancara orang tua.
+Tugas Anda adalah merumuskan ringkasan saran/rekomendasi gizi, MPASI praktis, dan panduan tumbuh kembang yang spesifik untuk anak berdasarkan hasil penimbangan serta jawaban wawancara orang tua ditambah catatan lapangan kader.
 
 Panduan Penulisan Rekomendasi:
 1. BAHASA: Gunakan bahasa Indonesia yang hangat, membangkitkan semangat, berempati tinggi, dan bebas dari istilah medis yang terlalu rumit. Berikan dukungan moral kepada orang tua anak.
 2. PRAKTIS & EKONOMIS: Tawarkan rekomendasi pangan protein lokal terjangkau (misal: telur rebus harian, tempe kukus lumat, hati ayam, tahu) sesuai dengan kemampuan dan akses pasar lokal mereka.
 3. KESEHATAN & RUJUKAN: 
    - Jika status gizi BB/U, TB/U, atau BB/TB masuk dalam kategori risiko tinggi ("Gizi Kurang", "Gizi Buruk", "Sangat Pendek"), berikan saran rujukan ke Puskesmas secara halus dan sopan tanpa membuat orang tua panik.
-4. STRUKTUR: Buatlah saran dalam bentuk 3-4 poin ringkas, padat, dan sangat mudah diingat oleh orang tua. Batasi panjang tulisan maksimal 150-200 kata agar nyaman dibaca di layar HP dan saat dikirim via WhatsApp.`;
+4. INTEGRASI CATATAN KADER: Jika kader menyertakan catatan lapangan (seperti kondisi fisik lemas, rambut kusam, atau situasi sosial-ekonomi mikro), Anda WAJIB menganalisis data observasi tersebut dan menyematkan rekomendasi klinis/asuhan tambahan yang relevan di dalam poin saran Anda.
+5. STRUKTUR: Buatlah saran dalam bentuk 3-4 poin ringkas, padat, dan sangat mudah diingat oleh orang tua. Batasi panjang tulisan maksimal 150-200 kata agar nyaman dibaca di layar HP dan saat dikirim via WhatsApp.`;
 
     const userPrompt = `### PROFIL BALITA:
 - Nama: ${balita.nama}
@@ -178,7 +290,9 @@ Panduan Penulisan Rekomendasi:
 ### HASIL WAWANCARA MEJA 4/5:
 ${qaList.map((qa, index) => `${index + 1}. Tanya: "${qa.question}"\n   Jawab: "${qa.answer}"`).join('\n')}
 
-Berikan rekomendasi gizi dan stimulasi tumbuh kembang yang personal dan hangat sesuai instruksi.`;
+${catatanKader && catatanKader.trim().length > 0 ? `### CATATAN KHUSUS WAWANCARA DARI KADER:\n"${catatanKader}"` : '### CATATAN KHUSUS WAWANCARA DARI KADER:\nTidak ada catatan tambahan.'}
+
+Berikan rekomendasi gizi dan stimulasi tumbuh kembang yang personal, integratif, dan hangat sesuai instruksi.`;
 
     const messages = [
       { role: 'system', content: systemPrompt },
