@@ -1,6 +1,6 @@
 // services/export-imunisasi-service.ts
 import * as XLSX from "xlsx";
-import * as FileSystem from "expo-file-system/build/legacy";
+import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { Balita } from "../lib/types";
 import { format } from "date-fns";
@@ -94,13 +94,13 @@ export class ExportImunisasiService {
       XLSX.utils.book_append_sheet(wb, ws, `Lahir ${year}`);
 
       const wbout = XLSX.write(wb, { type: "base64", bookType: "xlsx" });
-      const uri = `${FileSystem.cacheDirectory}Laporan_Imunisasi_Lahir_${year}.xlsx`;
+      const file = new File(Paths.cache, `Laporan_Imunisasi_Lahir_${year}.xlsx`);
 
-      await FileSystem.writeAsStringAsync(uri, wbout, {
+      file.write(wbout, {
         encoding: "base64",
       });
 
-      await Sharing.shareAsync(uri, {
+      await Sharing.shareAsync(file.uri, {
         mimeType:
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         dialogTitle: `Ekspor Data Imunisasi Lahir ${year}`,

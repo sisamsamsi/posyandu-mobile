@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 // Menggunakan sub-module legacy sesuai rekomendasi Expo SDK 52 untuk API fungsional
-import * as FileSystem from 'expo-file-system/build/legacy';
+import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { supabase } from '../lib/supabase';
 
@@ -10,10 +10,8 @@ export class ImportService {
    */
   static async parseExcel(fileUri: string): Promise<any[]> {
     try {
-      // Menggunakan API fungsional dari module legacy
-      const base64 = await FileSystem.readAsStringAsync(fileUri, {
-        encoding: 'base64',
-      });
+      const file = new File(fileUri);
+      const base64 = await file.base64();
 
       const workbook = XLSX.read(base64, { type: 'base64' });
       const firstSheetName = workbook.SheetNames[0];
@@ -93,15 +91,13 @@ export class ImportService {
       const wbout = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
       const filename = `template_${type}_${Date.now()}.xlsx`;
       
-      const baseDir = FileSystem.cacheDirectory || '';
-      const uri = baseDir.endsWith('/') ? `${baseDir}${filename}` : `${baseDir}/${filename}`;
-      
-      await FileSystem.writeAsStringAsync(uri, wbout, {
+      const file = new File(Paths.cache, filename);
+      file.write(wbout, {
         encoding: 'base64',
       });
 
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, {
+        await Sharing.shareAsync(file.uri, {
           mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           dialogTitle: `Unduh Template ${type.toUpperCase()}`,
           UTI: 'com.microsoft.excel.xlsx'
