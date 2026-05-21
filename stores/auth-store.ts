@@ -38,11 +38,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (session) {
         set({ session, user: session.user, loading: false, initialized: true });
       } else {
-        // Mock a user for Guest Mode
-        const mockUser = { id: 'guest-user', email: 'guest@posyandu.info' };
         set({ 
-          session: { user: mockUser } as any, 
-          user: mockUser as any, 
+          session: null, 
+          user: null, 
           loading: false, 
           initialized: true 
         });

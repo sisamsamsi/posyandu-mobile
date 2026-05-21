@@ -115,6 +115,11 @@ export class RiskPredictionService {
     if (decreasingCount >= 2) return { score: 80, status: 'Berat badan menurun' };
     if (decreasingCount === 1) return { score: 50, status: 'Pertumbuhan tidak konsisten' };
     
+    // Check if stagnant (0 kg gain)
+    if (lastWeights[0] === lastWeights[1]) {
+      return { score: 40, status: 'Pertumbuhan stagnan (T)' };
+    }
+
     // Check if increasing
     let increasing = true;
     for (let i = 0; i < lastWeights.length - 1; i++) {

@@ -4,10 +4,12 @@ import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { BalitaForm } from '../../components/forms/BalitaForm';
 import { useBalita } from '../../hooks/useBalita';
+import { useServiceStore } from '../../stores/service-store';
 
 export default function CreateBalita() {
   const router = useRouter();
   const { upsertBalita, loading } = useBalita();
+  const { activePosyanduId } = useServiceStore();
 
   const handleSubmit = async (data: any) => {
     try {
@@ -16,7 +18,10 @@ export default function CreateBalita() {
         return;
       }
 
-      await upsertBalita(data);
+      // Inject posyandu_id dari store aktif
+      const dataWithPosyandu = { ...data, posyandu_id: activePosyanduId };
+      await upsertBalita(dataWithPosyandu);
+      
       Alert.alert('Sukses', 'Data Balita berhasil disimpan', [
         { text: 'OK', onPress: () => router.back() }
       ]);

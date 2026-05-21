@@ -27,6 +27,7 @@ import {
 import { useServiceStore } from '../stores/service-store';
 import { ImunisasiService } from '../services/imunisasi-service';
 import { ExportImunisasiService } from '../services/export-imunisasi-service';
+import { WhatsAppService } from '../services/whatsapp-service';
 import { Balita, Imunisasi } from '../lib/types';
 import { COLORS } from '../lib/constants';
 import { SearchBar } from '../components/ui/SearchBar';
@@ -102,14 +103,7 @@ export default function ImunisasiScreen() {
       return;
     }
 
-    const url = `whatsapp://send?phone=${phone.startsWith('0') ? '62' + phone.slice(1) : phone}&text=${encodeURIComponent(message)}`;
-    Linking.canOpenURL(url).then(supported => {
-      if (supported) {
-        Linking.openURL(url);
-      } else {
-        Alert.alert('Error', 'WhatsApp tidak terpasang di perangkat ini');
-      }
-    });
+    WhatsAppService.openWhatsApp(phone, message);
   };
 
   const renderItem = ({ item }: { item: Balita }) => {

@@ -14,6 +14,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import {
   Settings,
   MapPin,
@@ -29,18 +30,20 @@ import {
   Info,
   CheckCircle2,
   LayoutGrid,
+  ArrowLeft,
 } from 'lucide-react-native';
-import { useAuthStore } from '../../stores/auth-store';
-import { useServiceStore } from '../../stores/service-store';
-import { usePosyandu } from '../../hooks/usePosyandu';
-import { SettingsService, PosyanduSettingsUpdate } from '../../services/settings-service';
-import { supabase } from '../../lib/supabase';
-import { COLORS } from '../../lib/constants';
-import { Posyandu } from '../../lib/types';
+import { useAuthStore } from '../stores/auth-store';
+import { useServiceStore } from '../stores/service-store';
+import { usePosyandu } from '../hooks/usePosyandu';
+import { SettingsService, PosyanduSettingsUpdate } from '../services/settings-service';
+import { supabase } from '../lib/supabase';
+import { COLORS } from '../lib/constants';
+import { Posyandu } from '../lib/types';
 
 type SectionKey = 'profil' | 'jadwal' | 'info';
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const { signOut } = useAuthStore();
   const { activePosyanduId, setActiveWorkspace } = useServiceStore();
 
@@ -221,12 +224,19 @@ export default function SettingsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
+          <TouchableOpacity 
+            style={{ marginRight: 8, padding: 4 }} 
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={24} color="#1E293B" />
+          </TouchableOpacity>
           <View style={styles.headerIconCircle}>
             <Settings size={22} color={COLORS.primary} />
           </View>
           <View>
-            <Text style={styles.headerTitle}>AYOMI</Text>
-            <Text style={styles.headerSub}>Rawat Tumbuhnya, Jaga Tuanya</Text>
+            <Text style={styles.headerTitle}>Pengaturan</Text>
+            <Text style={styles.headerSub}>Posyandu Aktif</Text>
           </View>
         </View>
         {hasChanges && (

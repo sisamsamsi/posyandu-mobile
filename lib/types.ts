@@ -196,3 +196,18 @@ export interface WHOReferenceRow {
   indicator?: string;
   measure_type?: string;
 }
+
+export interface Penyuluhan {
+  id: string;
+  balita_id: string;
+  penimbangan_id: string | null;
+  kader_id: string | null;
+  tanggal: string;
+  pertanyaan: string[];
+  jawaban: string[];
+  rekomendasi: string;
+  created_at: string;
+  balita?: Balita;
+  penimbangan?: Penimbangan;
+}
+

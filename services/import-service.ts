@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 // Menggunakan sub-module legacy sesuai rekomendasi Expo SDK 52 untuk API fungsional
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system/build/legacy';
 import * as Sharing from 'expo-sharing';
 import { supabase } from '../lib/supabase';
 

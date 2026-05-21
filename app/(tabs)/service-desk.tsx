@@ -18,7 +18,8 @@ import {
   ChevronRight, 
   ClipboardCheck,
   UserCheck,
-  ArrowRight
+  ArrowRight,
+  Brain
 } from 'lucide-react-native';
 import { useServiceStore } from '../../stores/service-store';
 import { usePosyandu } from '../../hooks/usePosyandu';
@@ -32,7 +33,7 @@ import { WorkspaceSwitcher } from '../../components/ui/WorkspaceSwitcher';
 export default function ServiceDeskScreen() {
   const router = useRouter();
   const { activePosyanduId, setActivePosyandu, history, activeWorkspace } = useServiceStore();
-  const { posyandu: defaultPosyandu, getAllPosyandus } = usePosyandu();
+  const { getAllPosyandus } = usePosyandu();
   
   const [showPosyanduPicker, setShowPosyanduPicker] = useState(false);
   const [allPosyandus, setAllPosyandus] = useState<Posyandu[]>([]);
@@ -46,9 +47,9 @@ export default function ServiceDeskScreen() {
     const list = await getAllPosyandus();
     setAllPosyandus(list);
     
-    if (!activePosyanduId && defaultPosyandu) {
-      setActivePosyandu(defaultPosyandu.id);
-      setActivePosyanduName(defaultPosyandu.nama_posyandu);
+    if (!activePosyanduId && list.length > 0) {
+      setActivePosyandu(list[0].id);
+      setActivePosyanduName(list[0].nama_posyandu);
     } else if (activePosyanduId) {
       const active = list.find(p => p.id === activePosyanduId);
       if (active) setActivePosyanduName(active.nama_posyandu);
@@ -95,21 +96,39 @@ export default function ServiceDeskScreen() {
 
         {/* WORKSPACE SPECIFIC MAIN ACTION */}
         {activeWorkspace === 'balita' ? (
-          <TouchableOpacity 
-            style={[styles.mainActionCard, { backgroundColor: '#4DB6AC' }]}
-            onPress={() => router.push('/service-desk/balita')}
-            activeOpacity={0.9}
-          >
-            <View style={styles.mainActionIconCircle}>
-              <Baby size={40} color="#006A63" />
-            </View>
-            <Text style={styles.mainActionTitle}>Mulai Timbang & Gizi</Text>
-            <Text style={styles.mainActionDesc}>Input data antropometri pertumbuhan anak hari ini.</Text>
-            <View style={styles.arrowRow}>
-              <Text style={styles.arrowText}>Proses Pelayanan</Text>
-              <ArrowRight size={20} color="#FFF" />
-            </View>
-          </TouchableOpacity>
+          <View style={{ gap: 16, marginBottom: 32 }}>
+            <TouchableOpacity 
+              style={[styles.mainActionCard, { backgroundColor: '#4DB6AC', marginBottom: 0 }]}
+              onPress={() => router.push('/service-desk/balita')}
+              activeOpacity={0.9}
+            >
+              <View style={styles.mainActionIconCircle}>
+                <Baby size={40} color="#006A63" />
+              </View>
+              <Text style={styles.mainActionTitle}>Mulai Timbang & Gizi</Text>
+              <Text style={styles.mainActionDesc}>Input data antropometri pertumbuhan anak hari ini (Meja 3).</Text>
+              <View style={styles.arrowRow}>
+                <Text style={styles.arrowText}>Proses Pelayanan</Text>
+                <ArrowRight size={20} color="#FFF" />
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.mainActionCard, { backgroundColor: '#0D9488', marginBottom: 0 }]}
+              onPress={() => router.push('/counseling/queue')}
+              activeOpacity={0.9}
+            >
+              <View style={styles.mainActionIconCircle}>
+                <Brain size={40} color="#0F766E" />
+              </View>
+              <Text style={styles.mainActionTitle}>Penyuluhan Gizi AI</Text>
+              <Text style={styles.mainActionDesc}>Wawancara tumbuh kembang & rekomendasi gizi adaptif (Meja 4/5).</Text>
+              <View style={styles.arrowRow}>
+                <Text style={styles.arrowText}>Mulai Penyuluhan</Text>
+                <ArrowRight size={20} color="#FFF" />
+              </View>
+            </TouchableOpacity>
+          </View>
         ) : (
           <TouchableOpacity 
             style={[styles.mainActionCard, { backgroundColor: '#64B5F6' }]}
