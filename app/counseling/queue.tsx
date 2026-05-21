@@ -93,28 +93,47 @@ export default function CounselingQueueScreen() {
         return;
       }
 
-      // 2. Ambil penimbangan hari ini
+      // Hitung rentang tanggal bulan kalender saat ini
+      const date = new Date();
+      const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+      const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+      const startOfMonthStr = format(firstDay, 'yyyy-MM-dd');
+      const endOfMonthStr = format(lastDay, 'yyyy-MM-dd');
+
+      // 2. Ambil penimbangan bulan ini
       const balitaIds = balitasList.map(b => b.id);
       const { data: penimbangansData, error: penimbanganErr } = await supabase
         .from('penimbangans')
         .select('*')
         .in('balita_id', balitaIds)
-        .eq('tanggal', todayStr);
+        .gte('tanggal', startOfMonthStr)
+        .lte('tanggal', endOfMonthStr);
 
       if (penimbanganErr) throw penimbanganErr;
-      const todayPenimbangans: Penimbangan[] = penimbangansData || [];
+      const thisMonthPenimbangans: Penimbangan[] = penimbangansData || [];
 
-      // 3. Ambil penyuluhan hari ini untuk mendeteksi status done
+      // 3. Ambil penyuluhan bulan ini untuk mendeteksi status done
       const { data: counselingsData, error: counselingsErr } = await supabase
         .from('penyuluhans')
         .select('balita_id')
         .in('balita_id', balitaIds)
-        .eq('tanggal', todayStr);
+        .gte('tanggal', startOfMonthStr)
+        .lte('tanggal', endOfMonthStr);
 
       const doneBalitaIds = new Set((counselingsData || []).map(c => c.balita_id));
 
-      // 4. Petakan Antrean Hari Ini (Hanya balita yang sudah ditimbang hari ini)
-      const mappedTodayQueue: QueueItem[] = todayPenimbangans.map(p => {
+      // 4. Petakan Antrean Bulan Ini (Hanya balita yang sudah ditimbang bulan ini)
+      // Jika anak ditimbang beberapa kali di bulan yang sama, ambil penimbangan terbaru
+      const latestPenimbangansMap = new Map<string, Penimbangan>();
+      thisMonthPenimbangans.forEach(p => {
+        const existing = latestPenimbangansMap.get(p.balita_id);
+        if (!existing || new Date(p.tanggal) > new Date(existing.tanggal)) {
+          latestPenimbangansMap.set(p.balita_id, p);
+        }
+      });
+      const uniquePenimbangans = Array.from(latestPenimbangansMap.values());
+
+      const mappedTodayQueue: QueueItem[] = uniquePenimbangans.map(p => {
         const balita = balitasList.find(b => b.id === p.balita_id)!;
         return {
           balita,
@@ -130,7 +149,7 @@ export default function CounselingQueueScreen() {
     } finally {
       setLoading(false);
     }
-  }, [activePosyanduId, todayStr]);
+  }, [activePosyanduId]);
 
   useEffect(() => {
     loadData();
@@ -348,7 +367,7 @@ export default function CounselingQueueScreen() {
           }}
         >
           <Text style={[styles.tabText, activeTab === 'today' && styles.activeTabText]}>
-            Antrean Hari Ini ({todayQueue.length})
+            Antrean Bulan Ini ({todayQueue.length})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -393,7 +412,7 @@ export default function CounselingQueueScreen() {
               <ClipboardCheck size={64} color="#CBD5E1" />
               <Text style={styles.emptyTitle}>Antrean Kosong</Text>
               <Text style={styles.emptyDesc}>
-                Belum ada balita yang melakukan timbangan di Meja 3 hari ini, atau Anda bisa menggunakan tab 'Pencarian Bebas' untuk melakukan penyuluhan cepat.
+                Belum ada balita yang ditimbang di Meja 3 bulan ini, atau Anda bisa menggunakan tab 'Pencarian Bebas' untuk melakukan penyuluhan cepat.
               </Text>
             </View>
           )}
