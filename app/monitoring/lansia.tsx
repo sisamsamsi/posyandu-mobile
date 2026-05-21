@@ -7,11 +7,13 @@ import {
   TouchableOpacity, 
   ActivityIndicator,
   TextInput,
-  Image
+  Image,
+  Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Calendar, Search, Users, Filter, CheckCircle2, AlertCircle } from 'lucide-react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLansia } from '../../hooks/useLansia';
 import { usePemeriksaan } from '../../hooks/usePemeriksaan';
 import { Lansia } from '../../lib/types';
@@ -31,6 +33,15 @@ export default function MonitoringLansiaScreen() {
   
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setSelectedMonth(selectedDate.getMonth());
+      setSelectedYear(selectedDate.getFullYear());
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -110,7 +121,7 @@ export default function MonitoringLansiaScreen() {
           style={{ width: 160, height: 50, flex: 1, marginLeft: 8 }} 
           resizeMode="contain" 
         />
-        <TouchableOpacity onPress={fetchData} style={styles.filterButton}>
+        <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.filterButton}>
           <Calendar size={20} color="#0D9488" />
         </TouchableOpacity>
       </View>
@@ -152,6 +163,14 @@ export default function MonitoringLansiaScreen() {
               <Text style={styles.emptyText}>Tidak ada data lansia.</Text>
             </View>
           )}
+        />
+      )}
+      {showDatePicker && (
+        <DateTimePicker
+          value={new Date(selectedYear, selectedMonth, 1)}
+          mode="date"
+          display="default"
+          onChange={handleDateChange}
         />
       )}
     </SafeAreaView>

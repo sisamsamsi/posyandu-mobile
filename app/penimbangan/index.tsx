@@ -36,7 +36,7 @@ export default function RiwayatPenimbanganScreen() {
     fetchData();
   }, [selectedMonth, selectedYear]);
 
-  const years = [2024, 2025, 2026];
+  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 3 + i);
   const months = Array.from({ length: 12 }, (_, i) => i);
 
   const renderItem = ({ item }: { item: Penimbangan }) => (

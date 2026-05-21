@@ -348,20 +348,10 @@ export class ReportService {
     if (lansiaError) console.error('[LansiaReport] Step1 Error:', lansiaError);
     console.log(`[LansiaReport] Step1 (with posyandu_id) → ${lansias?.length ?? 0} lansias ditemukan`);
 
-    // Fallback: jika posyandu_id tidak ter-link di data lama, ambil semua lansias
     if (!lansias || lansias.length === 0) {
-      console.warn('[LansiaReport] Fallback: posyandu_id tidak ter-link. Mengambil semua lansias...');
-      const { data: allLansias, error: allError } = await supabaseAdmin
-        .from('lansias')
-        .select('id, nama, tanggal_lahir, rt, posyandu_id');
-
-      if (allError) console.error('[LansiaReport] Fallback Error:', allError);
-      console.log(`[LansiaReport] Fallback → ${allLansias?.length ?? 0} lansias total`);
-
-      lansias = allLansias;
+      console.log('[LansiaReport] Tidak ada lansia yang ditemukan untuk Posyandu ini.');
+      return [];
     }
-
-    if (!lansias || lansias.length === 0) return [];
 
     const lansiaIds = lansias.map(l => l.id);
     // Buat lookup map untuk akses cepat

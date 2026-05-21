@@ -36,7 +36,7 @@ export default function RiwayatPemeriksaanScreen() {
     fetchData();
   }, [selectedMonth, selectedYear]);
 
-  const years = [2024, 2025, 2026];
+  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 3 + i);
   const months = Array.from({ length: 12 }, (_, i) => i);
 
   const THEME_COLOR = '#6366F1'; // Indigo for Lansia

@@ -4,7 +4,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-const supabaseServiceKey = process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('CRITICAL: Supabase URL or Anon Key is missing! App will likely crash.');
@@ -12,8 +11,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 console.log('Supabase Init:', { 
   url: supabaseUrl, 
-  hasAnonKey: !!supabaseAnonKey,
-  hasServiceKey: !!supabaseServiceKey 
+  hasAnonKey: !!supabaseAnonKey
 });
 
 // Klien utama — menggunakan anon key, tunduk pada RLS
@@ -26,18 +24,8 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
   },
 });
 
-// Klien admin — menggunakan service role key, bypass RLS.
-// HANYA untuk digunakan di server-side atau operasi internal seperti generate laporan.
-const adminClient = supabaseServiceKey 
-  ? createClient(supabaseUrl || '', supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    })
-  : null;
-
-// Fallback ke client biasa jika admin key tidak ada untuk mencegah crash (TypeError)
-export const supabaseAdmin = adminClient || supabase;
+// Ekspor supabaseAdmin sebagai alias supabase biasa agar tidak memicu error kompilasi
+// namun tetap mengontrol akses menggunakan RLS demi keamanan penyewa.
+export const supabaseAdmin = supabase;
 
 

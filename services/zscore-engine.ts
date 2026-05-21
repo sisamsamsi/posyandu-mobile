@@ -52,7 +52,7 @@ export class ZScoreEngine {
     } else if (value <= sd1neg) {
       zscore = -1.0 + (value - sd1neg) / (sd0 - sd1neg || 1);
     } else if (value <= sd0) {
-      zscore = 0.0 + (value - sd0) / (sd1 - sd0 || 1);
+      zscore = 0.0 + (value - sd0) / (sd0 - sd1neg || 1);
     } else if (value <= sd1) {
       zscore = 1.0 + (value - sd1) / (sd2 - sd1 || 1);
     } else if (value <= sd2) {

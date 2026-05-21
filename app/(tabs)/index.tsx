@@ -32,7 +32,11 @@ import {
   ClipboardCheck,
   Activity,
   Syringe,
+  Sparkles,
+  RefreshCw,
+  Settings,
 } from 'lucide-react-native';
+import * as Updates from 'expo-updates';
 import { DashboardService, DashboardStats } from '../../services/dashboard-service';
 import { PieChart } from 'react-native-chart-kit';
 import { Card } from '../../components/ui/Card';
@@ -54,6 +58,40 @@ export default function DashboardScreen() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isNotifVisible, setIsNotifVisible] = useState(false);
 
+  // OTA Updates States
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [isDownloadingUpdate, setIsDownloadingUpdate] = useState(false);
+  const [updateDismissed, setUpdateDismissed] = useState(false);
+
+  const checkOtaUpdate = async () => {
+    // skip checking in expo go / development mode
+    if (__DEV__ || !Updates.isEnabled) {
+      console.log('[OTA Check] Updates disabled in development mode or not configured.');
+      return;
+    }
+
+    try {
+      const update = await Updates.checkForUpdateAsync();
+      if (update.isAvailable) {
+        setUpdateAvailable(true);
+      }
+    } catch (e) {
+      console.error('[OTA Check] Gagal memeriksa update:', e);
+    }
+  };
+
+  const handleDownloadAndReload = async () => {
+    try {
+      setIsDownloadingUpdate(true);
+      await Updates.fetchUpdateAsync();
+      await Updates.reloadAsync();
+    } catch (e) {
+      console.error('[OTA Fetch] Gagal mengunduh update:', e);
+      setIsDownloadingUpdate(false);
+      alert('Gagal mengunduh pembaruan. Silakan coba beberapa saat lagi.');
+    }
+  };
+
   const fetchStats = async () => {
     try {
       const data = await DashboardService.getStats(activePosyanduId);
@@ -68,11 +106,13 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     fetchStats();
+    checkOtaUpdate();
   }, [activePosyanduId]);
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchStats();
+    checkOtaUpdate();
   };
 
   const today = format(new Date(), 'EEEE, d MMMM yyyy', { locale: idLocale });
@@ -115,6 +155,9 @@ export default function DashboardScreen() {
         </View>
         <View style={styles.headerRight}>
           <WorkspaceSwitcher size={24} color="#1E293B" />
+          <TouchableOpacity style={styles.notifBtn} onPress={() => router.push('/settings')}>
+            <Settings size={22} color="#1E293B" />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.notifBtn} onPress={() => setIsNotifVisible(true)}>
             <Bell size={22} color="#1E293B" />
             {(stats?.risikoTinggiBalita || 0) > 0 && <View style={styles.notifDot} />}
@@ -127,6 +170,32 @@ export default function DashboardScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        {/* ============================= */}
+        {/* OTA UPDATE BANNER PENDING     */}
+        {/* ============================= */}
+        {updateAvailable && (
+          <TouchableOpacity 
+            style={styles.otaBannerContainer}
+            onPress={() => setUpdateDismissed(false)}
+            activeOpacity={0.9}
+          >
+            <View style={styles.otaBannerContent}>
+              <View style={styles.otaBannerIconContainer}>
+                <Sparkles size={20} color="#0D9488" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.otaBannerTitle}>Pembaruan Sistem Tersedia!</Text>
+                <Text style={styles.otaBannerDesc}>
+                  Klik di sini untuk memasang perbaikan klinis penting & enkripsi RLS terbaru secara instan.
+                </Text>
+              </View>
+              <View style={styles.otaBannerAction}>
+                <RefreshCw size={16} color="#FFFFFF" />
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
+
         {/* ============================= */}
         {/* JADWAL TERDEKAT               */}
         {/* ============================= */}
@@ -439,6 +508,80 @@ export default function DashboardScreen() {
                 />
               )}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ============================= */}
+      {/* OTA UPDATE DIALOG             */}
+      {/* ============================= */}
+      <Modal
+        visible={updateAvailable && !updateDismissed}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setUpdateDismissed(true)}
+      >
+        <View style={styles.otaOverlay}>
+          <View style={styles.otaGlassCard}>
+            <View style={styles.otaSparkleContainer}>
+              <Sparkles size={120} color="rgba(20, 184, 166, 0.05)" />
+            </View>
+            
+            <View style={styles.otaGlassHeaderBadge}>
+              <Sparkles size={32} color="#0D9488" />
+            </View>
+            
+            <Text style={styles.otaTitle}>Pembaruan Sistem AYOMI</Text>
+            <Text style={styles.otaSubtitle}>
+              Versi terbaru telah siap! Pembaruan ini mencakup perbaikan klinis penting & enkripsi tenant baru.
+            </Text>
+
+            <View style={styles.otaFeaturesList}>
+              <View style={styles.otaFeatureItem}>
+                <View style={styles.otaFeatureDot} />
+                <Text style={styles.otaFeatureText}>Optimalisasi kalkulasi Z-score asimetris WHO.</Text>
+              </View>
+              <View style={styles.otaFeatureItem}>
+                <View style={styles.otaFeatureDot} />
+                <Text style={styles.otaFeatureText}>Akurasi tekanan darah & status KBM/KMS.</Text>
+              </View>
+              <View style={styles.otaFeatureItem}>
+                <View style={styles.otaFeatureDot} />
+                <Text style={styles.otaFeatureText}>Perbaikan kebocoran data multi-tenant (RLS).</Text>
+              </View>
+              <View style={styles.otaFeatureItem}>
+                <View style={styles.otaFeatureDot} />
+                <Text style={styles.otaFeatureText}>Perbaikan PDF export & navigasi kalender.</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.otaBtnDownload, isDownloadingUpdate && { opacity: 0.8 }]} 
+              onPress={handleDownloadAndReload}
+              disabled={isDownloadingUpdate}
+              activeOpacity={0.8}
+            >
+              {isDownloadingUpdate ? (
+                <>
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <Text style={styles.otaBtnDownloadText}>Memasang Pembaruan...</Text>
+                </>
+              ) : (
+                <>
+                  <RefreshCw size={20} color="#FFFFFF" />
+                  <Text style={styles.otaBtnDownloadText}>Unduh & Muat Ulang</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {!isDownloadingUpdate && (
+              <TouchableOpacity 
+                style={styles.otaBtnDismiss} 
+                onPress={() => setUpdateDismissed(true)}
+              >
+                <Text style={styles.otaBtnDismissText}>Nanti Saja</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </Modal>
@@ -762,4 +905,172 @@ const styles = StyleSheet.create({
   notifTitle: { fontSize: 16, fontWeight: '800', color: '#191C1D' },
   notifDesc: { fontSize: 14, color: '#64748B', marginTop: 4, lineHeight: 20 },
   notifTime: { fontSize: 12, color: '#94A3B8', marginTop: 8, fontWeight: '600' },
+
+  // OTA Modal Styles (Glassmorphism & Teal theme)
+  otaOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)', // Elegant Slate-900 transparent overlay
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  otaGlassCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+    borderRadius: 36,
+    padding: 32,
+    borderWidth: 1.5,
+    borderColor: 'rgba(13, 148, 136, 0.25)', // Teal semi-transparent border
+    elevation: 20,
+    shadowColor: '#0D9488',
+    shadowOpacity: 0.18,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: 16 },
+    alignItems: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  otaSparkleContainer: {
+    position: 'absolute',
+    top: -24,
+    right: -24,
+    opacity: 0.08,
+  },
+  otaGlassHeaderBadge: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#F0FDFA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    borderWidth: 1.5,
+    borderColor: '#CCFBF1',
+  },
+  otaTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 10,
+    lineHeight: 28,
+  },
+  otaSubtitle: {
+    fontSize: 14,
+    color: '#475569',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+    fontWeight: '500',
+  },
+  otaFeaturesList: {
+    width: '100%',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 24,
+    padding: 16,
+    marginBottom: 28,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  otaFeatureItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginVertical: 6,
+  },
+  otaFeatureDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#0D9488',
+    marginTop: 6,
+  },
+  otaFeatureText: {
+    fontSize: 13,
+    color: '#334155',
+    fontWeight: '600',
+    lineHeight: 18,
+    flex: 1,
+  },
+  otaBtnDownload: {
+    width: '100%',
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#0D9488',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 10,
+    elevation: 6,
+    shadowColor: '#0D9488',
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+  },
+  otaBtnDownloadText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  otaBtnDismiss: {
+    marginTop: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 24,
+  },
+  otaBtnDismissText: {
+    color: '#64748B',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+
+  // OTA Banner Styles
+  otaBannerContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 32,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(13, 148, 136, 0.2)',
+    elevation: 4,
+    shadowColor: '#0D9488',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+  },
+  otaBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  otaBannerIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F0FDFA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
+  },
+  otaBannerTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  otaBannerDesc: {
+    fontSize: 12,
+    color: '#475569',
+    marginTop: 4,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+  otaBannerAction: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#0D9488',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });

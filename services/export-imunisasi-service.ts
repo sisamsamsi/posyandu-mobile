@@ -1,6 +1,6 @@
 // services/export-imunisasi-service.ts
 import * as XLSX from 'xlsx';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/build/legacy';
 import * as Sharing from 'expo-sharing';
 import { Balita } from '../lib/types';
 import { format } from 'date-fns';
