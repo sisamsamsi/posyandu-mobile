@@ -26,7 +26,11 @@ export class ZScoreEngine {
     value: number,
     indicator: 'IMT/U' | 'TB/U' | 'BB/U' | 'BB/TB'
   ): ZScoreResult {
-    const ref = this.findReference(standards, sex, ageMonths);
+    let searchVal = ageMonths;
+    if (indicator === 'BB/TB') {
+      searchVal = Math.round(ageMonths * 2) / 2;
+    }
+    const ref = this.findReference(standards, sex, searchVal);
     
     if (!ref) {
       return { zscore: 0, status: 'Tidak dapat ditentukan', indicator };

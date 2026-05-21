@@ -27,12 +27,16 @@ export interface InterviewQA {
 }
 
 export class GroqService {
-  private static API_KEY = process.env.EXPO_PUBLIC_GROQ_API_KEY || '';
   private static API_URL = 'https://api.groq.com/openai/v1/chat/completions';
   private static DEFAULT_MODEL = 'llama-3.3-70b-versatile';
 
+  private static getApiKey(): string {
+    return process.env.EXPO_PUBLIC_GROQ_API_KEY || '';
+  }
+
   private static async callGroq(messages: any[], isJsonResponse = false): Promise<string> {
-    if (!this.API_KEY) {
+    const apiKey = this.getApiKey();
+    if (!apiKey) {
       console.warn('Groq API Key is not set in environment variables.');
       throw new Error('API Key Groq belum diatur. Silakan periksa berkas .env Anda.');
     }
@@ -42,7 +46,7 @@ export class GroqService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.API_KEY}`,
+          'Authorization': `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
           model: this.DEFAULT_MODEL,
