@@ -81,6 +81,11 @@ export const useLansia = () => {
       // Strip related objects that aren't columns
       const { posyandu, pemeriksaan_lansias, ...cleanData } = lansia as any;
 
+      // Inject activePosyanduId if not present
+      if (!cleanData.posyandu_id && activePosyanduId) {
+        cleanData.posyandu_id = activePosyanduId;
+      }
+
       const { data, error } = await supabase
         .from('lansias')
         .upsert(cleanData)

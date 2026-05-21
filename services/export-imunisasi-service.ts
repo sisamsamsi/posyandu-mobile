@@ -1,12 +1,12 @@
 // services/export-imunisasi-service.ts
 import * as XLSX from 'xlsx';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Balita } from '../lib/types';
 import { format } from 'date-fns';
 
 export class ExportImunisasiService {
-  static async exportToExcel(balitas: Balita[], year: number) {
+  static async exportToExcel(balitas: Balita[], year: number, posyanduName: string = 'Posyandu') {
     try {
       const data = balitas.map((b, index) => ({
         'NO': index + 1,
@@ -35,7 +35,17 @@ export class ExportImunisasiService {
         'BOOSTER MR': b.imunisasi?.booster_mr_date ? format(new Date(b.imunisasi.booster_mr_date), 'dd/MM/yyyy') : '',
       }));
 
-      const ws = XLSX.utils.json_to_sheet(data);
+      const ws = XLSX.utils.json_to_sheet(data, { origin: 'A4' } as any);
+      
+      XLSX.utils.sheet_add_aoa(ws, [
+        [`Laporan Data Imunisasi - ${posyanduName}`],
+        [`Tahun Kelahiran: ${year}`]
+      ], { origin: 'A1' } as any);
+
+      if (!ws['!merges']) ws['!merges'] = [];
+      ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } });
+      ws['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: 5 } });
+
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, `Lahir ${year}`);
 
@@ -43,7 +53,7 @@ export class ExportImunisasiService {
       const uri = `${FileSystem.cacheDirectory}Laporan_Imunisasi_Lahir_${year}.xlsx`;
 
       await FileSystem.writeAsStringAsync(uri, wbout, {
-        encoding: FileSystem.EncodingType.Base64,
+        encoding: 'base64',
       });
 
       await Sharing.shareAsync(uri, {

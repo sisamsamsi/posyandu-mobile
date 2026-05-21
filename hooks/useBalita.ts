@@ -66,6 +66,11 @@ export const useBalita = () => {
       // Strip related objects that aren't columns
       const { posyandu, penimbangans, ...cleanData } = balita as any;
       
+      // Inject activePosyanduId if not present
+      if (!cleanData.posyandu_id && activePosyanduId) {
+        cleanData.posyandu_id = activePosyanduId;
+      }
+      
       const { data, error } = await supabase
         .from('balitas')
         .upsert(cleanData)
