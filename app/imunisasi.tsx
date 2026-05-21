@@ -35,7 +35,7 @@ import ImunisasiForm from '../components/ImunisasiForm';
 
 export default function ImunisasiScreen() {
   const router = useRouter();
-  const { activePosyanduId } = useServiceStore();
+  const { activePosyanduId, history } = useServiceStore();
   
   const [loading, setLoading] = useState(true);
   const [balitas, setBalitas] = useState<Balita[]>([]);
@@ -77,7 +77,9 @@ export default function ImunisasiScreen() {
       return;
     }
     try {
-      await ExportImunisasiService.exportToExcel(filteredBalitas, selectedYear);
+      const activePosyandu = history.find(h => h.id === activePosyanduId);
+      const posyanduName = activePosyandu?.name || 'Posyandu';
+      await ExportImunisasiService.exportToExcel(filteredBalitas, selectedYear, posyanduName);
     } catch (e) {
       Alert.alert('Error', 'Gagal mengekspor data');
     }
