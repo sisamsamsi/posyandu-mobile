@@ -37,7 +37,7 @@ export class HealthAnalyzer {
     }
 
     // 2. Tekanan Darah
-    if (pemeriksaan.tekanan_darah) {
+    if (pemeriksaan.tekanan_darah && /^\d+\/\d+$/.test(pemeriksaan.tekanan_darah.trim())) {
       const [sis, dias] = pemeriksaan.tekanan_darah.split('/').map(Number);
       if (sis >= 140 || dias >= 90) {
         alerts.push({ label: 'Tekanan Darah', value: 'Hipertensi', level: 'danger', message: `${sis}/${dias} mmHg` });
@@ -46,6 +46,8 @@ export class HealthAnalyzer {
       } else {
           alerts.push({ label: 'Tekanan Darah', value: 'Normal', level: 'success', message: `${sis}/${dias} mmHg` });
       }
+    } else {
+      alerts.push({ label: 'Tekanan Darah', value: 'Tidak Diukur', level: 'warning', message: '-' });
     }
 
     // 3. Gula Darah

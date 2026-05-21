@@ -8,11 +8,13 @@ import {
   ActivityIndicator,
   TextInput,
   ScrollView,
-  Image
+  Image,
+  Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Calendar, Search, Baby, Filter, CheckCircle2, AlertCircle, LogOut } from 'lucide-react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useBalita } from '../../hooks/useBalita';
 import { usePenimbangan } from '../../hooks/usePenimbangan';
 import { Balita } from '../../lib/types';
@@ -34,6 +36,15 @@ export default function MonitoringBalitaScreen() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [activeFilter, setActiveFilter] = useState<'Semua' | 'Sudah' | 'Belum' | 'Lulus'>('Semua');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setSelectedMonth(selectedDate.getMonth());
+      setSelectedYear(selectedDate.getFullYear());
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -124,7 +135,7 @@ export default function MonitoringBalitaScreen() {
         />
         <View style={styles.headerRight}>
           <WorkspaceSwitcher size={22} color="#0D9488" />
-          <TouchableOpacity onPress={fetchData} style={styles.calendarButton}>
+          <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.calendarButton}>
             <Calendar size={20} color="#1E293B" />
           </TouchableOpacity>
         </View>
@@ -180,6 +191,14 @@ export default function MonitoringBalitaScreen() {
               <Text style={styles.emptyText}>Tidak ada data balita.</Text>
             </View>
           )}
+        />
+      )}
+      {showDatePicker && (
+        <DateTimePicker
+          value={new Date(selectedYear, selectedMonth, 1)}
+          mode="date"
+          display="default"
+          onChange={handleDateChange}
         />
       )}
     </SafeAreaView>

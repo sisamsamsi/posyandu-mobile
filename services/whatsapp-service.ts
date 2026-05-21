@@ -172,10 +172,62 @@ export class WhatsAppService {
   /**
    * 4. Salin pesan ke clipboard (alternatif jika tidak punya nomor)
    */
-  static getFormattedMessage(type: 'hasil' | 'pengingat', data: any): string {
+  static getFormattedMessage(type: 'hasil' | 'pengingat' | 'unified', data: any): string {
     if (type === 'hasil') {
       return this.generateHasilPenimbangan(data.balita, data.penimbangan, data.posyandu);
+    } else if (type === 'unified') {
+      return this.generateHasilUnified(data.balita, data.penimbangan, data.rekomendasi, data.posyandu);
     }
     return this.generatePengingat(data.balita, data.posyandu);
   }
+
+  /**
+   * 5. LAPORAN UNIFIED (TIMBANGAN + PENYULUHAN AI)
+   * Menggabungkan metrik fisik, status WHO Z-Score, dan rekomendasi AI Meja 4/5
+   */
+  static generateHasilUnified(
+    balita: Balita,
+    penimbangan: Penimbangan,
+    rekomendasiAI: string,
+    posyandu?: Posyandu | null
+  ): string {
+    const tanggal = format(new Date(penimbangan.tanggal), 'd MMMM yyyy', { locale: idLocale });
+    const namaPos = posyandu?.nama_posyandu || 'Posyandu';
+
+    // Hitung usia
+    const lahir = new Date(balita.tanggal_lahir);
+    const tgl = new Date(penimbangan.tanggal);
+    const usiaBulan = Math.floor((tgl.getTime() - lahir.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
+
+    let pesan = `📊 *LAPORAN TERPADU POSYANDU & PENYULUHAN AI* 🏥\n`;
+    pesan += `_${namaPos}_\n`;
+    pesan += `📅 ${tanggal}\n\n`;
+    pesan += `Assalamualaikum Wr. Wb. Ibu/Bapak dari ananda *${balita.nama}*.\n`;
+    pesan += `Berikut adalah hasil pencatatan tumbuh kembang dan penyuluhan gizi ananda hari ini:\n\n`;
+    pesan += `📌 *DATA ANANDA:*\n`;
+    pesan += `• Usia: ${usiaBulan} bulan\n`;
+    pesan += `• Berat Badan: ${penimbangan.berat_badan} kg\n`;
+    pesan += `• Tinggi Badan: ${penimbangan.tinggi_badan} cm\n`;
+    if (penimbangan.lingkar_kepala) {
+      pesan += `• Lingkar Kepala: ${penimbangan.lingkar_kepala} cm\n`;
+    }
+    if (penimbangan.lingkar_lengan) {
+      pesan += `• Lingkar Lengan (LiLA): ${penimbangan.lingkar_lengan} cm\n`;
+    }
+    pesan += `\n`;
+
+    pesan += `📊 *ANALISIS STATUS GIZI (WHO Z-Score):*\n`;
+    pesan += `• BB berdasarkan Umur (BB/U): *${penimbangan.status_bb_u || 'Normal'}*\n`;
+    pesan += `• TB berdasarkan Umur (TB/U): *${penimbangan.status_tb_u || 'Normal'}*\n`;
+    pesan += `• BB berdasarkan TB (BB/TB): *${penimbangan.status_bb_tb || 'Normal'}*\n\n`;
+
+    pesan += `💡 *PANDUAN GIZI & STIMULASI AI (Meja 4/5):*\n`;
+    pesan += `${rekomendasiAI}\n\n`;
+
+    pesan += `Tetap rutin membawa ananda ke Posyandu setiap bulan untuk memantau tumbuh kembang optimalnya. Terima kasih. 🙏\n`;
+    pesan += `_Layanan Posyandu Digital - AYOMI_`;
+
+    return pesan;
+  }
 }
+

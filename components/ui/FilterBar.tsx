@@ -16,7 +16,7 @@ const MONTHS = [
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
 ];
 
-const YEARS = [2024, 2025, 2026];
+const YEARS = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 3 + i);
 const RTS = [1, 2, 3, 4, 5];
 
 export function FilterBar({ month, year, rt, onMonthChange, onYearChange, onRtChange }: FilterBarProps) {

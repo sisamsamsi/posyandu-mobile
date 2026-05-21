@@ -45,7 +45,7 @@ export default function ReportsScreen() {
   const themeBg = isLansia ? '#EEF2FF' : '#F0FDFA';
   
   const { activePosyanduId } = useServiceStore();
-  const { posyandu: firstPosyandu } = usePosyandu();
+  const { getLinkedPosyandus } = usePosyandu();
   const [activePosyandu, setActivePosyandu] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [fetchingPosyandu, setFetchingPosyandu] = useState(true);
@@ -57,8 +57,18 @@ export default function ReportsScreen() {
 
   useEffect(() => {
     const getPosyanduInfo = async () => {
+      let fallbackPosyandu: any = null;
+      try {
+        const linked = await getLinkedPosyandus();
+        if (linked && linked.length > 0) {
+          fallbackPosyandu = linked[0].posyandus;
+        }
+      } catch (err) {
+        console.warn('Failed to load linked posyandus:', err);
+      }
+
       if (!activePosyanduId) {
-        setActivePosyandu(firstPosyandu);
+        setActivePosyandu(fallbackPosyandu);
         setFetchingPosyandu(false);
         return;
       }
@@ -70,16 +80,16 @@ export default function ReportsScreen() {
           .eq('id', activePosyanduId)
           .single();
         if (data) setActivePosyandu(data);
-        else setActivePosyandu(firstPosyandu);
+        else setActivePosyandu(fallbackPosyandu);
       } catch (e) {
-        setActivePosyandu(firstPosyandu);
+        setActivePosyandu(fallbackPosyandu);
       } finally {
         setFetchingPosyandu(false);
       }
     };
     
     getPosyanduInfo();
-  }, [activePosyanduId, firstPosyandu]);
+  }, [activePosyanduId]);
 
   const handleGenerateReport = async () => {
     if (!activePosyandu) return;
@@ -134,7 +144,7 @@ export default function ReportsScreen() {
       }
       
       // Move (rename) and share
-      sourceFile.move(destinationFile);
+      await sourceFile.move(destinationFile);
       const finalUri = destinationFile.uri; // ✅ Ambil URI dari file tujuan, bukan sumber yang sudah dipindahkan
       
       if (await Sharing.isAvailableAsync()) {
@@ -174,7 +184,7 @@ export default function ReportsScreen() {
           {showPicker && (
             <View style={styles.v2PickerList}>
                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.v2YearScroll}>
-                  {[2023, 2024, 2025, 2026].map(y => (
+                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 3 + i).map(y => (
                     <TouchableOpacity 
                       key={y} 
                       style={[styles.v2YearBtn, selectedYear === y && { backgroundColor: themeColor }]}

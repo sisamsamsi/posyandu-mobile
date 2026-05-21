@@ -1,10 +1,47 @@
 // app/(tabs)/_layout.tsx
 import React from 'react';
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
 import { Tabs } from 'expo-router';
-import { Home, Stethoscope, ClipboardList, BarChart3, FileText, Settings } from 'lucide-react-native';
+import { Home, Stethoscope, ClipboardList, BarChart3, FileText } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../../lib/constants';
+
+interface TabIconProps {
+  focused: boolean;
+  color: string;
+  Icon: React.ComponentType<{ size: number; color: string }>;
+}
+
+const TabIcon = ({ focused, color, Icon }: TabIconProps) => {
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center', height: 40, marginTop: 4 }}>
+      <View 
+        style={{
+          paddingHorizontal: 14,
+          paddingVertical: 5,
+          borderRadius: 20,
+          backgroundColor: focused ? `${COLORS.primary}15` : 'transparent', // 15% opacity primary color
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 1,
+        }}
+      >
+        <Icon size={focused ? 21 : 19} color={color} />
+      </View>
+      {focused && (
+        <View 
+          style={{ 
+            width: 4, 
+            height: 4, 
+            borderRadius: 2, 
+            backgroundColor: COLORS.primary,
+            marginTop: 1,
+          }} 
+        />
+      )}
+    </View>
+  );
+};
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
@@ -16,29 +53,32 @@ export default function TabLayout() {
     ? Math.max(insets.bottom, 8)
     : insets.bottom + 4;
 
-  const tabBarHeight = 56 + bottomPadding;
+  const tabBarHeight = 58 + bottomPadding;
 
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: '#94A3B8',
+        tabBarHideOnKeyboard: true,
         tabBarLabelStyle: {
           fontSize: 10,
-          fontWeight: '700',
+          fontWeight: '800',
           paddingBottom: 2,
         },
         tabBarStyle: {
-          height: tabBarHeight,
-          paddingBottom: bottomPadding,
+          height: tabBarHeight + 4,
+          paddingBottom: bottomPadding + 3,
           paddingTop: 8,
           borderTopWidth: 0,
           backgroundColor: '#FFFFFF',
-          elevation: 24,
+          elevation: 32,
           shadowColor: '#006A63',
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.04,
-          shadowRadius: 12,
+          shadowOffset: { width: 0, height: -8 },
+          shadowOpacity: 0.08,
+          shadowRadius: 20,
+          borderTopLeftRadius: 30,
+          borderTopRightRadius: 30,
         },
         headerStyle: {
           backgroundColor: '#FFFFFF',
@@ -57,42 +97,35 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Beranda',
-          tabBarIcon: ({ color }) => <Home size={22} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} Icon={Home} />,
         }}
       />
       <Tabs.Screen
         name="service-desk"
         options={{
           title: 'Layanan',
-          tabBarIcon: ({ color }) => <Stethoscope size={22} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} Icon={Stethoscope} />,
         }}
       />
       <Tabs.Screen
         name="data"
         options={{
           title: 'Warga',
-          tabBarIcon: ({ color }) => <ClipboardList size={22} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} Icon={ClipboardList} />,
         }}
       />
       <Tabs.Screen
         name="analisis"
         options={{
           title: 'Analisis',
-          tabBarIcon: ({ color }) => <BarChart3 size={22} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} Icon={BarChart3} />,
         }}
       />
       <Tabs.Screen
         name="laporan"
         options={{
           title: 'Export',
-          tabBarIcon: ({ color }) => <FileText size={22} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Profil',
-          tabBarIcon: ({ color }) => <Settings size={22} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} color={color} Icon={FileText} />,
         }}
       />
     </Tabs>
