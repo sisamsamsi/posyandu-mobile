@@ -1,18 +1,37 @@
 // lib/constants.ts
 
 export const COLORS = {
-  primary: '#4DB6AC', // Light Teal
-  primaryDark: '#006A63', 
-  secondary: '#64B5F6', // Light Blue
-  secondaryContainer: '#cde5ff',
-  background: '#f8f9fa', 
-  surface: '#ffffff',
-  surfaceDim: '#f3f4f5',
-  white: '#ffffff',
-  error: '#ba1a1a',
-  warning: '#f97316',
-  success: '#22c55e',
-  info: '#0ea5e9',
+  // Balita Theme (Kemenkes Teal)
+  tealPrimary: '#00A896',
+  tealBg: '#F2F9F8', // White with mint/teal tint
+  tealTonal: '#E0F2F1', // Mint/teal tonal container
+  
+  // Lansia Theme (Indigo)
+  indigoPrimary: '#4F46E5',
+  indigoBg: '#F4F5FC', // White with indigo/lavender tint
+  indigoTonal: '#E8EAF6', // Indigo tonal container
+  
+  // Surfaces & Neutrals
+  surface: '#FFFFFF', // Clean pure white card surface
+  onSurface: '#1E293B',
+  onSurfaceVariant: '#64748B',
+  outline: '#E2E8F0',
+  
+  // Backward compatibility mappings (will default to Balita/Teal style)
+  primary: '#00A896',
+  primaryDark: '#007A6E',
+  secondary: '#005691',
+  secondaryContainer: '#E0F2F1',
+  background: '#F2F9F8',
+  surfaceDim: '#E0F2F1',
+  white: '#FFFFFF',
+  
+  // Utility
+  error: '#EF4444',
+  errorBg: '#FEE2E2',
+  warning: '#F59E0B',
+  success: '#10B981',
+  info: '#3B82F6',
 };
 
 export const STATUS_COLORS: Record<string, string> = {
@@ -40,3 +59,4 @@ export const RISK_COLORS: Record<string, string> = {
 };
 
 export const MAX_AGE_MONTHS = 60;
+

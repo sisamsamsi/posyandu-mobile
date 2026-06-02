@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, Dimensions, StyleSheet } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { format } from 'date-fns';
 
 interface SeriesData {
   data: number[];

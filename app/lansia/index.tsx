@@ -12,10 +12,9 @@ import { useRouter } from 'expo-router';
 import { useLansia } from '../../hooks/useLansia';
 import { useServiceStore } from '../../stores/service-store';
 import { SearchBar } from '../../components/ui/SearchBar';
-import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
-import { Plus, User, ArrowLeft } from 'lucide-react-native';
+import { Plus, ArrowLeft, ChevronRight } from 'lucide-react-native';
 import { Lansia } from '../../lib/types';
+import { COLORS } from '../../lib/constants';
 
 export default function LansiaIndex() {
   const router = useRouter();
@@ -40,23 +39,39 @@ export default function LansiaIndex() {
     fetchLansias(text);
   };
 
-  const renderItem = ({ item }: { item: Lansia }) => (
-    <TouchableOpacity onPress={() => router.push(`/lansia/${item.id}`)}>
-      <Card style={styles.personCard}>
-        <View style={styles.personAvatar}>
-          <User size={24} color="#6366F1" />
+  const getInitials = (name: string) => {
+    if (!name) return 'L';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  const renderItem = ({ item }: { item: Lansia }) => {
+    const ageYears = new Date().getFullYear() - new Date(item.tanggal_lahir).getFullYear();
+    const initials = getInitials(item.nama);
+    const posyanduName = item.posyandu?.nama_posyandu || 'Posyandu';
+
+    return (
+      <TouchableOpacity 
+        onPress={() => router.push(`/lansia/${item.id}`)} 
+        activeOpacity={0.7}
+        style={styles.cardWrapper}
+      >
+        <View style={styles.avatarContainer}>
+          <Text style={styles.avatarText}>{initials}</Text>
         </View>
-        <View style={styles.personInfo}>
-          <Text style={styles.personName}>{item.nama}</Text>
-          <Text style={styles.personNik}>{item.nik}</Text>
-          <View style={styles.badgeRow}>
-            <Badge label={item.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'} variant="primary" />
-            <Text style={styles.personRt}>RT {item.rt}</Text>
-          </View>
+        
+        <View style={styles.textContainer}>
+          <Text style={styles.nameText} numberOfLines={1}>{item.nama}</Text>
+          <Text style={styles.subText}>{ageYears} thn • {posyanduName}</Text>
         </View>
-      </Card>
-    </TouchableOpacity>
-  );
+        
+        <ChevronRight size={18} color="#94A3B8" />
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -109,96 +124,100 @@ export default function LansiaIndex() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
   },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 18,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   backButton: {
     marginRight: 16,
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1E293B',
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: -0.5,
   },
   searchContainer: {
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
   },
   listContent: {
-    padding: 20,
+    paddingHorizontal: 16,
     paddingBottom: 100,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
   },
-  personCard: {
+  cardWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
   },
-  personAvatar: {
+  avatarContainer: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#CCFBF1',
+    backgroundColor: '#6366F1',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 14,
   },
-  personInfo: {
-    flex: 1,
-  },
-  personName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1E293B',
-    marginBottom: 2,
-  },
-  personNik: {
+  avatarText: {
     fontSize: 14,
-    color: '#64748B',
-    marginBottom: 6,
+    fontWeight: '900',
+    color: '#FFFFFF',
   },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  textContainer: {
+    flex: 1,
+    justifyContent: 'center',
   },
-  personRt: {
+  nameText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  subText: {
     fontSize: 12,
-    color: '#94A3B8',
-    marginLeft: 8,
+    color: '#64748B',
+    fontWeight: '500',
   },
   emptyContainer: {
     alignItems: 'center',
     marginTop: 100,
   },
   emptyText: {
-    color: '#64748B',
-    fontSize: 16,
+    color: '#94A3B8',
+    fontSize: 14,
+    fontWeight: '500',
   },
   fab: {
     position: 'absolute',
     right: 20,
-    bottom: 20,
+    bottom: 24,
     width: 56,
     height: 56,
     borderRadius: 28,
     backgroundColor: '#6366F1',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    elevation: 6,
+    shadowColor: '#6366F1',
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowRadius: 12,
   },
 });

@@ -20,6 +20,7 @@ import { Lansia } from '../../lib/types';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { getIndoMonthName } from '../../lib/utils';
+import { COLORS } from '../../lib/constants';
 
 export default function MonitoringLansiaScreen() {
   const router = useRouter();
@@ -85,7 +86,7 @@ export default function MonitoringLansiaScreen() {
         <Card style={styles.v2Card}>
           <View style={styles.v2CardContent}>
             <View style={styles.v2Avatar}>
-              <Users size={24} color="#6366F1" />
+              <Users size={24} color={COLORS.indigoPrimary} />
             </View>
             <View style={styles.v2Info}>
               <Text style={styles.v2Name}>{item.nama}</Text>
@@ -122,7 +123,7 @@ export default function MonitoringLansiaScreen() {
           resizeMode="contain" 
         />
         <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.filterButton}>
-          <Calendar size={20} color="#0D9488" />
+          <Calendar size={20} color={COLORS.indigoPrimary} />
         </TouchableOpacity>
       </View>
 
@@ -150,7 +151,7 @@ export default function MonitoringLansiaScreen() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#0D9488" />
+          <ActivityIndicator size="large" color={COLORS.indigoPrimary} />
         </View>
       ) : (
         <FlatList
@@ -187,7 +188,7 @@ const StatItem = ({ label, count, color }: { label: string, count: number, color
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.indigoBg,
   },
   header: {
     flexDirection: 'row',
@@ -195,13 +196,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.indigoBg,
   },
   backButton: {
     padding: 4,
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#1E293B',
   },
@@ -211,12 +212,12 @@ const styles = StyleSheet.create({
   searchBarContainer: {
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.indigoBg,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,
@@ -229,10 +230,8 @@ const styles = StyleSheet.create({
   },
   statsBar: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.indigoBg,
     paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
   },
   statItem: {
     flex: 1,
@@ -272,7 +271,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F0FDFA',
+    backgroundColor: COLORS.indigoTonal,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -323,7 +322,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: COLORS.indigoBg,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,

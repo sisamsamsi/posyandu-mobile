@@ -28,6 +28,8 @@ import {
   Plus,
   AlertCircle,
   HelpCircle,
+  Bell,
+  MessageCircle,
 } from 'lucide-react-native';
 import { useServiceStore } from '../../stores/service-store';
 import { supabase } from '../../lib/supabase';
@@ -36,9 +38,11 @@ import { COLORS } from '../../lib/constants';
 import { Card } from '../../components/ui/Card';
 import { ZScoreEngine } from '../../services/zscore-engine';
 import { whoService } from '../../services/who-service';
+import { WhatsAppService } from '../../services/whatsapp-service';
+import { calculateAgeMonths, isBalitaLulus } from '../../lib/utils';
 import { format } from 'date-fns';
 
-type ActiveTab = 'today' | 'all';
+type ActiveTab = 'today' | 'absent' | 'all';
 
 interface QueueItem {
   balita: Balita;
@@ -54,18 +58,12 @@ export default function CounselingQueueScreen() {
   
   // Lists
   const [todayQueue, setTodayQueue] = useState<QueueItem[]>([]);
+  const [absentQueue, setAbsentQueue] = useState<Balita[]>([]);
   const [allBalitas, setAllBalitas] = useState<Balita[]>([]);
   const [searchResults, setSearchResults] = useState<QueueItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Quick Input Modal States
-  const [showQuickInput, setShowQuickInput] = useState(false);
-  const [selectedBalita, setSelectedBalita] = useState<Balita | null>(null);
-  const [berat, setBerat] = useState('');
-  const [tinggi, setTinggi] = useState('');
-  const [lica, setLica] = useState('');
-  const [lila, setLila] = useState('');
-  const [savingQuickInput, setSavingQuickInput] = useState(false);
+
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
@@ -143,6 +141,10 @@ export default function CounselingQueueScreen() {
       }).filter(item => item.balita !== undefined); // safe check
 
       setTodayQueue(mappedTodayQueue);
+
+      // 5. Petakan Balita Belum Hadir / Absen (Belum ditimbang bulan ini)
+      const absentBalitas = balitasList.filter(b => !latestPenimbangansMap.has(b.id) && !isBalitaLulus(b.tanggal_lahir));
+      setAbsentQueue(absentBalitas);
     } catch (e: any) {
       console.error('Failed to load queue:', e);
       Alert.alert('Error', 'Gagal memuat data antrean.');
@@ -188,86 +190,32 @@ export default function CounselingQueueScreen() {
         },
       });
     } else {
-      // Jika belum ditimbang, buka modal Quick Input Timbangan Cepat
-      setSelectedBalita(item.balita);
-      setBerat('');
-      setTinggi('');
-      setLica('');
-      setLila('');
-      setShowQuickInput(true);
+      // Jika belum ditimbang, langsung arahkan ke Desk Timbang dengan pre-selected ID!
+      router.push(`/service-desk/balita?id=${item.balita.id}`);
     }
   };
 
-  const handleSaveQuickInput = async () => {
-    if (!selectedBalita) return;
-    if (!berat || !tinggi) {
-      Alert.alert('Error', 'Berat dan Tinggi badan harus diisi untuk analisis Z-Score.');
-      return;
-    }
+  const handleStartSelfReport = (balita: Balita) => {
+    // Arahkan ke Desk Timbang untuk input mandiri dengan pre-selected ID!
+    router.push(`/service-desk/balita?id=${balita.id}`);
+  };
 
-    setSavingQuickInput(true);
+  const handleSendWhatsAppReminder = async (balita: Balita) => {
     try {
-      const ageMonths = calculateAgeMonths(selectedBalita.tanggal_lahir, todayStr);
-      
-      // Fetch WHO Standards
-      const [bbStd, tbStd, bbtbStd] = await Promise.all([
-        whoService.getStandards('bb_u', selectedBalita.jenis_kelamin),
-        whoService.getStandards('tb_u', selectedBalita.jenis_kelamin),
-        whoService.getStandards('bb_tb', selectedBalita.jenis_kelamin),
-      ]);
+      const { data: posyanduData } = await supabase
+        .from('posyandus')
+        .select('*')
+        .eq('id', activePosyanduId)
+        .maybeSingle();
 
-      const gender = selectedBalita.jenis_kelamin === 'Laki-laki' ? 'L' : 'P';
-      const bbResult = ZScoreEngine.calculate(bbStd, gender, ageMonths, parseFloat(berat), 'BB/U');
-      const tbResult = ZScoreEngine.calculate(tbStd, gender, ageMonths, parseFloat(tinggi), 'TB/U');
-      const bbtbResult = ZScoreEngine.calculate(bbtbStd, gender, parseFloat(tinggi), parseFloat(berat), 'BB/TB');
-
-      const payload = {
-        balita_id: selectedBalita.id,
-        tanggal: todayStr,
-        berat_badan: parseFloat(berat),
-        tinggi_badan: parseFloat(tinggi),
-        lingkar_kepala: parseFloat(lica) || null,
-        lingkar_lengan: parseFloat(lila) || null,
-        zscore_bb_u: bbResult.zscore,
-        status_bb_u: bbResult.status,
-        zscore_tb_u: tbResult.zscore,
-        status_tb_u: tbResult.status,
-        zscore_bb_tb: bbtbResult.zscore,
-        status_bb_tb: bbtbResult.status,
-      };
-
-      const { data, error } = await supabase.from('penimbangans').insert(payload).select().single();
-      if (error) throw error;
-
-      setShowQuickInput(false);
-      Alert.alert('Sukses', 'Data timbangan cepat berhasil disimpan. Memulai penyuluhan AI...', [
-        {
-          text: 'Lanjut',
-          onPress: () => {
-            router.push({
-              pathname: '/counseling/session',
-              params: {
-                balitaId: selectedBalita.id,
-                penimbanganId: data.id,
-              },
-            });
-          }
-        }
-      ]);
-      loadData();
-    } catch (err: any) {
-      console.error(err);
-      Alert.alert('Error', err.message || 'Gagal menyimpan data penimbangan cepat.');
-    } finally {
-      setSavingQuickInput(false);
+      const message = WhatsAppService.generatePengingat(balita, posyanduData);
+      await WhatsAppService.openWhatsApp(balita.no_hp_ortu || '', message);
+    } catch (e: any) {
+      Alert.alert('Error', 'Gagal mengirim pengingat WhatsApp.');
     }
   };
 
-  const calculateAgeMonths = (birthDate: string, measureDate: string): number => {
-    const birth = new Date(birthDate);
-    const measure = new Date(measureDate);
-    return (measure.getFullYear() - birth.getFullYear()) * 12 + (measure.getMonth() - birth.getMonth());
-  };
+
 
   const renderQueueItem = ({ item }: { item: QueueItem }) => {
     const ageMonths = calculateAgeMonths(item.balita.tanggal_lahir, todayStr);
@@ -338,6 +286,47 @@ export default function CounselingQueueScreen() {
     );
   };
 
+  const renderAbsentItem = ({ item }: { item: Balita }) => {
+    const ageMonths = calculateAgeMonths(item.tanggal_lahir, todayStr);
+    
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <View style={[styles.avatar, { backgroundColor: '#FFFBEB' }]}>
+            <Baby size={24} color="#F59E0B" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.name}>{item.nama}</Text>
+            <Text style={styles.subText}>
+              {item.jenis_kelamin} • {ageMonths} bulan • RT {item.rt}
+            </Text>
+          </View>
+          <View style={styles.badgeWarning}>
+            <Text style={styles.badgeWarningText}>Belum Hadir</Text>
+          </View>
+        </View>
+
+        <View style={styles.absentActionsRow}>
+          <TouchableOpacity
+            style={styles.absentReminderBtn}
+            onPress={() => handleSendWhatsAppReminder(item)}
+          >
+            <Bell size={14} color="#FFF" />
+            <Text style={styles.absentBtnText}>Kirim Pengingat WA</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.absentInputBtn}
+            onPress={() => handleStartSelfReport(item)}
+          >
+            <Plus size={14} color="#FFF" />
+            <Text style={styles.absentBtnText}>Input Hasil Mandiri</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   const getStatusColor = (status: string) => {
     if (status.includes('Normal') || status.includes('Baik')) return '#22C55E';
     if (status.includes('Sangat Kurang') || status.includes('Kurang') || status.includes('Buruk')) return '#EF4444';
@@ -367,7 +356,18 @@ export default function CounselingQueueScreen() {
           }}
         >
           <Text style={[styles.tabText, activeTab === 'today' && styles.activeTabText]}>
-            Antrean Bulan Ini ({todayQueue.length})
+            Hadir & Antre ({todayQueue.length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'absent' && styles.activeTab]}
+          onPress={() => {
+            setActiveTab('absent');
+            setSearchQuery('');
+          }}
+        >
+          <Text style={[styles.tabText, activeTab === 'absent' && styles.activeTabText]}>
+            Belum Hadir ({absentQueue.length})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -417,6 +417,24 @@ export default function CounselingQueueScreen() {
             </View>
           )}
         />
+      ) : activeTab === 'absent' ? (
+        <FlatList
+          data={absentQueue}
+          keyExtractor={(item) => item.id}
+          renderItem={renderAbsentItem}
+          contentContainerStyle={styles.listContent}
+          refreshing={loading}
+          onRefresh={loadData}
+          ListEmptyComponent={() => (
+            <View style={styles.emptyContainer}>
+              <ClipboardCheck size={64} color="#22C55E" />
+              <Text style={styles.emptyTitle}>Semua Hadir! 🎉</Text>
+              <Text style={styles.emptyDesc}>
+                Luar biasa! Semua balita terdaftar sudah melakukan penimbangan bulan ini.
+              </Text>
+            </View>
+          )}
+        />
       ) : (
         <FlatList
           data={searchQuery.trim().length > 0 ? searchResults : []}
@@ -439,105 +457,7 @@ export default function CounselingQueueScreen() {
         />
       )}
 
-      {/* Quick Input Modal */}
-      <Modal visible={showQuickInput} animationType="slide" transparent>
-        <Pressable style={styles.modalOverlay} onPress={() => !savingQuickInput && setShowQuickInput(false)}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>Input Timbangan Cepat</Text>
-                <Text style={styles.modalSubTitle}>{selectedBalita?.nama}</Text>
-              </View>
-              <HelpCircle size={22} color={COLORS.primary} />
-            </View>
 
-            <ScrollView contentContainerStyle={styles.modalForm}>
-              <View style={styles.quickInputAlert}>
-                <AlertCircle size={18} color="#92400E" />
-                <Text style={styles.quickInputAlertText}>
-                  Petugas Meja 3 belum mencatat data hari ini. Silakan input cepat metrik fisik anak untuk memicu kecerdasan gizi AI.
-                </Text>
-              </View>
-
-              <View style={styles.fieldContainer}>
-                <Text style={styles.fieldLabel}>Berat Badan (kg)</Text>
-                <View style={styles.inputGroup}>
-                  <Scale size={18} color={COLORS.primary} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Contoh: 10.20"
-                    keyboardType="decimal-pad"
-                    value={berat}
-                    onChangeText={setBerat}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.fieldContainer}>
-                <Text style={styles.fieldLabel}>Tinggi / Panjang Badan (cm)</Text>
-                <View style={styles.inputGroup}>
-                  <Ruler size={18} color={COLORS.primary} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Contoh: 82.50"
-                    keyboardType="decimal-pad"
-                    value={tinggi}
-                    onChangeText={setTinggi}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.fieldContainer}>
-                <Text style={styles.fieldLabel}>Lingkar Kepala (cm) - Opsional</Text>
-                <View style={styles.inputGroup}>
-                  <Brain size={18} color={COLORS.primary} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Contoh: 44.0"
-                    keyboardType="decimal-pad"
-                    value={lica}
-                    onChangeText={setLica}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.fieldContainer}>
-                <Text style={styles.fieldLabel}>Lingkar Lengan Atas (LiLA) (cm) - Opsional</Text>
-                <View style={styles.inputGroup}>
-                  <Plus size={18} color={COLORS.primary} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Contoh: 14.5"
-                    keyboardType="decimal-pad"
-                    value={lila}
-                    onChangeText={setLila}
-                  />
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={[styles.saveBtnModal, savingQuickInput && { opacity: 0.7 }]}
-                onPress={handleSaveQuickInput}
-                disabled={savingQuickInput}
-              >
-                {savingQuickInput ? (
-                  <ActivityIndicator size="small" color="#FFF" />
-                ) : (
-                  <Text style={styles.saveBtnModalText}>Simpan & Analisis AI</Text>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.cancelBtnModal}
-                onPress={() => setShowQuickInput(false)}
-                disabled={savingQuickInput}
-              >
-                <Text style={styles.cancelBtnModalText}>Batal</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </Pressable>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -849,5 +769,46 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     fontSize: 15,
     fontWeight: '800',
+  },
+  badgeWarning: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  badgeWarningText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#D97706',
+  },
+  absentActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+  absentReminderBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F59E0B',
+    paddingVertical: 12,
+    borderRadius: 16,
+    gap: 6,
+  },
+  absentInputBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0D9488',
+    paddingVertical: 12,
+    borderRadius: 16,
+    gap: 6,
+  },
+  absentBtnText: {
+    color: '#FFF',
+    fontWeight: '800',
+    fontSize: 12,
   },
 });

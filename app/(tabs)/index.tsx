@@ -38,17 +38,52 @@ import {
 } from 'lucide-react-native';
 import * as Updates from 'expo-updates';
 import { DashboardService, DashboardStats } from '../../services/dashboard-service';
-import { PieChart } from 'react-native-chart-kit';
 import { Card } from '../../components/ui/Card';
 import { ScheduleCard } from '../../components/ui/ScheduleCard';
 import { StatsGrid } from '../../components/ui/StatsGrid';
-import { LansiaHealthBar } from '../../components/ui/LansiaHealthBar';
 import { useServiceStore } from '../../stores/service-store';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { WorkspaceSwitcher } from '../../components/ui/WorkspaceSwitcher';
+import { COLORS } from '../../lib/constants';
 
 const screenWidth = Dimensions.get('window').width;
+
+// ============================================
+// HELPERS
+// ============================================
+function GiziRow({ label, count, percent, color }: { label: string; count: number; percent: string; color: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
+        <Text style={{ fontSize: 13, fontWeight: '600', color: '#1E293B' }}>{label}</Text>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E293B' }}>{percent}</Text>
+        <Text style={{ fontSize: 11, color: '#64748B' }}>({count})</Text>
+      </View>
+    </View>
+  );
+}
+
+function PressableRow({ icon, label, onPress }: { icon: React.ReactNode; label: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity 
+      style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 }} 
+      onPress={onPress}
+      activeOpacity={0.6}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' }}>
+          {icon}
+        </View>
+        <Text style={{ fontSize: 13, fontWeight: '600', color: '#1E293B' }}>{label}</Text>
+      </View>
+      <ChevronRight size={16} color="#94A3B8" />
+    </TouchableOpacity>
+  );
+}
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -62,6 +97,14 @@ export default function DashboardScreen() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [isDownloadingUpdate, setIsDownloadingUpdate] = useState(false);
   const [updateDismissed, setUpdateDismissed] = useState(false);
+
+  // Dynamic Theme Selection based on Active Workspace
+  const isBalita = activeWorkspace === 'balita';
+  const theme = {
+    primary: isBalita ? COLORS.tealPrimary : COLORS.indigoPrimary,
+    background: isBalita ? COLORS.tealBg : COLORS.indigoBg,
+    tonal: isBalita ? COLORS.tealTonal : COLORS.indigoTonal,
+  };
 
   const checkOtaUpdate = async () => {
     // skip checking in expo go / development mode
@@ -121,47 +164,46 @@ export default function DashboardScreen() {
   if (loading && !stats) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#0D9488" />
+        <ActivityIndicator size="large" color="#00A896" />
         <Text style={styles.loadingText}>Memuat dashboard...</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       {/* ============================= */}
       {/* HEADER                        */}
       {/* ============================= */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <View style={styles.headerIconRow}>
-            <View style={[styles.posyanduBadge, { padding: 0, overflow: 'hidden' }]}>
-              <Image 
-                source={require('../../assets/icon.png')} 
-                style={{ width: '100%', height: '100%' }} 
-                resizeMode="cover" 
-              />
+          {/* Row 1: Logo & Status + Actions */}
+          <View style={styles.headerRow}>
+            <View style={styles.headerLogoContainer}>
+              <View style={[styles.logoBadge, { backgroundColor: theme.tonal }]}>
+                <Activity size={12} color={theme.primary} />
+                <Text style={[styles.headerLogoText, { color: theme.primary }]}>AYOMI</Text>
+              </View>
+              <View style={styles.headerDivider} />
+              <Text style={styles.kaderLabel}>KADER</Text>
             </View>
-            <View style={styles.headerTextBlock}>
-              <Text style={styles.posyanduNameHeader}>{posyanduName}</Text>
-              <Text style={styles.dateText}>{today}</Text>
+            <View style={styles.headerRight}>
+              <WorkspaceSwitcher size={18} color="#1E293B" />
+              <TouchableOpacity style={styles.notifBtn} onPress={() => router.push('/settings')}>
+                <Settings size={18} color="#1E293B" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.notifBtn} onPress={() => setIsNotifVisible(true)}>
+                <Bell size={18} color="#1E293B" />
+                {(stats?.risikoTinggiBalita || 0) > 0 && <View style={styles.notifDot} />}
+              </TouchableOpacity>
             </View>
           </View>
-          <Image 
-            source={require('../../assets/images/logo.png')} 
-            style={{ width: 180, height: 60, marginLeft: -8, marginTop: 4, marginBottom: 8 }} 
-            resizeMode="contain" 
-          />
-        </View>
-        <View style={styles.headerRight}>
-          <WorkspaceSwitcher size={24} color="#1E293B" />
-          <TouchableOpacity style={styles.notifBtn} onPress={() => router.push('/settings')}>
-            <Settings size={22} color="#1E293B" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.notifBtn} onPress={() => setIsNotifVisible(true)}>
-            <Bell size={22} color="#1E293B" />
-            {(stats?.risikoTinggiBalita || 0) > 0 && <View style={styles.notifDot} />}
-          </TouchableOpacity>
+
+          {/* Row 2: Posyandu Name & Date */}
+          <View style={styles.headerTextBlock}>
+            <Text style={styles.posyanduNameHeader}>{posyanduName}</Text>
+            <Text style={styles.dateText}>{today}</Text>
+          </View>
         </View>
       </View>
 
@@ -170,6 +212,38 @@ export default function DashboardScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        {/* ==================================== */}
+        {/* M3 SEGMENTED CONTROL SWITCHER (TOP)  */}
+        {/* ==================================== */}
+        <View style={[styles.switcherContainer, { backgroundColor: theme.tonal }]}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setActiveWorkspace('balita')}
+            style={[
+              styles.switcherTab,
+              isBalita && styles.switcherTabActive,
+            ]}
+          >
+            <Baby size={16} color={isBalita ? theme.primary : '#64748B'} />
+            <Text style={[styles.switcherTabText, isBalita && { color: theme.primary, fontWeight: '800' }]}>
+              Layanan Balita
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setActiveWorkspace('lansia')}
+            style={[
+              styles.switcherTab,
+              !isBalita && styles.switcherTabActive,
+            ]}
+          >
+            <Users size={16} color={!isBalita ? theme.primary : '#64748B'} />
+            <Text style={[styles.switcherTabText, !isBalita && { color: theme.primary, fontWeight: '800' }]}>
+              Layanan Lansia
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {/* ============================= */}
         {/* OTA UPDATE BANNER PENDING     */}
         {/* ============================= */}
@@ -181,7 +255,7 @@ export default function DashboardScreen() {
           >
             <View style={styles.otaBannerContent}>
               <View style={styles.otaBannerIconContainer}>
-                <Sparkles size={20} color="#0D9488" />
+                <Sparkles size={18} color={theme.primary} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.otaBannerTitle}>Pembaruan Sistem Tersedia!</Text>
@@ -190,268 +264,224 @@ export default function DashboardScreen() {
                 </Text>
               </View>
               <View style={styles.otaBannerAction}>
-                <RefreshCw size={16} color="#FFFFFF" />
+                <RefreshCw size={14} color="#FFFFFF" />
               </View>
             </View>
           </TouchableOpacity>
         )}
 
-        {/* ============================= */}
-        {/* JADWAL TERDEKAT               */}
-        {/* ============================= */}
-        <ScheduleCard
-          jadwalBalitaTanggal={stats?.posyanduInfo?.jadwal_balita_tanggal || null}
-          jadwalBalitaJam={stats?.posyanduInfo?.jadwal_balita_jam || null}
-          jadwalLansiaTanggal={stats?.posyanduInfo?.jadwal_lansia_tanggal || null}
-          jadwalLansiaJam={stats?.posyanduInfo?.jadwal_lansia_jam || null}
-        />
-
         {/* ==================================== */}
-        {/* TOGGLE LAYANAN (UNTUK ADMIN)         */}
+        {/* STATISTIK OVERVIEW (CLINICAL BENTO)  */}
         {/* ==================================== */}
-        <TouchableOpacity 
-          style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9', padding: 12, borderRadius: 12, marginVertical: 12, justifyContent: 'space-between' }}
-          onPress={() => setActiveWorkspace(activeWorkspace === 'balita' ? 'lansia' : 'balita')}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            {activeWorkspace === 'balita' ? <Baby size={20} color="#0D9488" /> : <Users size={20} color="#6366F1" />}
-            <Text style={{ fontWeight: '700', color: '#1E293B' }}>
-              Mode: {activeWorkspace === 'balita' ? 'Layanan Balita' : 'Layanan Lansia'}
-            </Text>
-          </View>
-          <View style={{ backgroundColor: '#E2E8F0', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}>
-            <Text style={{ fontSize: 12, fontWeight: '700', color: '#475569' }}>Ganti Mode</Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* ==================================== */}
-        {/* DAILY TIP (WORKSPACE AWARE)          */}
-        {/* ==================================== */}
-        <View style={styles.tipContainer}>
-          <View style={styles.tipIconCircle}>
-            <TrendingUp size={18} color="#0D9488" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.tipTitle}>
-              {activeWorkspace === 'balita' ? 'Tips Gizi Hari Ini' : 'Tips Sehat Lansia'}
-            </Text>
-            <Text style={styles.tipText}>
-              {activeWorkspace === 'balita' 
-                ? 'Pastikan balita mendapatkan imunisasi dasar lengkap sesuai jadwal di buku KIA.' 
-                : 'Ingatkan lansia untuk rutin melakukan aktivitas fisik ringan 15-30 menit setiap hari.'}
-            </Text>
-          </View>
-        </View>
-
-        {/* ============================= */}
-        {/* STATISTIK OVERVIEW (4 GRID)   */}
-        {/* ============================= */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Statistik Bulan Ini</Text>
         </View>
         <StatsGrid
-          items={activeWorkspace === 'balita' ? [
+          items={isBalita ? [
             {
               label: 'Total Balita',
               value: stats?.totalBalita || 0,
-              icon: <Baby size={22} color="#0D9488" />,
-              color: '#0D9488',
-              bgColor: '#F0FDFA',
+              icon: <Baby size={18} color={theme.primary} />,
+              color: theme.primary,
+              bgColor: theme.tonal,
+              onPress: () => router.push('/balita'),
             },
             {
               label: 'Kunjungan',
               value: stats?.balitaVisitsThisMonth || 0,
-              icon: <ClipboardCheck size={22} color="#059669" />,
-              color: '#059669',
-              bgColor: '#ECFDF5',
+              icon: <ClipboardCheck size={18} color={theme.primary} />,
+              color: theme.primary,
+              bgColor: theme.tonal,
+              onPress: () => router.push('/monitoring/balita'),
             },
             {
-              label: 'Stunting/Wasting',
+              label: 'Stunting / Wasting',
               value: stats?.risikoTinggiBalita || 0,
-              icon: <AlertTriangle size={22} color="#EF4444" />,
-              color: '#EF4444',
-              bgColor: '#FEF2F2',
+              icon: <AlertTriangle size={18} color={theme.primary} />,
+              color: theme.primary,
+              bgColor: theme.tonal,
+              onPress: () => router.push('/monitoring/balita'),
             },
             {
               label: 'Belum Timbang',
               value: stats?.belumTimbangBalita || 0,
-              icon: <Activity size={22} color="#F59E0B" />,
-              color: '#F59E0B',
-              bgColor: '#FFFBEB',
+              icon: <Activity size={18} color={theme.primary} />,
+              color: theme.primary,
+              bgColor: theme.tonal,
+              onPress: () => router.push('/monitoring/balita'),
             },
           ] : [
             {
               label: 'Total Lansia',
               value: stats?.totalLansia || 0,
-              icon: <Users size={22} color="#6366F1" />,
-              color: '#6366F1',
-              bgColor: '#EEF2FF',
+              icon: <Users size={18} color={theme.primary} />,
+              color: theme.primary,
+              bgColor: theme.tonal,
+              onPress: () => router.push('/lansia'),
             },
             {
               label: 'Pemeriksaan',
               value: stats?.lansiaVisitsThisMonth || 0,
-              icon: <ClipboardCheck size={22} color="#059669" />,
-              color: '#059669',
-              bgColor: '#ECFDF5',
+              icon: <ClipboardCheck size={18} color={theme.primary} />,
+              color: theme.primary,
+              bgColor: theme.tonal,
+              onPress: () => router.push('/monitoring/lansia'),
             },
             {
               label: 'Berisiko',
               value: stats?.healthAlertStats?.find(s => s.label === 'Berisiko')?.count || 0,
-              icon: <AlertCircle size={22} color="#EF4444" />,
-              color: '#EF4444',
-              bgColor: '#FEF2F2',
+              icon: <AlertCircle size={18} color={theme.primary} />,
+              color: theme.primary,
+              bgColor: theme.tonal,
+              onPress: () => router.push('/monitoring/lansia'),
             },
             {
               label: 'Belum Periksa',
               value: stats?.belumPeriksaLansia || 0,
-              icon: <Activity size={22} color="#F59E0B" />,
-              color: '#F59E0B',
-              bgColor: '#FFFBEB',
+              icon: <Activity size={18} color={theme.primary} />,
+              color: theme.primary,
+              bgColor: theme.tonal,
+              onPress: () => router.push('/monitoring/lansia'),
             },
           ]}
+        />
+
+        {/* ============================= */}
+        {/* JADWAL TERDEKAT (CONTEXTUAL)  */}
+        {/* ============================= */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Agenda Posyandu</Text>
+        </View>
+        <ScheduleCard
+          activeWorkspace={activeWorkspace || 'balita'}
+          tanggal={(isBalita ? stats?.posyanduInfo?.jadwal_balita_tanggal : stats?.posyanduInfo?.jadwal_lansia_tanggal) ?? null}
+          jam={(isBalita ? stats?.posyanduInfo?.jadwal_balita_jam : stats?.posyanduInfo?.jadwal_lansia_jam) ?? null}
+          themeColor={theme.primary}
+          themeTonal={theme.tonal}
         />
 
         {/* ==================================== */}
         {/* BALITA SPECIFIC SECTIONS             */}
         {/* ==================================== */}
-        {activeWorkspace === 'balita' && (
+        {isBalita && (
           <>
-            {/* ALERT: BELUM TIMBANG          */}
-            {(stats?.belumTimbangBalita || 0) > 0 && (
-              <TouchableOpacity 
-                style={styles.alertCard}
-                onPress={() => router.push('/monitoring/balita')}
-                activeOpacity={0.7}
-              >
-                <View style={styles.alertIconCircle}>
-                  <AlertTriangle size={20} color="#F59E0B" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.alertTitle}>Penimbangan Tertunda</Text>
-                  <View style={styles.alertStatsRow}>
-                    <View style={styles.alertChip}>
-                      <Baby size={14} color="#0D9488" />
-                      <Text style={styles.alertChipText}>{stats?.belumTimbangBalita} balita belum ditimbang</Text>
-                    </View>
-                  </View>
-                </View>
-                <ChevronRight size={18} color="#94A3B8" />
-              </TouchableOpacity>
-            )}
-
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Status Gizi Balita</Text>
             </View>
-            {stats?.nutritionStats && stats.nutritionStats.length > 0 ? (
-              <Card style={styles.chartCard}>
-                <PieChart
-                  data={stats.nutritionStats.map(s => ({
-                    name: s.label,
-                    population: s.count,
-                    color: s.color,
-                    legendFontColor: '#64748B',
-                    legendFontSize: 11,
-                  }))}
-                  width={screenWidth - 56}
-                  height={180}
-                  chartConfig={{ color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})` }}
-                  accessor={"population"}
-                  backgroundColor={"transparent"}
-                  paddingLeft={"15"}
-                  absolute
-                />
-              </Card>
-            ) : (
-              <Card style={styles.emptyChart}>
-                <CheckCircle2 size={32} color="#E2E8F0" />
-                <Text style={styles.emptyText}>Belum ada data penimbangan bulan ini</Text>
-              </Card>
-            )}
+            <Card style={{ paddingVertical: 8, paddingHorizontal: 16 }}>
+              <GiziRow 
+                label="Normal" 
+                count={stats?.nutritionStats?.find(s => s.label === 'Normal' || s.label === 'Gizi Baik')?.count || 0} 
+                percent={stats?.nutritionStats?.find(s => s.label === 'Normal' || s.label === 'Gizi Baik')?.count 
+                  ? `${Math.round((stats.nutritionStats.find(s => s.label === 'Normal' || s.label === 'Gizi Baik')!.count / (stats.totalBalita || 1)) * 100)}%` 
+                  : '0%'} 
+                color={theme.primary} 
+              />
+              <View style={styles.divider} />
+              <GiziRow 
+                label="Stunting / Wasting" 
+                count={stats?.risikoTinggiBalita || 0} 
+                percent={stats?.risikoTinggiBalita 
+                  ? `${Math.round((stats.risikoTinggiBalita / (stats.totalBalita || 1)) * 100)}%` 
+                  : '0%'} 
+                color={COLORS.error} 
+              />
+              <View style={styles.divider} />
+              <GiziRow 
+                label="Overweight" 
+                count={stats?.nutritionStats?.find(s => s.label === 'Overweight' || s.label === 'Gizi Lebih' || s.label === 'Obesitas')?.count || 0} 
+                percent={stats?.nutritionStats?.find(s => s.label === 'Overweight' || s.label === 'Gizi Lebih' || s.label === 'Obesitas')?.count 
+                  ? `${Math.round((stats.nutritionStats.find(s => s.label === 'Overweight' || s.label === 'Gizi Lebih' || s.label === 'Obesitas')!.count / (stats.totalBalita || 1)) * 100)}%` 
+                  : '0%'} 
+                color={COLORS.warning} 
+              />
+            </Card>
           </>
         )}
 
         {/* ==================================== */}
         {/* LANSIA SPECIFIC SECTIONS             */}
         {/* ==================================== */}
-        {activeWorkspace === 'lansia' && (
+        {!isBalita && (
           <>
-            {/* ALERT: BELUM PERIKSA          */}
-            {(stats?.belumPeriksaLansia || 0) > 0 && (
-              <TouchableOpacity 
-                style={styles.alertCard}
-                onPress={() => router.push('/monitoring/lansia')}
-                activeOpacity={0.7}
-              >
-                <View style={styles.alertIconCircle}>
-                  <AlertTriangle size={20} color="#F59E0B" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.alertTitle}>Pemeriksaan Tertunda</Text>
-                  <View style={styles.alertStatsRow}>
-                    <View style={styles.alertChip}>
-                      <Users size={14} color="#6366F1" />
-                      <Text style={styles.alertChipText}>{stats?.belumPeriksaLansia} lansia belum diperiksa</Text>
-                    </View>
-                  </View>
-                </View>
-                <ChevronRight size={18} color="#94A3B8" />
-              </TouchableOpacity>
-            )}
-
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Pemantauan Kesehatan Lansia</Text>
             </View>
-            <LansiaHealthBar
-              data={stats?.lansiaHealthBreakdown || { hipertensi: 0, gulaTinggi: 0, kolesterolTinggi: 0, asamUratTinggi: 0 }}
-              totalLansia={stats?.totalLansia || 0}
-            />
+            <Card style={{ paddingVertical: 8, paddingHorizontal: 16 }}>
+              <GiziRow 
+                label="Hipertensi" 
+                count={stats?.lansiaHealthBreakdown?.hipertensi || 0} 
+                percent="Tekanan Darah Tinggi" 
+                color={theme.primary} 
+              />
+              <View style={styles.divider} />
+              <GiziRow 
+                label="Gula Darah Tinggi" 
+                count={stats?.lansiaHealthBreakdown?.gulaTinggi || 0} 
+                percent="Kadar Gula > 200 mg/dL" 
+                color={theme.primary} 
+              />
+              <View style={styles.divider} />
+              <GiziRow 
+                label="Kolesterol Tinggi" 
+                count={stats?.lansiaHealthBreakdown?.kolesterolTinggi || 0} 
+                percent="Kolesterol > 200 mg/dL" 
+                color={theme.primary} 
+              />
+              <View style={styles.divider} />
+              <GiziRow 
+                label="Asam Urat Tinggi" 
+                count={stats?.lansiaHealthBreakdown?.asamUratTinggi || 0} 
+                percent="Asam Urat > 7.0 mg/dL" 
+                color={theme.primary} 
+              />
+            </Card>
           </>
         )}
 
         {/* ============================= */}
-        {/* AKSI CEPAT (4 Grid)           */}
+        {/* AKSI CEPAT (OPTION A LINEAR)  */}
         {/* ============================= */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Aksi Cepat</Text>
         </View>
-        <View style={styles.quickGrid}>
-          <QuickAction
-            icon={<FileUp size={22} color="#0D9488" />}
-            label="Import Data"
-            bgColor="#F0FDFA"
-            onPress={() => router.push('/admin/import-data')}
+        <Card style={{ paddingVertical: 6, paddingHorizontal: 16 }}>
+          <PressableRow 
+            icon={<FileUp size={16} color={theme.primary} />} 
+            label="Import Data Balita/Lansia" 
+            onPress={() => router.push('/admin/import-data')} 
           />
-          <QuickAction
-            icon={<FileDown size={22} color="#6366F1" />}
-            label="Export Laporan"
-            bgColor="#EEF2FF"
-            onPress={() => router.push('/admin/reports')}
+          <View style={styles.divider} />
+          <PressableRow 
+            icon={<FileDown size={16} color={theme.primary} />} 
+            label="Export Laporan Bulanan" 
+            onPress={() => router.push(`/admin/reports?type=${activeWorkspace}`)} 
           />
-          <QuickAction
-            icon={<MessageCircle size={22} color="#25D366" />}
-            label="WA Share"
-            bgColor="#F0FDF4"
-            onPress={() => router.push('/admin/whatsapp-share')}
+          <View style={styles.divider} />
+          <PressableRow 
+            icon={<MessageCircle size={16} color={theme.primary} />} 
+            label="Kirim Undangan WhatsApp" 
+            onPress={() => router.push('/admin/whatsapp-share')} 
           />
-          <QuickAction
-            icon={<BarChart3 size={22} color="#F59E0B" />}
-            label="Analisis"
-            bgColor="#FFFBEB"
-            onPress={() => router.push('/(tabs)/analisis')}
+          <View style={styles.divider} />
+          <PressableRow 
+            icon={<BarChart3 size={16} color={theme.primary} />} 
+            label="Analisis & Grafik Gizi" 
+            onPress={() => router.push('/(tabs)/analisis')} 
           />
-          <QuickAction
-            icon={<Syringe size={22} color="#EF4444" />}
-            label="Imunisasi"
-            bgColor="#FEF2F2"
-            onPress={() => router.push('/imunisasi')}
+          <View style={styles.divider} />
+          <PressableRow 
+            icon={<Syringe size={16} color={theme.primary} />} 
+            label="Jadwal & Catatan Imunisasi" 
+            onPress={() => router.push('/imunisasi')} 
           />
-        </View>
+        </Card>
 
         {/* ============================= */}
         {/* APP INFO FOOTER               */}
         {/* ============================= */}
         <View style={styles.footer}>
-          <View style={styles.footerDivider} />
+          <View style={[styles.footerDivider, { backgroundColor: theme.tonal }]} />
           <Text style={styles.footerText}>AYOMI v2.0 — Rawat Tumbuhnya, Jaga Tuanya</Text>
         </View>
       </ScrollView>
@@ -593,26 +623,7 @@ export default function DashboardScreen() {
 // SUB COMPONENTS
 // ============================================
 
-function QuickAction({
-  icon,
-  label,
-  bgColor,
-  onPress,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  bgColor: string;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity style={styles.quickActionBtn} onPress={onPress} activeOpacity={0.7}>
-      <View style={[styles.quickActionIcon, { backgroundColor: bgColor }]}>
-        {icon}
-      </View>
-      <Text style={styles.quickActionLabel}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
+
 
 function NotifItem({ icon, title, desc, time }: { icon: any, title: string, desc: string, time: string }) {
   return (
@@ -632,104 +643,143 @@ function NotifItem({ icon, title, desc, time }: { icon: any, title: string, desc
 // ============================================
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  container: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
   loadingText: { color: '#64748B', fontSize: 13 },
   
   // Header
   header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 32,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 10,
     backgroundColor: '#FFFFFF',
-    borderBottomLeftRadius: 40,
-    borderBottomRightRadius: 40,
-    elevation: 8,
-    shadowColor: '#006A63',
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
+    elevation: 3,
+    shadowColor: '#00A896',
+    shadowOpacity: 0.03,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
   },
-  headerContent: { flex: 1 },
-  headerIconRow: {
+  headerContent: {
+    width: '100%',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+  },
+  headerLogoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
+    gap: 6,
   },
-  posyanduBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#E0F2F1',
-    justifyContent: 'center',
+  logoBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    gap: 4,
   },
-  headerTextBlock: { flex: 1 },
-  posyanduNameHeader: {
-    fontSize: 15,
+  headerLogoText: {
+    fontSize: 12,
     fontWeight: '900',
-    color: '#006A63',
     letterSpacing: 0.5,
   },
-  dateText: {
-    fontSize: 12,
-    color: '#64B5F6',
-    marginTop: 2,
-    fontWeight: '600',
+  headerDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 2,
   },
-  greeting: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#191C1D',
-    letterSpacing: -1,
-  },
-  subGreeting: {
-    fontSize: 15,
+  kaderLabel: {
+    fontSize: 9,
+    fontWeight: '800',
     color: '#64748B',
-    marginTop: 6,
-    fontWeight: '500',
-    lineHeight: 22,
+    letterSpacing: 1,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 8,
+    gap: 6,
   },
   notifBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#F3F4F5',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   notifDot: {
     position: 'absolute',
-    top: 14,
-    right: 14,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#ba1a1a',
-    borderWidth: 2,
-    borderColor: '#FFF',
+    top: 8,
+    right: 8,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#EF4444',
+  },
+  headerTextBlock: {
+    marginTop: 6,
+  },
+  posyanduNameHeader: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#1E293B',
+    letterSpacing: -0.3,
+  },
+  dateText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 1,
+    fontWeight: '600',
   },
 
-  scrollContent: { padding: 24, paddingBottom: 40 },
+  scrollContent: { padding: 16, paddingBottom: 40 },
 
   // Section
-  sectionHeader: { marginTop: 24, marginBottom: 16, paddingHorizontal: 4 },
+  sectionHeader: { marginTop: 20, marginBottom: 12, paddingHorizontal: 4 },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#191C1D',
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#64748B',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
+  },
+
+  // Switcher
+  switcherContainer: {
+    flexDirection: 'row',
+    padding: 4,
+    borderRadius: 22,
+    marginVertical: 12,
+    alignItems: 'center',
+    height: 44,
+  },
+  switcherTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: '100%',
+    borderRadius: 18,
+  },
+  switcherTabActive: {
+    backgroundColor: '#FFFFFF',
+    elevation: 2,
+    shadowColor: '#00A896',
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  switcherTabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
   },
 
   // Alert Card
@@ -737,116 +787,102 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFBEB',
-    borderRadius: 32, // Serene Guardian radius
-    padding: 24,
-    marginTop: 16,
-    gap: 16,
-    elevation: 4,
+    borderRadius: 20,
+    padding: 14,
+    marginTop: 12,
+    gap: 12,
+    elevation: 2,
     shadowColor: '#F59E0B',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.03,
+    shadowRadius: 12,
   },
   alertIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#FEF3C7',
     justifyContent: 'center',
     alignItems: 'center',
   },
   alertTitle: {
-    fontSize: 16,
-    fontWeight: '900',
+    fontSize: 14,
+    fontWeight: '800',
     color: '#92400E',
   },
   alertStatsRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
+    gap: 8,
+    marginTop: 4,
   },
   alertChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
   },
   alertChipText: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#78350F',
   },
 
-  // Chart
-  chartCard: {
-    padding: 24,
-    alignItems: 'center',
-    borderRadius: 32,
-    backgroundColor: '#FFFFFF',
-    elevation: 4,
-    shadowColor: '#006A63',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.04,
-    shadowRadius: 24,
+  divider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    width: '100%',
   },
-  emptyChart: {
-    padding: 48,
-    alignItems: 'center',
-    backgroundColor: '#F3F4F5',
-    borderRadius: 32,
-    gap: 12,
-  },
-  emptyText: { color: '#94A3B8', fontSize: 14, fontWeight: '500' },
 
-  // Quick Actions (No lines, ambient shadows)
-  quickGrid: {
+  // Tip Styles
+  tipContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-  },
-  quickActionBtn: {
-    width: '47%', // Making them bigger and fewer per row for premium feel
-    flexGrow: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 32,
-    padding: 20,
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#006A63',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 20,
+    marginTop: 12,
+    gap: 12,
+    elevation: 2,
+    shadowColor: '#00A896',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.02,
     shadowRadius: 16,
   },
-  quickActionIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 24,
+  tipIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
   },
-  quickActionLabel: {
-    fontSize: 14,
+  tipTitle: {
+    fontSize: 11,
     fontWeight: '800',
-    color: '#191C1D',
-    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  tipText: {
+    fontSize: 13,
+    color: '#475569',
+    marginTop: 4,
+    lineHeight: 18,
+    fontWeight: '500',
   },
 
   // Footer
   footer: {
     alignItems: 'center',
-    marginTop: 40,
+    marginTop: 32,
     paddingBottom: 16,
   },
   footerDivider: {
-    width: 48,
-    height: 4,
-    backgroundColor: '#E0F2F1', // Using teal subtle
+    width: 36,
+    height: 3,
     borderRadius: 2,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   footerText: {
     fontSize: 12,
@@ -856,55 +892,17 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // Tip Styles
-  tipContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 24,
-    borderRadius: 32,
-    marginTop: 20,
-    gap: 16,
-    elevation: 4,
-    shadowColor: '#006A63',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.04,
-    shadowRadius: 24,
-  },
-  tipIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#E0F2F1', // teal light
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  tipTitle: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: '#006A63',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  tipText: {
-    fontSize: 14,
-    color: '#475569',
-    marginTop: 4,
-    lineHeight: 22,
-    fontWeight: '500',
-  },
-
   // Modal Styles
   modalOverlay: { flex: 1, backgroundColor: 'rgba(25,28,29,0.5)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 40, borderTopRightRadius: 40, maxHeight: '85%', padding: 32 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  modalTitle: { fontSize: 24, fontWeight: '900', color: '#191C1D', letterSpacing: -0.5 },
-  modalBody: { marginBottom: 24 },
-  notifItem: { flexDirection: 'row', marginBottom: 24, paddingBottom: 24, borderBottomWidth: 1, borderBottomColor: '#F3F4F5' },
-  notifIconContainer: { width: 56, height: 56, borderRadius: 20, backgroundColor: '#F8F9FA', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
-  notifTitle: { fontSize: 16, fontWeight: '800', color: '#191C1D' },
-  notifDesc: { fontSize: 14, color: '#64748B', marginTop: 4, lineHeight: 20 },
-  notifTime: { fontSize: 12, color: '#94A3B8', marginTop: 8, fontWeight: '600' },
+  modalContent: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 32, borderTopRightRadius: 32, maxHeight: '85%', padding: 24 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 20, fontWeight: '800', color: '#191C1D', letterSpacing: -0.5 },
+  modalBody: { marginBottom: 20 },
+  notifItem: { flexDirection: 'row', marginBottom: 20, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: '#F3F4F5' },
+  notifIconContainer: { width: 44, height: 44, borderRadius: 16, backgroundColor: '#F8F9FA', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  notifTitle: { fontSize: 15, fontWeight: '800', color: '#191C1D' },
+  notifDesc: { fontSize: 13, color: '#64748B', marginTop: 4, lineHeight: 18 },
+  notifTime: { fontSize: 11, color: '#94A3B8', marginTop: 6, fontWeight: '600' },
 
   // OTA Modal Styles (Glassmorphism & Teal theme)
   otaOverlay: {

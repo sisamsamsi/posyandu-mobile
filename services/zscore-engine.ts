@@ -10,10 +10,45 @@ export class ZScoreEngine {
   private static findReference(
     standards: WHOReferenceRow[], 
     sex: 'L' | 'P', 
-    measurement: number
+    measurement: number,
+    indicator?: 'IMT/U' | 'TB/U' | 'BB/U' | 'BB/TB',
+    actualAgeMonths?: number
   ): WHOReferenceRow | undefined {
-    // Map Laki-laki/Perempuan to L/P if needed, but our JSON uses L/P
-    return standards.find(s => s.sex === sex && s.measurement === measurement);
+    const filtered = standards.filter(s => s.sex === sex && s.measurement === measurement);
+    if (filtered.length === 0) return undefined;
+    if (filtered.length > 1 && indicator === 'BB/TB') {
+      let targetType: 'length_cm' | 'height_cm' = 'height_cm';
+      let targetInd: 'BB/PB' | 'BB/TB' = 'BB/TB';
+      if (actualAgeMonths !== undefined) {
+        if (actualAgeMonths < 24) {
+          targetType = 'length_cm';
+          targetInd = 'BB/PB';
+        } else {
+          targetType = 'height_cm';
+          targetInd = 'BB/TB';
+        }
+      } else {
+        if (measurement < 65.0) {
+          targetType = 'length_cm';
+          targetInd = 'BB/PB';
+        } else if (measurement > 110.0) {
+          targetType = 'height_cm';
+          targetInd = 'BB/TB';
+        } else {
+          if (measurement < 85.0) {
+            targetType = 'length_cm';
+            targetInd = 'BB/PB';
+          } else {
+            targetType = 'height_cm';
+            targetInd = 'BB/TB';
+          }
+        }
+      }
+      
+      const match = filtered.find(s => s.measure_type === targetType || s.indicator === targetInd);
+      if (match) return match;
+    }
+    return filtered[0];
   }
 
   /**
@@ -22,15 +57,16 @@ export class ZScoreEngine {
   public static calculate(
     standards: WHOReferenceRow[],
     sex: 'L' | 'P',
-    ageMonths: number,
+    ageMonths: number, // height in cm for BB/TB, age in months for others
     value: number,
-    indicator: 'IMT/U' | 'TB/U' | 'BB/U' | 'BB/TB'
+    indicator: 'IMT/U' | 'TB/U' | 'BB/U' | 'BB/TB',
+    actualAgeMonths?: number
   ): ZScoreResult {
     let searchVal = ageMonths;
     if (indicator === 'BB/TB') {
       searchVal = Math.round(ageMonths * 2) / 2;
     }
-    const ref = this.findReference(standards, sex, searchVal);
+    const ref = this.findReference(standards, sex, searchVal, indicator, actualAgeMonths);
     
     if (!ref) {
       return { zscore: 0, status: 'Tidak dapat ditentukan', indicator };
@@ -52,15 +88,17 @@ export class ZScoreEngine {
     if (value <= sd3neg) {
       zscore = -3.0 + (value - sd3neg) / (sd2neg - sd3neg || 1);
     } else if (value <= sd2neg) {
-      zscore = -2.0 + (value - sd2neg) / (sd1neg - sd2neg || 1);
+      zscore = -2.0 + (value - sd2neg) / (sd2neg - sd3neg || 1);
     } else if (value <= sd1neg) {
-      zscore = -1.0 + (value - sd1neg) / (sd0 - sd1neg || 1);
+      zscore = -1.0 + (value - sd1neg) / (sd1neg - sd2neg || 1);
     } else if (value <= sd0) {
       zscore = 0.0 + (value - sd0) / (sd0 - sd1neg || 1);
     } else if (value <= sd1) {
-      zscore = 1.0 + (value - sd1) / (sd2 - sd1 || 1);
+      zscore = 1.0 + (value - sd1) / (sd1 - sd0 || 1);
     } else if (value <= sd2) {
-      zscore = 2.0 + (value - sd2) / (sd3 - sd2 || 1);
+      zscore = 2.0 + (value - sd2) / (sd2 - sd1 || 1);
+    } else if (value <= sd3) {
+      zscore = 3.0 + (value - sd3) / (sd3 - sd2 || 1);
     } else {
       zscore = 3.0 + (value - sd3) / (sd3 - sd2 || 1);
     }

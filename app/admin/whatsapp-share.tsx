@@ -47,7 +47,7 @@ export default function WhatsAppShareScreen() {
   
   // Data states
   const [balitasDenganPenimbangan, setBalitasDenganPenimbangan] = useState<
-    { balita: Balita; penimbangan: Penimbangan }[]
+    { balita: Balita; penimbangan: Penimbangan; rekomendasi?: string | null }[]
   >([]);
   const [balitasBelumTimbang, setBalitasBelumTimbang] = useState<Balita[]>([]);
   const [posyandu, setPosyandu] = useState<Posyandu | null>(null);
@@ -86,6 +86,18 @@ export default function WhatsAppShareScreen() {
           .lte('tanggal', end)
           .order('tanggal', { ascending: false });
 
+        // Fetch penyuluhans for this month
+        const balitaIds = (penimbanganData || []).map((p: any) => p.balita_id);
+        const safeIds = balitaIds.length > 0 ? balitaIds : ['00000000-0000-0000-0000-000000000000'];
+        const { data: penyuluhansData } = await supabase
+          .from('penyuluhans')
+          .select('balita_id, rekomendasi')
+          .in('balita_id', safeIds)
+          .gte('tanggal', start)
+          .lte('tanggal', end);
+
+        const penyuluhanMap = new Map((penyuluhansData || []).map(p => [p.balita_id, p.rekomendasi]));
+
         const merged = (penimbanganData || [])
           .filter((p: any) => p.balita)
           .map((p: any) => ({
@@ -110,6 +122,7 @@ export default function WhatsAppShareScreen() {
               catatan: p.catatan,
               created_at: p.created_at,
             } as Penimbangan,
+            rekomendasi: penyuluhanMap.get(p.balita_id) || null
           }));
 
         setBalitasDenganPenimbangan(merged);
@@ -141,8 +154,10 @@ export default function WhatsAppShareScreen() {
     }
   };
 
-  const handleSendHasil = (balita: Balita, penimbangan: Penimbangan) => {
-    const message = WhatsAppService.generateHasilPenimbangan(balita, penimbangan, posyandu);
+  const handleSendHasil = (balita: Balita, penimbangan: Penimbangan, rekomendasi?: string | null) => {
+    const message = rekomendasi
+      ? WhatsAppService.generateHasilUnified(balita, penimbangan, rekomendasi, posyandu)
+      : WhatsAppService.generateHasilPenimbangan(balita, penimbangan, posyandu);
 
     if (!balita.no_hp_ortu) {
       // No phone number — show preview and let user input/copy
@@ -251,7 +266,7 @@ export default function WhatsAppShareScreen() {
                   key={item.penimbangan.id}
                   balita={item.balita}
                   penimbangan={item.penimbangan}
-                  onSend={() => handleSendHasil(item.balita, item.penimbangan)}
+                  onSend={() => handleSendHasil(item.balita, item.penimbangan, item.rekomendasi)}
                 />
               ))
             )}

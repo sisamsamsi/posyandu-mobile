@@ -4,6 +4,7 @@ import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { Balita } from "../lib/types";
 import { format } from "date-fns";
+import { ImunisasiService } from "./imunisasi-service";
 
 export class ExportImunisasiService {
   static async exportToExcel(
@@ -108,6 +109,125 @@ export class ExportImunisasiService {
       });
     } catch (e) {
       console.error("Export Error:", e);
+      throw e;
+    }
+  }
+
+  static async exportAllYearsToExcel(
+    posyanduId: string | null,
+    years: number[],
+    posyanduName: string = "Posyandu",
+  ) {
+    try {
+      const wb = XLSX.utils.book_new();
+      let hasData = false;
+
+      for (const year of years) {
+        const balitas = await ImunisasiService.getBalitaByBirthYear(posyanduId, year);
+        if (balitas.length === 0) continue;
+
+        hasData = true;
+
+        const data = balitas.map((b, index) => ({
+          NO: index + 1,
+          "NAMA ANAK": b.nama,
+          "NAMA ORTU": b.nama_ortu || b.nama_ibu || b.nama_ayah || "-",
+          "TGL LAHIR": format(new Date(b.tanggal_lahir), "dd/MM/yyyy"),
+          NIK: b.nik,
+          RT: b.rt,
+          "HB0 (24 jam)": b.imunisasi?.hb0_date
+            ? format(new Date(b.imunisasi.hb0_date), "dd/MM/yyyy")
+            : "",
+          "BCG (<2 bln)": b.imunisasi?.bcg_date
+            ? format(new Date(b.imunisasi.bcg_date), "dd/MM/yyyy")
+            : "",
+          "PENTA 1": b.imunisasi?.penta_1_date
+            ? format(new Date(b.imunisasi.penta_1_date), "dd/MM/yyyy")
+            : "",
+          "PENTA 2": b.imunisasi?.penta_2_date
+            ? format(new Date(b.imunisasi.penta_2_date), "dd/MM/yyyy")
+            : "",
+          "PENTA 3": b.imunisasi?.penta_3_date
+            ? format(new Date(b.imunisasi.penta_3_date), "dd/MM/yyyy")
+            : "",
+          "IPV 1": b.imunisasi?.ipv_1_date
+            ? format(new Date(b.imunisasi.ipv_1_date), "dd/MM/yyyy")
+            : "",
+          "IPV 2": b.imunisasi?.ipv_2_date
+            ? format(new Date(b.imunisasi.ipv_2_date), "dd/MM/yyyy")
+            : "",
+          "IPV 3": b.imunisasi?.ipv_3_date
+            ? format(new Date(b.imunisasi.ipv_3_date), "dd/MM/yyyy")
+            : "",
+          "PCV 1": b.imunisasi?.pcv_1_date
+            ? format(new Date(b.imunisasi.pcv_1_date), "dd/MM/yyyy")
+            : "",
+          "PCV 2": b.imunisasi?.pcv_2_date
+            ? format(new Date(b.imunisasi.pcv_2_date), "dd/MM/yyyy")
+            : "",
+          "ROTAVIRUS 1": b.imunisasi?.rv_1_date
+            ? format(new Date(b.imunisasi.rv_1_date), "dd/MM/yyyy")
+            : "",
+          "ROTAVIRUS 2": b.imunisasi?.rv_2_date
+            ? format(new Date(b.imunisasi.rv_2_date), "dd/MM/yyyy")
+            : "",
+          "ROTAVIRUS 3": b.imunisasi?.rv_3_date
+            ? format(new Date(b.imunisasi.rv_3_date), "dd/MM/yyyy")
+            : "",
+          "MR (9 bln)": b.imunisasi?.mr_date
+            ? format(new Date(b.imunisasi.mr_date), "dd/MM/yyyy")
+            : "",
+          "JE (10 bln)": b.imunisasi?.je_date
+            ? format(new Date(b.imunisasi.je_date), "dd/MM/yyyy")
+            : "",
+          "PCV (1 th)": b.imunisasi?.pcv_3_date
+            ? format(new Date(b.imunisasi.pcv_3_date), "dd/MM/yyyy")
+            : "",
+          "BOOSTER PENTA": b.imunisasi?.booster_penta_date
+            ? format(new Date(b.imunisasi.booster_penta_date), "dd/MM/yyyy")
+            : "",
+          "BOOSTER MR": b.imunisasi?.booster_mr_date
+            ? format(new Date(b.imunisasi.booster_mr_date), "dd/MM/yyyy")
+            : "",
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data, { origin: "A4" } as any);
+
+        XLSX.utils.sheet_add_aoa(
+          ws,
+          [
+            [`Laporan Data Imunisasi - ${posyanduName}`],
+            [`Tahun Kelahiran: ${year}`],
+          ],
+          { origin: "A1" } as any,
+        );
+
+        if (!ws["!merges"]) ws["!merges"] = [];
+        ws["!merges"].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } });
+        ws["!merges"].push({ s: { r: 1, c: 0 }, e: { r: 1, c: 5 } });
+
+        XLSX.utils.book_append_sheet(wb, ws, `Lahir ${year}`);
+      }
+
+      if (!hasData) {
+        throw new Error("Tidak ada data imunisasi untuk semua tahun.");
+      }
+
+      const wbout = XLSX.write(wb, { type: "base64", bookType: "xlsx" });
+      const file = new File(Paths.cache, `Laporan_Imunisasi_Ayomi_Lengkap.xlsx`);
+
+      file.write(wbout, {
+        encoding: "base64",
+      });
+
+      await Sharing.shareAsync(file.uri, {
+        mimeType:
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        dialogTitle: `Ekspor Data Imunisasi Lengkap`,
+        UTI: "com.microsoft.excel.xlsx",
+      });
+    } catch (e) {
+      console.error("Export All Error:", e);
       throw e;
     }
   }

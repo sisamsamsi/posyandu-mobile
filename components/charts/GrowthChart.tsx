@@ -10,28 +10,37 @@ interface GrowthChartProps {
   indicator: 'BB' | 'TB' | 'IMT' | 'BB_TB';
   title: string;
   birthDate?: string;
+  bbLahir?: number | null;
+  tbLahir?: number | null;
 }
 
 const screenWidth = Dimensions.get('window').width;
 
-export const GrowthChart: React.FC<GrowthChartProps> = ({ standards, data, indicator, title, birthDate }) => {
+export const GrowthChart: React.FC<GrowthChartProps> = ({ 
+  standards, 
+  data, 
+  indicator, 
+  title, 
+  birthDate,
+  bbLahir,
+  tbLahir
+}) => {
   if (standards.length === 0) return <Text style={styles.loading}>Memuat standar referensi...</Text>;
 
+  // Filter valid data points to avoid zero values
+  const validData = data.filter(p => p.berat_badan > 0 || p.tinggi_badan > 0);
+
   // Find the max measurement month recorded
-  const maxMonthRecorded = data.reduce((max, p) => {
+  const maxMonthRecorded = validData.reduce((max, p) => {
     if (!birthDate) return max;
     const age = differenceInMonths(new Date(p.tanggal), new Date(birthDate));
     return Math.max(max, age);
   }, 0);
 
-  // TRUNCATION STRATEGY:
-  // To avoid the "dip to zero" and the "NaN crash" in react-native-chart-kit,
-  // we truncate the entire chart (standards + balita data) to only show
-  // up to the last recorded measurement month + a small margin.
-  // This satisfies the user request: "untuk yang belom dilakukan (masa datang) tidak perlu digambar"
+  // Set display limit: stop exactly at the last visit to avoid flatlining into the future
   const displayLimit = indicator === 'BB_TB' 
-    ? 120 // For height based, we can show up to typical height
-    : Math.min(Math.max(maxMonthRecorded + 6, 12), 60);
+    ? 120 
+    : Math.min(Math.max(maxMonthRecorded, 12), 60);
 
   const filteredStandards = indicator === 'BB_TB'
     ? standards.filter(s => s.measurement >= 45 && s.measurement <= 120)
@@ -47,72 +56,123 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({ standards, data, indic
     return filteredStandards.map(s => s[key] as number);
   };
 
-  // Plot Balita's data
-  const balitaDataRaw = filteredStandards.map(s => {
-    if (!birthDate && indicator !== 'BB_TB') return 0;
+  // Extract actual visit points with index mapping
+  const actualVisits = filteredStandards.map((s, idx) => {
+    if (!birthDate && indicator !== 'BB_TB') return null;
     
     if (indicator === 'BB_TB') {
-      const match = data.find(p => Math.abs(p.tinggi_badan - s.measurement) < 0.5);
-      return match ? match.berat_badan : 0;
+      const match = validData.find(p => Math.abs(p.tinggi_badan - s.measurement) < 0.5);
+      return match ? { x: s.measurement, y: match.berat_badan, idx } : null;
     }
-
-    if (s.measurement > maxMonthRecorded) return 0;
-
-    const match = data.find(p => {
+    
+    // Inject birth measurements at month 0 if available
+    if (s.measurement === 0) {
+      if (indicator === 'BB' && bbLahir) {
+        return { x: 0, y: bbLahir, idx };
+      }
+      if (indicator === 'TB' && tbLahir) {
+        return { x: 0, y: tbLahir, idx };
+      }
+      if (indicator === 'IMT' && bbLahir && tbLahir && tbLahir > 0) {
+        const imtLahir = bbLahir / ((tbLahir / 100) ** 2);
+        return { x: 0, y: imtLahir, idx };
+      }
+    }
+    
+    const match = validData.find(p => {
       const age = differenceInMonths(new Date(p.tanggal), new Date(birthDate!));
       return age === s.measurement;
     });
-
+    
     if (match) {
-      if (indicator === 'BB') return match.berat_badan;
-      if (indicator === 'TB') return match.tinggi_badan;
-      if (indicator === 'IMT') return (match.berat_badan / ((match.tinggi_badan / 100) ** 2));
+      let val = 0;
+      if (indicator === 'BB') val = match.berat_badan;
+      else if (indicator === 'TB') val = match.tinggi_badan;
+      else if (indicator === 'IMT') val = (match.berat_badan / ((match.tinggi_badan / 100) ** 2));
+      return val > 0 ? { x: s.measurement, y: val, idx } : null;
     }
-    return 0;
+    return null;
+  }).filter((v): v is { x: number; y: number; idx: number } => v !== null);
+
+  // If no data recorded yet, return a message
+  if (actualVisits.length === 0) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>{title}</Text>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>Belum ada data penimbangan untuk grafik ini.</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Generate child data array with linear interpolation for missing intermediate months
+  const balitaDataRaw = filteredStandards.map((s, idx) => {
+    // Exact match
+    const exact = actualVisits.find(v => v.idx === idx);
+    if (exact) return exact.y;
+    
+    // Before the first recorded point
+    if (idx < actualVisits[0].idx) {
+      return actualVisits[0].y;
+    }
+    
+    // After the last recorded point
+    if (idx > actualVisits[actualVisits.length - 1].idx) {
+      return actualVisits[actualVisits.length - 1].y;
+    }
+    
+    // Interpolate between surrounding points
+    const nextIdx = actualVisits.findIndex(v => v.idx > idx);
+    const prev = actualVisits[nextIdx - 1];
+    const next = actualVisits[nextIdx];
+    
+    const ratio = (idx - prev.idx) / (next.idx - prev.idx);
+    return prev.y + ratio * (next.y - prev.y);
   });
 
-  // Since we truncated the chart to maxMonthRecorded, 0s will only happen if there's a gap in history.
-  // We'll hide all 0 points completely.
-  const hideIndices = balitaDataRaw.map((v, i) => v <= 0 ? i : -1).filter(i => i !== -1);
+  // Hide circular dots for interpolated fake points, only display dots on actual visits
+  const actualIndices = new Set(actualVisits.map(v => v.idx));
+  const hideIndices = filteredStandards.map((_, idx) => actualIndices.has(idx) ? -1 : idx).filter(idx => idx !== -1);
 
   const chartData = {
     labels: labels,
     datasets: [
       {
         data: getLine('minus_3sd'),
-        color: (opacity = 0.5) => `rgba(239, 68, 68, ${opacity})`, 
-        strokeWidth: 1,
-        withDots: false,
-      },
-      {
-        data: getLine('minus_2sd'),
-        color: (opacity = 0.5) => `rgba(245, 158, 11, ${opacity})`, 
-        strokeWidth: 1,
-        withDots: false,
-      },
-      {
-        data: getLine('median'),
-        color: (opacity = 0.5) => `rgba(34, 197, 94, ${opacity})`, 
+        color: () => '#EF4444', // Solid Red
         strokeWidth: 2,
         withDots: false,
       },
       {
+        data: getLine('minus_2sd'),
+        color: () => '#F59E0B', // Solid Orange/Yellow
+        strokeWidth: 1.5,
+        withDots: false,
+      },
+      {
+        data: getLine('median'),
+        color: () => '#10B981', // Solid Green (Kemenkes)
+        strokeWidth: 3,
+        withDots: false,
+      },
+      {
         data: getLine('plus_2sd'),
-        color: (opacity = 0.5) => `rgba(245, 158, 11, ${opacity})`, 
-        strokeWidth: 1,
+        color: () => '#F59E0B', // Solid Orange/Yellow
+        strokeWidth: 1.5,
         withDots: false,
       },
       {
         data: getLine('plus_3sd'),
-        color: (opacity = 0.5) => `rgba(239, 68, 68, ${opacity})`, 
-        strokeWidth: 1,
+        color: () => '#EF4444', // Solid Red
+        strokeWidth: 2,
         withDots: false,
       },
       {
         data: balitaDataRaw,
-        color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`, 
-        strokeWidth: 3,
-        withDots: false,
+        color: () => '#4F46E5', // Premium Royal Indigo for child's curve
+        strokeWidth: 4,
+        withDots: true,
       },
     ],
     legend: [title]
@@ -136,8 +196,8 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({ standards, data, indic
             borderRadius: 16,
           },
           propsForDots: {
-            r: '3',
-            strokeWidth: '1',
+            r: '4',
+            strokeWidth: '1.5',
             stroke: '#ffffff',
           },
           fillShadowGradient: '#ffffff',
@@ -153,10 +213,10 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({ standards, data, indic
         fromZero={false}
       />
       <View style={styles.legend}>
-        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#22c55e' }]} /><Text style={styles.legendText}>Ideal</Text></View>
-        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#f59e0b' }]} /><Text style={styles.legendText}>Normal</Text></View>
-        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#ef4444' }]} /><Text style={styles.legendText}>Risiko</Text></View>
-        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#000000' }]} /><Text style={styles.legendText}>Balita</Text></View>
+        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#22c55e' }]} /><Text style={styles.legendText}>Ideal (Median)</Text></View>
+        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#f59e0b' }]} /><Text style={styles.legendText}>Batas Normal (±2 SD)</Text></View>
+        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#ef4444' }]} /><Text style={styles.legendText}>Risiko (±3 SD)</Text></View>
+        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#4F46E5' }]} /><Text style={styles.legendText}>Pertumbuhan Balita</Text></View>
       </View>
     </View>
   );
@@ -219,5 +279,16 @@ const styles = StyleSheet.create({
     padding: 20,
     color: '#94A3B8',
     fontStyle: 'italic',
+  },
+  emptyContainer: {
+    height: 180,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
   }
 });

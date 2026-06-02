@@ -24,8 +24,6 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
   },
 });
 
-// Ekspor supabaseAdmin sebagai alias supabase biasa agar tidak memicu error kompilasi
-// namun tetap mengontrol akses menggunakan RLS demi keamanan penyewa.
-export const supabaseAdmin = supabase;
+
 
 

@@ -36,6 +36,7 @@ import { QuickTransition } from '../../components/ui/QuickTransition';
 import { format } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { COLORS } from '../../lib/constants';
 
 type Step = 'search' | 'input' | 'confirm' | 'success';
 
@@ -147,7 +148,7 @@ export default function LansiaServiceDesk() {
               renderItem={({ item }) => (
                 <TouchableOpacity style={styles.resultItem} onPress={() => onSelectLansia(item)}>
                   <View style={styles.resultAvatar}>
-                    <Users size={24} color="#6366F1" />
+                    <Users size={24} color={COLORS.indigoPrimary} />
                   </View>
                   <View style={styles.resultInfo}>
                     <Text style={styles.resultName}>{item.nama}</Text>
@@ -167,7 +168,7 @@ export default function LansiaServiceDesk() {
         return (
           <ScrollView style={styles.stepContainer} showsVerticalScrollIndicator={false}>
             <View style={styles.selectedHeader}>
-               <Users size={32} color="#6366F1" />
+               <Users size={32} color={COLORS.indigoPrimary} />
                <View style={styles.selectedHeaderText}>
                   <Text style={styles.selectedName}>{selectedLansia?.nama}</Text>
                   <Text style={styles.selectedSub}>{selectedLansia?.nik}</Text>
@@ -207,7 +208,7 @@ export default function LansiaServiceDesk() {
                <View style={styles.fieldContainerHalf}>
                   <Text style={styles.fieldLabel}>Berat Badan (kg)</Text>
                   <View style={styles.inputGroup}>
-                     <Activity size={18} color="#6366F1" />
+                     <Activity size={18} color={COLORS.indigoPrimary} />
                      <TextInput 
                         style={styles.input} 
                         placeholder="Contoh: 60.50" 
@@ -220,7 +221,7 @@ export default function LansiaServiceDesk() {
                <View style={styles.fieldContainerHalf}>
                   <Text style={styles.fieldLabel}>Tinggi Badan (cm)</Text>
                   <View style={styles.inputGroup}>
-                     <Activity size={18} color="#6366F1" />
+                     <Activity size={18} color={COLORS.indigoPrimary} />
                      <TextInput 
                         style={styles.input} 
                         placeholder="Contoh: 165.25" 
@@ -418,31 +419,30 @@ export default function LansiaServiceDesk() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.indigoBg,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 20,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: COLORS.indigoBg,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#1E293B',
   },
   stepContainer: {
     flex: 1,
-    padding: 20,
+    padding: 16,
   },
   stepTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#1E293B',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   searchBar: {
     flexDirection: 'row',
@@ -451,30 +451,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   searchInput: {
     flex: 1,
     marginLeft: 12,
-    fontSize: 16,
+    fontSize: 15,
   },
   resultItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFF',
-    padding: 16,
+    padding: 12,
     borderRadius: 16,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
+    marginBottom: 8,
   },
   resultAvatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: COLORS.indigoTonal,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -483,56 +479,53 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   resultName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#334155',
   },
   resultNik: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#94A3B8',
   },
   selectedHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: COLORS.indigoTonal,
     padding: 16,
     borderRadius: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#E0E7FF',
+    marginBottom: 20,
   },
   selectedHeaderText: {
     flex: 1,
     marginLeft: 16,
   },
   selectedName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#312E81',
   },
   selectedSub: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#818CF8',
   },
   changeLink: {
-    color: '#6366F1',
+    color: COLORS.indigoPrimary,
     fontWeight: 'bold',
+    fontSize: 13,
   },
   sectionLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
     color: '#64748B',
     marginBottom: 12,
-    marginTop: 16,
+    marginTop: 8,
   },
   textArea: {
     backgroundColor: '#FFF',
     borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    textAlignVertical: 'top',
+    padding: 12,
     fontSize: 15,
+    color: '#1E293B',
   },
   row: {
     flexDirection: 'row',
@@ -540,7 +533,7 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 12,
-    marginBottom: 32,
+    marginBottom: 24,
   },
   fieldContainer: {
     marginBottom: 4,
@@ -553,7 +546,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#475569',
-    marginBottom: 8,
+    marginBottom: 6,
     marginLeft: 4,
   },
   inputGroup: {
@@ -561,10 +554,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFF',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
   input: {
     flex: 1,
@@ -573,68 +564,63 @@ const styles = StyleSheet.create({
     color: '#1E293B',
   },
   primaryButton: {
-    backgroundColor: '#0D9488',
-    paddingVertical: 18,
+    backgroundColor: COLORS.indigoPrimary,
+    paddingVertical: 14,
     borderRadius: 16,
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#6366F1',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
     marginTop: 12,
     marginBottom: 12,
   },
   primaryButtonText: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
   },
   secondaryButton: {
-    paddingVertical: 18,
+    paddingVertical: 14,
     borderRadius: 16,
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: COLORS.indigoTonal,
   },
   secondaryButtonText: {
-    color: '#64748B',
-    fontSize: 16,
+    color: COLORS.indigoPrimary,
+    fontSize: 15,
     fontWeight: '600',
   },
   confirmCard: {
-    marginBottom: 32,
+    marginBottom: 24,
   },
   confirmLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#94A3B8',
     marginBottom: 4,
   },
   confirmValue: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#1E293B',
   },
   divider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
-    marginVertical: 16,
+    backgroundColor: COLORS.indigoBg,
+    marginVertical: 12,
   },
   center: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   successTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#1E293B',
-    marginTop: 20,
+    marginTop: 16,
     marginBottom: 8,
   },
   successDesc: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#64748B',
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: 24,
   },
   emptyText: {
     textAlign: 'center',
@@ -644,60 +630,56 @@ const styles = StyleSheet.create({
   // LANSIA SUCCESS STYLES
   lansiaResultCard: {
     width: '100%',
-    padding: 20,
+    padding: 16,
     backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 24,
+    borderRadius: 16,
   },
   resultCardHeader: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'bold',
     color: '#64748B',
-    marginBottom: 16,
+    marginBottom: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   resultGrid: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
   },
   resultBox: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
-    padding: 16,
+    backgroundColor: COLORS.indigoBg,
+    padding: 12,
     borderRadius: 16,
     alignItems: 'center',
   },
   boxLabel: {
-    fontSize: 10,
+    fontSize: 9,
     color: '#64748B',
     fontWeight: '700',
     marginBottom: 4,
   },
   boxValue: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '900',
     color: '#1E293B',
   },
   boxUnit: {
-    fontSize: 10,
+    fontSize: 9,
     color: '#94A3B8',
     marginTop: 2,
   },
   warningBox: {
-    marginTop: 16,
-    padding: 12,
+    marginTop: 12,
+    padding: 10,
     backgroundColor: '#FEF2F2',
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FEE2E2',
   },
   warningText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#991B1B',
     fontWeight: '600',
-    lineHeight: 18,
+    lineHeight: 16,
     textAlign: 'center',
   },
 });

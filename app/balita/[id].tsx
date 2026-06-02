@@ -36,10 +36,115 @@ import { whoService } from '../../services/who-service';
 import { RiskPredictionService } from '../../services/risk-prediction';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+import { COLORS } from '../../lib/constants';
 
 type TabType = 'profil' | 'grafik' | 'riwayat' | 'risiko';
 
 const { width: screenWidth } = Dimensions.get('window');
+
+const StatusBadge = ({ label, variant }: { label: string; variant: 'success' | 'warning' | 'danger' | 'info' }) => {
+  const getStyles = () => {
+    switch (variant) {
+      case 'success':
+        return {
+          backgroundColor: '#E6F4EA', // very light green
+          borderColor: '#A8DAB5', // green border
+          textColor: '#137333', // green text
+        };
+      case 'warning':
+        return {
+          backgroundColor: '#FEF7E0', // very light orange/yellow
+          borderColor: '#FAD28F', // orange border
+          textColor: '#B06000', // orange text
+        };
+      case 'danger':
+        return {
+          backgroundColor: '#FCE8E6', // very light red
+          borderColor: '#F8B4AE', // red border
+          textColor: '#C5221F', // red text
+        };
+      case 'info':
+      default:
+        return {
+          backgroundColor: '#E8F0FE', // very light blue
+          borderColor: '#ADC1FA', // blue border
+          textColor: '#174EA6', // blue text
+        };
+    }
+  };
+
+  const colors = getStyles();
+
+  return (
+    <View style={{
+      backgroundColor: colors.backgroundColor,
+      borderColor: colors.borderColor,
+      borderWidth: 1,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 6,
+    }}>
+      <Text style={{
+        color: colors.textColor,
+        fontSize: 10,
+        fontWeight: 'bold',
+      }}>
+        {label}
+      </Text>
+    </View>
+  );
+};
+
+const getStatusBadgeProps = (indicator: 'BB/U' | 'TB/U' | 'BB/TB', statusText: string | null | undefined) => {
+  const text = statusText || '';
+  if (indicator === 'BB/U') {
+    if (text.includes('Sangat Kurang') || text.includes('Sangat Kurus') || text.includes('SK')) {
+      return { label: 'BB/U Sangat Kurang', variant: 'danger' as const };
+    }
+    if (text.includes('Kurang') || text.includes('K')) {
+      return { label: 'BB/U Kurang', variant: 'warning' as const };
+    }
+    if (text.includes('Normal') || text.includes('N')) {
+      return { label: 'BB/U Normal', variant: 'success' as const };
+    }
+    if (text.includes('Lebih') || text.includes('RL')) {
+      return { label: 'BB/U Risiko Lebih', variant: 'info' as const };
+    }
+    return { label: 'BB/U Normal', variant: 'success' as const };
+  } else if (indicator === 'TB/U') {
+    if (text.includes('Sangat Pendek') || text.includes('SP')) {
+      return { label: 'TB/U Sangat Pendek', variant: 'danger' as const };
+    }
+    if (text.includes('Pendek') || text.includes('Kurang') || text.includes('P')) {
+      return { label: 'TB/U Kurang', variant: 'warning' as const };
+    }
+    if (text.includes('Normal') || text.includes('N')) {
+      return { label: 'TB/U Normal', variant: 'success' as const };
+    }
+    if (text.includes('Tinggi') || text.includes('T')) {
+      return { label: 'TB/U Tinggi', variant: 'info' as const };
+    }
+    return { label: 'TB/U Normal', variant: 'success' as const };
+  } else {
+    // BB/TB
+    if (text.includes('Buruk') || text.includes('Severely Wasted')) {
+      return { label: 'BB/TB Buruk', variant: 'danger' as const };
+    }
+    if (text.includes('Kurang') || text.includes('Wasted')) {
+      return { label: 'BB/TB Kurang', variant: 'warning' as const };
+    }
+    if (text.includes('Baik') || text.includes('Normal') || text.includes('N')) {
+      return { label: 'BB/TB Normal', variant: 'success' as const };
+    }
+    if (text.includes('Lebih') || text.includes('Overweight') || text.includes('Berisiko')) {
+      return { label: 'BB/TB Lebih', variant: 'info' as const };
+    }
+    if (text.includes('Obesitas')) {
+      return { label: 'BB/TB Obesitas', variant: 'danger' as const };
+    }
+    return { label: 'BB/TB Normal', variant: 'success' as const };
+  }
+};
 
 export default function BalitaDetail() {
   const router = useRouter();
@@ -172,7 +277,7 @@ export default function BalitaDetail() {
   if (loading || balitaLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0D9488" />
+        <ActivityIndicator size="large" color={COLORS.tealPrimary} />
         <Text style={styles.loadingText}>Memuat data balita...</Text>
       </View>
     );
@@ -196,15 +301,15 @@ export default function BalitaDetail() {
         return (
           <View>
             <Card style={styles.infoCard}>
-              <InfoRow icon={<User size={20} color="#0D9488" />} label="NIK" value={balita.nik} />
+              <InfoRow icon={<User size={20} color={COLORS.tealPrimary} />} label="NIK" value={balita.nik} />
               <InfoRow 
-                icon={<Calendar size={20} color="#0D9488" />} 
+                icon={<Calendar size={20} color={COLORS.tealPrimary} />} 
                 label="Tanggal Lahir" 
                 value={format(new Date(balita.tanggal_lahir), 'dd MMMM yyyy', { locale: idLocale })} 
               />
-              <InfoRow icon={<User size={20} color="#0D9488" />} label="Orang Tua" value={balita.nama_ortu} />
+              <InfoRow icon={<User size={20} color={COLORS.tealPrimary} />} label="Orang Tua" value={balita.nama_ortu} />
               <InfoRow 
-                icon={<MapPin size={20} color="#0D9488" />} 
+                icon={<MapPin size={20} color={COLORS.tealPrimary} />} 
                 label="Alamat" 
                 value={`${balita.alamat} (RT ${balita.rt})`} 
                 isLast 
@@ -223,12 +328,18 @@ export default function BalitaDetail() {
             </View>
 
             {riskResult && (
-               <Card style={[styles.summaryCard, { borderColor: riskResult.risk_color === 'red' ? '#FCA5A5' : '#E2E8F0' }]}>
+               <Card style={[
+                 styles.summaryCard, 
+                 { backgroundColor: riskResult.risk_color === 'red' ? '#FEF2F2' : COLORS.tealTonal }
+               ]}>
                  <View style={styles.summaryHeader}>
-                   <TrendingUp size={20} color="#0D9488" />
+                   <TrendingUp size={20} color={COLORS.tealPrimary} />
                    <Text style={styles.summaryTitle}>Kondisi Terkini</Text>
                  </View>
-                 <Text style={styles.summaryStatus}>{riskResult.risk_level}</Text>
+                 <Text style={[
+                   styles.summaryStatus,
+                   { color: riskResult.risk_color === 'red' ? '#991B1B' : '#115E59' }
+                 ]}>{riskResult.risk_level}</Text>
                  <Text style={styles.summaryDesc}>Berdasarkan data penimbangan terakhir : {riskResult.date ? format(new Date(riskResult.date), 'dd MMM yyyy') : '-'}</Text>
                </Card>
             )}
@@ -244,6 +355,8 @@ export default function BalitaDetail() {
                indicator="BB" 
                title="Grafik Berat Badan / Umur" 
                birthDate={balita.tanggal_lahir}
+               bbLahir={balita.bb_lahir}
+               tbLahir={balita.tb_lahir}
              />
              <View style={{ height: 20 }} />
              <GrowthChart 
@@ -252,6 +365,8 @@ export default function BalitaDetail() {
                indicator="TB" 
                title="Grafik Tinggi Badan / Umur" 
                birthDate={balita.tanggal_lahir}
+               bbLahir={balita.bb_lahir}
+               tbLahir={balita.tb_lahir}
              />
              <View style={{ height: 20 }} />
              <GrowthChart 
@@ -260,56 +375,165 @@ export default function BalitaDetail() {
                indicator="BB_TB" 
                title="Grafik Berat Badan / Tinggi Badan" 
                birthDate={balita.tanggal_lahir}
-             />
-             <View style={{ height: 20 }} />
-             <GrowthChart 
-               standards={whoIMT} 
-               data={balita.penimbangans || []} 
-               indicator="IMT" 
-               title="Grafik IMT / Umur" 
-               birthDate={balita.tanggal_lahir}
+               bbLahir={balita.bb_lahir}
+               tbLahir={balita.tb_lahir}
              />
           </View>
         );
 
-      case 'riwayat':
+      case 'riwayat': {
+        const sortedPenimbangansAsc = [...(balita.penimbangans || [])].sort(
+          (a, b) => new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime()
+        );
+
+        const getTrendsForRecord = (pId: string) => {
+          const idx = sortedPenimbangansAsc.findIndex(p => p.id === pId);
+          if (idx <= 0) return { bbTrend: 'flat' as const, tbTrend: 'flat' as const };
+          const prev = sortedPenimbangansAsc[idx - 1];
+          const curr = sortedPenimbangansAsc[idx];
+          
+          let bbTrend: 'up' | 'down' | 'flat' = 'flat';
+          if (curr.berat_badan > prev.berat_badan) bbTrend = 'up';
+          else if (curr.berat_badan < prev.berat_badan) bbTrend = 'down';
+          
+          let tbTrend: 'up' | 'down' | 'flat' = 'flat';
+          if (curr.tinggi_badan > prev.tinggi_badan) tbTrend = 'up';
+          else if (curr.tinggi_badan < prev.tinggi_badan) tbTrend = 'down';
+          
+          return { bbTrend, tbTrend };
+        };
+
         return (
           <View>
-            <Text style={styles.sectionTitle}>Semua Penimbangan</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={styles.sectionTitle}>Riwayat Penimbangan</Text>
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#FFFFFF',
+                borderWidth: 1,
+                borderColor: '#E2E8F0',
+                borderRadius: 8,
+                paddingHorizontal: 8,
+                paddingVertical: 6,
+                gap: 6
+              }}>
+                <Calendar size={14} color="#64748B" />
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#64748B' }}>
+                  {balita.penimbangans && balita.penimbangans.length > 0
+                    ? new Date(Math.max(...balita.penimbangans.map(p => new Date(p.tanggal).getTime()))).getFullYear()
+                    : new Date().getFullYear()}
+                </Text>
+              </View>
+            </View>
+
             {balita.penimbangans && balita.penimbangans.length > 0 ? (
-              [...balita.penimbangans].sort((a,b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()).map((p, idx) => (
-                <Card key={p.id} style={styles.historyCard}>
-                   <View style={styles.historyHeader}>
-                      <Text style={styles.historyDate}>{format(new Date(p.tanggal), 'dd MMMM yyyy', { locale: idLocale })}</Text>
-                      <View style={{ flexDirection: 'row', gap: 4 }}>
-                        <Badge 
-                          label={p.status_bb_tb || 'N/A'} 
-                          variant={p.status_bb_tb?.includes('Gizi Buruk') || p.status_bb_tb?.includes('Gizi Kurang') ? 'danger' : 'success'} 
-                        />
-                        <TouchableOpacity style={styles.historyAction} onPress={() => router.push(`/service-desk/balita?id=${balita.id}&editId=${p.id}`)}>
-                           <Edit size={16} color="#0D9488" />
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.historyAction} onPress={() => handleDeletePenimbangan(p.id)}>
-                           <Trash2 size={16} color="#EF4444" />
-                        </TouchableOpacity>
-                      </View>
-                   </View>
-                   <View style={styles.historyStats}>
-                      <View style={styles.hStat}>
-                        <Text style={styles.hLabel}>BB</Text>
-                        <Text style={styles.hValue}>{p.berat_badan} kg</Text>
-                      </View>
-                      <View style={styles.hStat}>
-                        <Text style={styles.hLabel}>TB</Text>
-                        <Text style={styles.hValue}>{p.tinggi_badan} cm</Text>
-                      </View>
-                      <View style={styles.hStat}>
-                        <Text style={styles.hLabel}>Z-BB/TB</Text>
-                        <Text style={styles.hValue}>{p.zscore_bb_tb?.toFixed(2) || '-'}</Text>
-                      </View>
-                   </View>
-                </Card>
-              ))
+              [...balita.penimbangans].sort((a,b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()).map((p) => {
+                const trends = getTrendsForRecord(p.id);
+                return (
+                  <Card key={p.id} style={{
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: 16,
+                    padding: 16,
+                    marginBottom: 12,
+                    borderWidth: 1,
+                    borderColor: '#F1F5F9',
+                    elevation: 2,
+                    shadowColor: '#64748B',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 8,
+                  }}>
+                     {/* Card Header */}
+                     <View style={{
+                       flexDirection: 'row',
+                       justifyContent: 'space-between',
+                       alignItems: 'center',
+                       marginBottom: 12,
+                     }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Calendar size={14} color="#94A3B8" />
+                          <Text style={{
+                            fontSize: 13,
+                            fontWeight: '600',
+                            color: '#64748B',
+                          }}>
+                            {format(new Date(p.tanggal), 'dd MMM yyyy', { locale: idLocale })}
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 6 }}>
+                          <TouchableOpacity 
+                            style={{
+                              padding: 6,
+                              borderRadius: 8,
+                              backgroundColor: COLORS.tealTonal,
+                            }} 
+                            onPress={() => router.push(`/service-desk/balita?id=${balita.id}&editId=${p.id}`)}
+                          >
+                             <Edit size={14} color={COLORS.tealPrimary} />
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={{
+                              padding: 6,
+                              borderRadius: 8,
+                              backgroundColor: '#FEF2F2',
+                            }} 
+                            onPress={() => handleDeletePenimbangan(p.id)}
+                          >
+                             <Trash2 size={14} color="#EF4444" />
+                          </TouchableOpacity>
+                        </View>
+                     </View>
+
+                     {/* Card Metrics */}
+                     <View style={{
+                       flexDirection: 'row',
+                       gap: 20,
+                       marginBottom: 12,
+                       alignItems: 'center',
+                     }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text style={{ fontSize: 13, color: '#94A3B8', fontWeight: '600', marginRight: 6 }}>BB</Text>
+                          <Text style={{ fontSize: 15, fontWeight: '800', color: '#1E293B', marginRight: 4 }}>
+                            {p.berat_badan.toFixed(1)} kg
+                          </Text>
+                          <Text style={{
+                            fontSize: 14,
+                            fontWeight: 'bold',
+                            color: trends.bbTrend === 'up' ? '#10B981' : trends.bbTrend === 'down' ? '#EF4444' : '#94A3B8'
+                          }}>
+                            {trends.bbTrend === 'up' ? '↗' : trends.bbTrend === 'down' ? '↘' : '→'}
+                          </Text>
+                        </View>
+
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text style={{ fontSize: 13, color: '#94A3B8', fontWeight: '600', marginRight: 6 }}>TB</Text>
+                          <Text style={{ fontSize: 15, fontWeight: '800', color: '#1E293B', marginRight: 4 }}>
+                            {p.tinggi_badan.toFixed(1)} cm
+                          </Text>
+                          <Text style={{
+                            fontSize: 14,
+                            fontWeight: 'bold',
+                            color: trends.tbTrend === 'up' ? '#10B981' : trends.tbTrend === 'down' ? '#EF4444' : '#94A3B8'
+                          }}>
+                            {trends.tbTrend === 'up' ? '↗' : trends.tbTrend === 'down' ? '↘' : '→'}
+                          </Text>
+                        </View>
+                     </View>
+
+                     {/* Card Badges */}
+                     <View style={{
+                       flexDirection: 'row',
+                       flexWrap: 'wrap',
+                       gap: 6,
+                     }}>
+                       <StatusBadge {...getStatusBadgeProps('BB/U', p.status_bb_u)} />
+                       <StatusBadge {...getStatusBadgeProps('TB/U', p.status_tb_u)} />
+                       <StatusBadge {...getStatusBadgeProps('BB/TB', p.status_bb_tb)} />
+                     </View>
+                  </Card>
+                );
+              })
             ) : (
               <View style={styles.emptyContainer}>
                 <History size={48} color="#CBD5E1" />
@@ -318,6 +542,7 @@ export default function BalitaDetail() {
             )}
           </View>
         );
+      }
 
       case 'risiko':
         return riskResult ? (
@@ -344,7 +569,7 @@ export default function BalitaDetail() {
             onPress={() => router.push(`/balita/${balita.id}/edit`)} 
             style={styles.headerAction}
           >
-            <Edit size={20} color="#0D9488" />
+            <Edit size={20} color={COLORS.tealPrimary} />
           </TouchableOpacity>
           <TouchableOpacity onPress={handleDelete} style={styles.headerAction}>
             <Trash2 size={20} color="#EF4444" />
@@ -356,7 +581,7 @@ export default function BalitaDetail() {
         {/* Profile Card */}
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
-             <Baby size={48} color="#0D9488" />
+             <Baby size={48} color={COLORS.tealPrimary} />
           </View>
           <Text style={styles.balitaName}>{balita.nama}</Text>
           <Text style={styles.balitaSubtitle}>{balita.jenis_kelamin} • {balita.posyandu?.nama_posyandu}</Text>
@@ -367,25 +592,25 @@ export default function BalitaDetail() {
           <TabItem 
             active={activeTab === 'profil'} 
             label="Profil" 
-            icon={<LayoutDashboard size={18} color={activeTab === 'profil' ? '#0D9488' : '#94A3B8'} />}
+            icon={<LayoutDashboard size={18} color={activeTab === 'profil' ? COLORS.tealPrimary : '#94A3B8'} />}
             onPress={() => setActiveTab('profil')} 
           />
           <TabItem 
             active={activeTab === 'grafik'} 
             label="Grafik" 
-            icon={<TrendingUp size={18} color={activeTab === 'grafik' ? '#0D9488' : '#94A3B8'} />}
+            icon={<TrendingUp size={18} color={activeTab === 'grafik' ? COLORS.tealPrimary : '#94A3B8'} />}
             onPress={() => setActiveTab('grafik')} 
           />
           <TabItem 
             active={activeTab === 'riwayat'} 
             label="Riwayat" 
-            icon={<History size={18} color={activeTab === 'riwayat' ? '#0D9488' : '#94A3B8'} />}
+            icon={<History size={18} color={activeTab === 'riwayat' ? COLORS.tealPrimary : '#94A3B8'} />}
             onPress={() => setActiveTab('riwayat')} 
           />
           <TabItem 
             active={activeTab === 'risiko'} 
             label="Analisis" 
-            icon={<AlertCircle size={18} color={activeTab === 'risiko' ? '#0D9488' : '#94A3B8'} />}
+            icon={<AlertCircle size={18} color={activeTab === 'risiko' ? COLORS.tealPrimary : '#94A3B8'} />}
             onPress={() => setActiveTab('risiko')} 
           />
         </View>
@@ -409,7 +634,7 @@ export default function BalitaDetail() {
 
 // Sub-components
 const InfoRow = ({ icon, label, value, isLast }: { icon: React.ReactNode, label: string, value: string | number, isLast?: boolean }) => (
-  <View style={[styles.infoRow, !isLast && styles.borderBottom]}>
+  <View style={styles.infoRow}>
     <View style={styles.infoIconContainer}>{icon}</View>
     <View>
       <Text style={styles.infoLabel}>{label}</Text>
@@ -431,24 +656,22 @@ const TabItem = ({ active, label, icon, onPress }: { active: boolean, label: str
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.tealBg,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    paddingVertical: 16,
+    backgroundColor: COLORS.tealBg,
   },
   backButton: {
     padding: 8,
     borderRadius: 12,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#1E293B',
   },
@@ -466,125 +689,113 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 24,
     backgroundColor: '#FFFFFF',
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-    elevation: 4,
-    shadowColor: '#64748B',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.05,
-    shadowRadius: 20,
+    borderRadius: 20,
+    marginHorizontal: 16,
+    marginTop: 8,
   },
   avatarContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#F0FDFA',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: COLORS.tealTonal,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#CCFBF1',
   },
   balitaName: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#0F172A',
     marginBottom: 4,
   },
   balitaSubtitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#64748B',
   },
   tabBar: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     marginTop: 20,
     justifyContent: 'space-between',
   },
   tabItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 12,
+    borderRadius: 16,
+    gap: 6,
   },
   activeTabItem: {
-    backgroundColor: '#F0FDFA',
+    backgroundColor: COLORS.tealTonal,
   },
   tabLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#94A3B8',
-    marginTop: 4,
   },
   activeTabLabel: {
-    color: '#0D9488',
+    color: COLORS.tealPrimary,
   },
   tabContent: {
-    padding: 20,
+    padding: 16,
   },
   infoCard: {
-    padding: 0,
-    marginBottom: 20,
+    padding: 8,
+    marginBottom: 16,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-  },
-  borderBottom: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    padding: 12,
   },
   infoIconContainer: {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#F0FDFA',
+    backgroundColor: COLORS.tealTonal,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   infoLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#94A3B8',
     marginBottom: 2,
   },
   infoValue: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     color: '#334155',
   },
   statsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   statCard: {
     flex: 1,
     marginHorizontal: 4,
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 12,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748B',
     marginBottom: 4,
   },
   statValue: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#0D9488',
+    color: COLORS.tealPrimary,
   },
   unit: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 'normal',
     color: '#94A3B8',
   },
   summaryCard: {
-    borderWidth: 1,
     padding: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#0D9488',
   },
   summaryHeader: {
     flexDirection: 'row',
@@ -592,26 +803,25 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   summaryTitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'bold',
     color: '#64748B',
     marginLeft: 8,
   },
   summaryStatus: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
-    color: '#1E293B',
     marginBottom: 4,
   },
   summaryDesc: {
-    fontSize: 12,
-    color: '#94A3B8',
+    fontSize: 11,
+    color: '#64748B',
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#1E293B',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   historyCard: {
     marginBottom: 12,
@@ -623,14 +833,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   historyDate: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: '#334155',
   },
   historyStats: {
     flexDirection: 'row',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 8,
+    backgroundColor: COLORS.tealBg,
+    borderRadius: 12,
     padding: 10,
   },
   hStat: {
@@ -643,26 +853,26 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   hValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
     color: '#1E293B',
   },
   historyAction: {
     padding: 6,
     borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: COLORS.tealTonal,
     marginLeft: 4,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.tealBg,
   },
   loadingText: {
     marginTop: 12,
     color: '#64748B',
-    fontSize: 14,
+    fontSize: 13,
   },
   errorContainer: {
     flex: 1,
@@ -671,7 +881,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   errorText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#64748B',
     marginTop: 12,
     marginBottom: 20,
@@ -679,7 +889,7 @@ const styles = StyleSheet.create({
   retryButton: {
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: '#0D9488',
+    backgroundColor: COLORS.tealPrimary,
     borderRadius: 12,
   },
   retryText: {
@@ -693,28 +903,23 @@ const styles = StyleSheet.create({
   emptyText: {
     marginTop: 12,
     color: '#94A3B8',
-    fontSize: 14,
+    fontSize: 13,
   },
   fab: {
     position: 'absolute',
     bottom: 24,
     right: 24,
-    backgroundColor: '#0D9488',
+    backgroundColor: COLORS.tealPrimary,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderRadius: 20,
-    elevation: 8,
-    shadowColor: '#0D9488',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
   },
   fabText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
     marginLeft: 8,
-    fontSize: 16,
+    fontSize: 14,
   },
 });

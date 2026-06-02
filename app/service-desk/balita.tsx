@@ -42,6 +42,8 @@ import { whoService } from '../../services/who-service';
 import { ReportService } from '../../services/report-service';
 import { WhatsAppService } from '../../services/whatsapp-service';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { COLORS } from '../../lib/constants';
+import { calculateAgeMonths } from '../../lib/utils';
 
 type Step = 'search' | 'input' | 'confirm' | 'success';
 
@@ -129,24 +131,69 @@ export default function BalitaServiceDesk() {
   const confirmSave = async () => {
     if (!selectedBalita) return;
     
-    // Calculate Z-Scores before saving
+    // Auto-correct commas to dots
+    const cleanedBerat = berat.replace(',', '.');
+    const cleanedTinggi = tinggi.replace(',', '.');
+
+    if (!cleanedBerat || !cleanedTinggi) {
+      Alert.alert('Error', 'Berat dan Tinggi badan harus diisi untuk analisis Z-Score.');
+      return;
+    }
+
+    const weightVal = parseFloat(cleanedBerat);
+    const heightVal = parseFloat(cleanedTinggi);
+
+    if (isNaN(weightVal) || weightVal <= 0) {
+      Alert.alert('Error', 'Berat badan harus diisi dengan angka positif.');
+      return;
+    }
+    if (isNaN(heightVal) || heightVal <= 0) {
+      Alert.alert('Error', 'Tinggi badan harus diisi dengan angka positif.');
+      return;
+    }
+
+    // Check for extreme outlier values (typos)
+    const isExtremeHeight = heightVal < 35 || heightVal > 130;
+    const isExtremeWeight = weightVal < 1.5 || weightVal > 30;
+
+    if (isExtremeHeight || isExtremeWeight) {
+      Alert.alert(
+        '⚠️ Peringatan Nilai Ekstrem',
+        `Nilai yang Anda masukkan terdeteksi di luar batas wajar:\n` +
+        (isExtremeWeight ? `• Berat Badan: ${weightVal} kg\n` : '') +
+        (isExtremeHeight ? `• Tinggi Badan: ${heightVal} cm\n` : '') +
+        `Apakah Anda yakin data ini sudah benar? Silakan cek kembali untuk menghindari kesalahan ketik (typo).`,
+        [
+          {
+            text: 'Cek Kembali',
+            style: 'cancel'
+          },
+          {
+            text: 'Ya, Sudah Benar',
+            onPress: () => proceedConfirmSave(weightVal, heightVal)
+          }
+        ]
+      );
+    } else {
+      proceedConfirmSave(weightVal, heightVal);
+    }
+  };
+
+  const proceedConfirmSave = async (weightVal: number, heightVal: number) => {
     try {
-      const ageMonths = calculateAgeMonths(selectedBalita.tanggal_lahir, tanggal);
+      const ageMonths = calculateAgeMonths(selectedBalita!.tanggal_lahir, tanggal);
       
       const [bbStd, tbStd, imtStd, bbtbStd] = await Promise.all([
-        whoService.getStandards('bb_u', selectedBalita.jenis_kelamin),
-        whoService.getStandards('tb_u', selectedBalita.jenis_kelamin),
-        whoService.getStandards('imt_u', selectedBalita.jenis_kelamin),
-        whoService.getStandards('bb_tb', selectedBalita.jenis_kelamin),
+        whoService.getStandards('bb_u', selectedBalita!.jenis_kelamin),
+        whoService.getStandards('tb_u', selectedBalita!.jenis_kelamin),
+        whoService.getStandards('imt_u', selectedBalita!.jenis_kelamin),
+        whoService.getStandards('bb_tb', selectedBalita!.jenis_kelamin),
       ]);
 
-      const gender = selectedBalita.jenis_kelamin === 'Laki-laki' ? 'L' : 'P';
-      const bbResult = ZScoreEngine.calculate(bbStd, gender, ageMonths, parseFloat(berat), 'BB/U');
-      const tbResult = ZScoreEngine.calculate(tbStd, gender, ageMonths, parseFloat(tinggi), 'TB/U');
-      
-      // For BB/TB, the 'measurement' index is the height (tinggi)
-      const heightValue = parseFloat(tinggi);
-      const bbtbResult = ZScoreEngine.calculate(bbtbStd, gender, heightValue, parseFloat(berat), 'BB/TB');
+      const gender = selectedBalita!.jenis_kelamin === 'Laki-laki' ? 'L' : 'P';
+      const bbResult = ZScoreEngine.calculate(bbStd, gender, ageMonths, weightVal, 'BB/U');
+      const tbResult = ZScoreEngine.calculate(tbStd, gender, ageMonths, heightVal, 'TB/U');
+      const bbtbResult = ZScoreEngine.calculate(bbtbStd, gender, heightVal, weightVal, 'BB/TB', ageMonths);
       
       setLastSavedStatus(bbResult.status);
       const resultData = {
@@ -157,12 +204,12 @@ export default function BalitaServiceDesk() {
       setCalculatedResult(resultData);
 
       const payload = {
-        balita_id: selectedBalita.id,
+        balita_id: selectedBalita!.id,
         tanggal: tanggal,
-        berat_badan: parseFloat(berat),
-        tinggi_badan: parseFloat(tinggi),
+        berat_badan: weightVal,
+        tinggi_badan: heightVal,
         lingkar_kepala: parseFloat(lica) || null,
-        lingkar_lengan: parseFloat(lila) || null, // FIX: Inclusion of LILA
+        lingkar_lengan: parseFloat(lila) || null,
         zscore_bb_u: bbResult.zscore,
         status_bb_u: bbResult.status,
         zscore_tb_u: tbResult.zscore,
@@ -184,8 +231,8 @@ export default function BalitaServiceDesk() {
       setLastSavedRecord(editId ? { id: editId, ...payload } : res.data);
 
       addToHistory({
-        id: selectedBalita.id,
-        name: selectedBalita.nama,
+        id: selectedBalita!.id,
+        name: selectedBalita!.nama,
         type: 'balita'
       });
 
@@ -244,7 +291,7 @@ export default function BalitaServiceDesk() {
               renderItem={({ item }) => (
                 <TouchableOpacity style={styles.resultItem} onPress={() => onSelectBalita(item)}>
                   <View style={styles.resultAvatar}>
-                    <Baby size={24} color="#0D9488" />
+                    <Baby size={24} color={COLORS.tealPrimary} />
                   </View>
                   <View style={styles.resultInfo}>
                     <Text style={styles.resultName}>{item.nama}</Text>
@@ -264,7 +311,7 @@ export default function BalitaServiceDesk() {
         return (
           <ScrollView style={styles.stepContainer}>
             <View style={styles.selectedHeader}>
-               <Baby size={32} color="#0D9488" />
+               <Baby size={32} color={COLORS.tealPrimary} />
                <View style={styles.selectedHeaderText}>
                   <Text style={styles.selectedName}>{selectedBalita?.nama}</Text>
                   <Text style={styles.selectedSub}>{selectedBalita?.nik}</Text>
@@ -277,7 +324,7 @@ export default function BalitaServiceDesk() {
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>Berat Badan (kg)</Text>
                 <View style={styles.inputGroup}>
-                  <Scale size={18} color="#0D9488" />
+                  <Scale size={18} color={COLORS.tealPrimary} />
                   <TextInput 
                     style={styles.input} 
                     placeholder="Contoh: 8.50" 
@@ -291,7 +338,7 @@ export default function BalitaServiceDesk() {
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>Tinggi / Panjang Badan (cm)</Text>
                 <View style={styles.inputGroup}>
-                  <Ruler size={18} color="#0D9488" />
+                  <Ruler size={18} color={COLORS.tealPrimary} />
                   <TextInput 
                     style={styles.input} 
                     placeholder="Contoh: 75.25" 
@@ -305,7 +352,7 @@ export default function BalitaServiceDesk() {
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>Lingkar Kepala (cm)</Text>
                 <View style={styles.inputGroup}>
-                  <Brain size={18} color="#0D9488" />
+                  <Brain size={18} color={COLORS.tealPrimary} />
                   <TextInput 
                     style={styles.input} 
                     placeholder="Contoh: 35.00" 
@@ -319,7 +366,7 @@ export default function BalitaServiceDesk() {
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>LiLA (Lingkar Lengan Atas) (cm)</Text>
                 <View style={styles.inputGroup}>
-                  <Activity size={18} color="#0D9488" />
+                  <Activity size={18} color={COLORS.tealPrimary} />
                   <TextInput 
                     style={styles.input} 
                     placeholder="Contoh: 12.55" 
@@ -445,11 +492,7 @@ export default function BalitaServiceDesk() {
     }
   };
 
-  function calculateAgeMonths(birthDate: string, measureDate: string): number {
-    const birth = new Date(birthDate);
-    const measure = new Date(measureDate);
-    return (measure.getFullYear() - birth.getFullYear()) * 12 + (measure.getMonth() - birth.getMonth());
-  };
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -479,31 +522,30 @@ export default function BalitaServiceDesk() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.tealBg,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 20,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: COLORS.tealBg,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#1E293B',
   },
   stepContainer: {
     flex: 1,
-    padding: 20,
+    padding: 16,
   },
   stepTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#1E293B',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   searchBar: {
     flexDirection: 'row',
@@ -512,30 +554,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   searchInput: {
     flex: 1,
     marginLeft: 12,
-    fontSize: 16,
+    fontSize: 15,
   },
   resultItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFF',
-    padding: 16,
+    padding: 12,
     borderRadius: 16,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
+    marginBottom: 8,
   },
   resultAvatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#F0FDFA',
+    backgroundColor: COLORS.tealTonal,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -544,60 +582,59 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   resultName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#334155',
   },
   resultNik: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#94A3B8',
   },
   selectedHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0FDFA',
+    backgroundColor: COLORS.tealTonal,
     padding: 16,
     borderRadius: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#CCFBF1',
+    marginBottom: 20,
   },
   selectedHeaderText: {
     flex: 1,
     marginLeft: 16,
   },
   selectedName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#134E4A',
   },
   selectedSub: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#5EAD9D',
   },
   changeLink: {
-    color: '#0D9488',
+    color: COLORS.tealPrimary,
     fontWeight: 'bold',
+    fontSize: 13,
   },
   sectionLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
     color: '#64748B',
     marginBottom: 12,
-    marginTop: 8,
+    marginTop: 4,
   },
   form: {
-    gap: 16,
-    marginBottom: 32,
+    gap: 12,
+    marginBottom: 24,
   },
   fieldContainer: {
     marginBottom: 4,
   },
   fieldLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#475569',
-    marginBottom: 8,
+    marginBottom: 6,
     marginLeft: 4,
   },
   inputGroup: {
@@ -605,84 +642,77 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFF',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
   input: {
     flex: 1,
     marginLeft: 12,
-    fontSize: 16,
+    fontSize: 15,
     color: '#1E293B',
   },
   primaryButton: {
-    backgroundColor: '#0D9488',
-    paddingVertical: 18,
+    backgroundColor: COLORS.tealPrimary,
+    paddingVertical: 14,
     borderRadius: 16,
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#0D9488',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
     marginBottom: 12,
   },
   primaryButtonText: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
   },
   secondaryButton: {
-    paddingVertical: 18,
+    paddingVertical: 14,
     borderRadius: 16,
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: COLORS.tealTonal,
   },
   secondaryButtonText: {
-    color: '#64748B',
-    fontSize: 16,
+    color: COLORS.tealPrimary,
+    fontSize: 15,
     fontWeight: '600',
   },
   confirmCard: {
-    marginBottom: 32,
+    marginBottom: 24,
   },
   confirmLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#94A3B8',
     marginBottom: 4,
   },
   confirmValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#1E293B',
   },
   confirmRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: 16,
+    paddingTop: 12,
   },
   divider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
-    marginVertical: 16,
+    backgroundColor: COLORS.tealBg,
+    marginVertical: 12,
   },
   center: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   successTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#1E293B',
-    marginTop: 20,
+    marginTop: 16,
     marginBottom: 8,
   },
   successDesc: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#64748B',
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: 24,
   },
   emptyText: {
     textAlign: 'center',
@@ -692,22 +722,19 @@ const styles = StyleSheet.create({
   resultCard: {
     width: '100%',
     padding: 16,
-    marginBottom: 24,
-    backgroundColor: '#F0FDFA',
-    borderWidth: 1,
-    borderColor: '#CCFBF1',
+    marginBottom: 20,
+    backgroundColor: COLORS.tealTonal,
   },
   cardResultTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
     color: '#134E4A',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   resultRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
- 
   resultLabel: {
     fontSize: 10,
     color: '#5EAD9D',
@@ -727,34 +754,33 @@ const styles = StyleSheet.create({
   // V2 SUCCESS STYLES
   v2ResultContainer: {
     width: '100%',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   v2ResultGrid: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 12,
   },
   v2Item: {
     flex: 1,
-    padding: 12,
+    padding: 10,
     borderRadius: 16,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 110,
+    minHeight: 100,
   },
   v2Label: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: 4,
   },
   v2Status: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     textAlign: 'center',
-    lineHeight: 16,
+    lineHeight: 14,
     marginVertical: 4,
   },
   v2ZRow: {
@@ -768,24 +794,22 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   v2ZLabel: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '600',
   },
   v2ZValue: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
   },
   feedbackBox: {
-    backgroundColor: '#F1F5F9',
-    padding: 16,
+    backgroundColor: COLORS.tealTonal,
+    padding: 12,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
   feedbackText: {
-    fontSize: 13,
-    color: '#475569',
-    lineHeight: 20,
+    fontSize: 12,
+    color: '#134E4A',
+    lineHeight: 18,
     textAlign: 'center',
     fontWeight: '500',
   },

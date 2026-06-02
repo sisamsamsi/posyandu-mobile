@@ -36,7 +36,8 @@ export const whoService = {
       plus_1sd: r.sd_plus_1,
       plus_2sd: r.sd_plus_2,
       plus_3sd: r.sd_plus_3,
-      indicator: indicator.toUpperCase().replace('_', '/'),
+      indicator: r.indicator || indicator.toUpperCase().replace('_', '/'),
+      measure_type: r.measure_type || null,
     }));
   }
 };

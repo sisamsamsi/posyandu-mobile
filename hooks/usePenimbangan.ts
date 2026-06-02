@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Penimbangan } from '../lib/types';
 import { startOfMonth, endOfMonth } from 'date-fns';
+import { useServiceStore } from '../stores/service-store';
 
 export const usePenimbangan = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { activePosyanduId } = useServiceStore();
 
   /**
    * Get all penimbangans with optional month/year filter
@@ -17,8 +19,9 @@ export const usePenimbangan = () => {
         .from('penimbangans')
         .select(`
           *,
-          balita:balitas(*)
+          balita:balitas!inner(*)
         `)
+        .eq('balita.posyandu_id', activePosyanduId || '')
         .order('tanggal', { ascending: false });
 
       if (month !== undefined && year !== undefined) {
@@ -96,7 +99,12 @@ export const usePenimbangan = () => {
 
       const { data, error } = await supabase
         .from('penimbangans')
-        .select('balita_id, tanggal')
+        .select(`
+          balita_id,
+          tanggal,
+          balita:balitas!inner(posyandu_id)
+        `)
+        .eq('balita.posyandu_id', activePosyanduId || '')
         .gte('tanggal', start)
         .lte('tanggal', end);
 

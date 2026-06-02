@@ -1,6 +1,7 @@
 // components/ui/StatsGrid.tsx
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { COLORS } from '../../lib/constants';
 
 interface StatItem {
   label: string;
@@ -9,6 +10,7 @@ interface StatItem {
   color: string;
   bgColor: string;
   suffix?: string;
+  onPress?: () => void; // Click handler
 }
 
 interface StatsGridProps {
@@ -18,20 +20,29 @@ interface StatsGridProps {
 export function StatsGrid({ items }: StatsGridProps) {
   return (
     <View style={styles.grid}>
-      {items.map((item, index) => (
-        <View key={index} style={styles.cardWrapper}>
-          <View style={[styles.card, { borderBottomWidth: 3, borderBottomColor: item.color }]}>
-            <View style={[styles.iconCircle, { backgroundColor: item.bgColor }]}>
-              {item.icon}
-            </View>
-            <Text style={[styles.value, { color: item.color }]}>
-              {item.value}
-              {item.suffix && <Text style={styles.suffix}>{item.suffix}</Text>}
-            </Text>
-            <Text style={styles.label}>{item.label}</Text>
+      {items.map((item, index) => {
+        const Component = item.onPress ? TouchableOpacity : View;
+        return (
+          <View key={index} style={styles.cardWrapper}>
+            <Component 
+              style={styles.card} 
+              onPress={item.onPress}
+              activeOpacity={0.6}
+            >
+              <View style={[styles.iconCircle, { backgroundColor: item.bgColor }]}>
+                {item.icon}
+              </View>
+              <View style={styles.textContainer}>
+                <Text style={styles.value}>
+                  {item.value}
+                  {item.suffix && <Text style={styles.suffix}>{item.suffix}</Text>}
+                </Text>
+                <Text style={styles.label}>{item.label}</Text>
+              </View>
+            </Component>
           </View>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
@@ -40,7 +51,7 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: 10,
   },
   cardWrapper: {
     width: '47%',
@@ -48,39 +59,46 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 32, // Upgraded radius
-    padding: 24, // Generous whitespace
+    borderRadius: 16, 
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 0, // No line rule
-    elevation: 4,
-    shadowColor: '#006A63',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.04,
-    shadowRadius: 24,
+    gap: 10,
+    elevation: 2,
+    shadowColor: COLORS.tealPrimary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 24,
+    width: 36,
+    height: 36,
+    borderRadius: 10, // Squircle icon
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+  },
+  textContainer: {
+    flex: 1,
   },
   value: {
-    fontSize: 32, // Big typography
-    fontWeight: '900',
-    letterSpacing: -1.5,
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1E293B',
+    letterSpacing: -0.2,
   },
   suffix: {
-    fontSize: 16,
+    fontSize: 10,
     fontWeight: '600',
   },
   label: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 9,
+    fontWeight: '700',
     color: '#64748B',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginTop: 4,
+    letterSpacing: 0.3,
+    marginTop: 1,
   },
 });

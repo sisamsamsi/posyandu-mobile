@@ -28,24 +28,32 @@ export interface TrendPoint {
 }
 
 export class AnalysisService {
-  static async getBalitaAnalysis(month: number, year: number, rt?: number): Promise<BalitaAnalysis> {
+  static async getBalitaAnalysis(posyanduId: string, month: number, year: number, rt?: number): Promise<BalitaAnalysis> {
     const date = new Date(year, month - 1, 1);
     const start = startOfMonth(date).toISOString();
     const end = endOfMonth(date).toISOString();
 
-    // 1. Fetch total sasaran (balita <= 60 months at that time)
-    // For simplicity, we fetch all active balitas currently, filtered by RT
-    let sasaranQuery = supabase.from('balitas').select('*', { count: 'exact' });
+    // 1. Fetch total sasaran (balita < 60 months at that time)
+    const limitDate = subMonths(date, 60);
+    const limitDateString = format(limitDate, 'yyyy-MM-dd');
+
+    let sasaranQuery = supabase
+      .from('balitas')
+      .select('*', { count: 'exact' })
+      .eq('posyandu_id', posyanduId)
+      .gt('tanggal_lahir', limitDateString);
+      
     if (rt) sasaranQuery = sasaranQuery.eq('rt', rt);
     const { count: totalSasaran } = await sasaranQuery;
 
-    // 2. Fetch penimbangans in that month, joined with balitas for RT filtering
+    // 2. Fetch penimbangans in that month, joined with balitas for RT filtering and tenant isolation
     let query = supabase
       .from('penimbangans')
       .select(`
         *,
-        balitas!inner(rt)
+        balitas!inner(rt, posyandu_id)
       `)
+      .eq('balitas.posyandu_id', posyanduId)
       .gte('tanggal', start)
       .lte('tanggal', end);
 
@@ -71,12 +79,12 @@ export class AnalysisService {
     };
   }
 
-  static async getLansiaAnalysis(month: number, year: number, rt?: number): Promise<LansiaAnalysis> {
+  static async getLansiaAnalysis(posyanduId: string, month: number, year: number, rt?: number): Promise<LansiaAnalysis> {
     const date = new Date(year, month - 1, 1);
     const start = startOfMonth(date).toISOString();
     const end = endOfMonth(date).toISOString();
 
-    let sasaranQuery = supabase.from('lansias').select('*', { count: 'exact' });
+    let sasaranQuery = supabase.from('lansias').select('*', { count: 'exact' }).eq('posyandu_id', posyanduId);
     if (rt) sasaranQuery = sasaranQuery.eq('rt', rt);
     const { count: totalSasaran } = await sasaranQuery;
 
@@ -84,8 +92,9 @@ export class AnalysisService {
       .from('pemeriksaan_lansias')
       .select(`
         *,
-        lansias!inner(rt)
+        lansias!inner(rt, jenis_kelamin, posyandu_id)
       `)
+      .eq('lansias.posyandu_id', posyanduId)
       .gte('tanggal_periksa', start)
       .lte('tanggal_periksa', end);
 
@@ -110,10 +119,13 @@ export class AnalysisService {
     records?.forEach(p => {
       let atRisk = false;
       const [sis, dias] = (p.tekanan_darah || '0/0').split('/').map(Number);
+      const gender = p.lansias?.jenis_kelamin || 'Perempuan';
+      const limitAsamUrat = gender === 'Laki-laki' ? 7.0 : 6.0;
+
       if (sis >= 140 || dias >= 90) { conditions['Hipertensi']++; atRisk = true; }
       if ((p.gula_darah || 0) > 200) { conditions['Diabetes']++; atRisk = true; }
       if ((p.kolesterol || 0) > 200) { conditions['Kolesterol Tinggi']++; atRisk = true; }
-      if ((p.asam_urat || 0) > 7) { conditions['Asam Urat Tinggi']++; atRisk = true; }
+      if ((p.asam_urat || 0) > limitAsamUrat) { conditions['Asam Urat Tinggi']++; atRisk = true; }
       
       if (!atRisk) conditions['Normal']++;
     });
@@ -131,7 +143,7 @@ export class AnalysisService {
     };
   }
 
-  static async getTrendData(limitMonths = 6): Promise<TrendPoint[]> {
+  static async getTrendData(posyanduId: string, limitMonths = 6): Promise<TrendPoint[]> {
     const trends: TrendPoint[] = [];
     const now = new Date();
 
@@ -145,8 +157,8 @@ export class AnalysisService {
         { count: bCount },
         { count: lCount }
       ] = await Promise.all([
-        supabase.from('penimbangans').select('*', { count: 'exact', head: true }).gte('tanggal', start).lte('tanggal', end),
-        supabase.from('pemeriksaan_lansias').select('*', { count: 'exact', head: true }).gte('tanggal_periksa', start).lte('tanggal_periksa', end)
+        supabase.from('penimbangans').select('*, balitas!inner(posyandu_id)', { count: 'exact', head: true }).eq('balitas.posyandu_id', posyanduId).gte('tanggal', start).lte('tanggal', end),
+        supabase.from('pemeriksaan_lansias').select('*, lansias!inner(posyandu_id)', { count: 'exact', head: true }).eq('lansias.posyandu_id', posyanduId).gte('tanggal_periksa', start).lte('tanggal_periksa', end)
       ]);
 
       trends.push({
@@ -161,6 +173,7 @@ export class AnalysisService {
 
   static async getPeopleByStatus(
     type: 'balita' | 'lansia',
+    posyanduId: string,
     month: number,
     year: number,
     rt?: number,
@@ -179,8 +192,9 @@ export class AnalysisService {
         .select(`
           balita_id,
           ${indicator},
-          balitas!inner(nama, nik, rt)
+          balitas!inner(nama, nik, rt, posyandu_id)
         `)
+        .eq('balitas.posyandu_id', posyanduId)
         .gte('tanggal', start)
         .lte('tanggal', end)
         .eq(indicator, status) as any;
@@ -207,8 +221,9 @@ export class AnalysisService {
         .select(`
           lansia_id,
           tekanan_darah, gula_darah, kolesterol, asam_urat,
-          lansias!inner(nama, nik, rt)
+          lansias!inner(nama, nik, rt, jenis_kelamin, posyandu_id)
         `)
+        .eq('lansias.posyandu_id', posyanduId)
         .gte('tanggal_periksa', start)
         .lte('tanggal_periksa', end);
 
@@ -218,9 +233,12 @@ export class AnalysisService {
       if (error || !data) return [];
 
       const filtered = (data as any[]).filter(p => {
+        const gender = p.lansias?.jenis_kelamin || 'Perempuan';
+        const limitAsamUrat = gender === 'Laki-laki' ? 7.0 : 6.0;
+
         if (status === 'Normal') {
           const [sis, dias] = (p.tekanan_darah || '0/0').split('/').map(Number);
-          return !(sis >= 140 || dias >= 90 || (p.gula_darah || 0) > 200 || (p.kolesterol || 0) > 200 || (p.asam_urat || 0) > 7);
+          return !(sis >= 140 || dias >= 90 || (p.gula_darah || 0) > 200 || (p.kolesterol || 0) > 200 || (p.asam_urat || 0) > limitAsamUrat);
         }
         if (status === 'Hipertensi') {
           const [sis, dias] = (p.tekanan_darah || '0/0').split('/').map(Number);
@@ -228,7 +246,7 @@ export class AnalysisService {
         }
         if (status === 'Diabetes') return (p.gula_darah || 0) > 200;
         if (status === 'Kolesterol Tinggi') return (p.kolesterol || 0) > 200;
-        if (status === 'Asam Urat Tinggi') return (p.asam_urat || 0) > 7;
+        if (status === 'Asam Urat Tinggi') return (p.asam_urat || 0) > limitAsamUrat;
         return false;
       });
 

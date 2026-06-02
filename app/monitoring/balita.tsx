@@ -22,6 +22,7 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { calculateAgeMonths, getIndoMonthName } from '../../lib/utils';
 import { WorkspaceSwitcher } from '../../components/ui/WorkspaceSwitcher';
+import { COLORS } from '../../lib/constants';
 
 export default function MonitoringBalitaScreen() {
   const router = useRouter();
@@ -96,7 +97,7 @@ export default function MonitoringBalitaScreen() {
         <Card style={styles.v2Card}>
           <View style={styles.v2CardContent}>
             <View style={styles.v2Avatar}>
-              <Baby size={24} color="#0D9488" />
+              <Baby size={24} color={COLORS.tealPrimary} />
             </View>
             <View style={styles.v2Info}>
               <Text style={styles.v2Name}>{item.nama}</Text>
@@ -134,7 +135,7 @@ export default function MonitoringBalitaScreen() {
           resizeMode="contain" 
         />
         <View style={styles.headerRight}>
-          <WorkspaceSwitcher size={22} color="#0D9488" />
+          <WorkspaceSwitcher size={22} color={COLORS.tealPrimary} />
           <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.calendarButton}>
             <Calendar size={20} color="#1E293B" />
           </TouchableOpacity>
@@ -178,7 +179,7 @@ export default function MonitoringBalitaScreen() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#0D9488" />
+          <ActivityIndicator size="large" color={COLORS.tealPrimary} />
         </View>
       ) : (
         <FlatList
@@ -215,7 +216,7 @@ const StatItem = ({ label, count, color }: { label: string, count: number, color
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.tealBg,
   },
   header: {
     flexDirection: 'row',
@@ -223,13 +224,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.tealBg,
   },
   backButton: {
     padding: 4,
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#1E293B',
   },
@@ -244,12 +245,12 @@ const styles = StyleSheet.create({
   searchBarContainer: {
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.tealBg,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,
@@ -262,10 +263,8 @@ const styles = StyleSheet.create({
   },
   statsBar: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.tealBg,
     paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
   },
   statItem: {
     flex: 1,
@@ -282,7 +281,7 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.tealBg,
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 8,
@@ -291,15 +290,12 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     borderRadius: 14,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   chipActive: {
-    backgroundColor: '#0D9488',
-    borderColor: '#0D9488',
+    backgroundColor: COLORS.tealPrimary,
   },
   chipText: {
     fontSize: 12,
@@ -335,7 +331,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F0FDFA',
+    backgroundColor: COLORS.tealTonal,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -386,7 +382,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: '#F0FDFA',
+    backgroundColor: COLORS.tealBg,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -407,7 +403,7 @@ const styles = StyleSheet.create({
   v2AgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#0D9488',
+    color: COLORS.tealPrimary,
   },
   v2Dot: {
     width: 3,

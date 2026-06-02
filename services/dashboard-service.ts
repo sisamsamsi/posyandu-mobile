@@ -61,8 +61,17 @@ export class DashboardService {
       return { data, count };
     };
 
+    const limitDate = new Date();
+    limitDate.setMonth(limitDate.getMonth() - 60);
+    const limitDateString = format(limitDate, 'yyyy-MM-dd');
+
     // ── STEP 1: Dapatkan ID Pasien di Posyandu ini ──
-    const { data: balitas } = await supabase.from('balitas').select('id').eq('posyandu_id', posyanduId);
+    const { data: balitas } = await supabase
+      .from('balitas')
+      .select('id')
+      .eq('posyandu_id', posyanduId)
+      .gt('tanggal_lahir', limitDateString);
+      
     const { data: lansias } = await supabase.from('lansias').select('id').eq('posyandu_id', posyanduId);
     
     const balitaIds = balitas?.map(b => b.id) || [];
@@ -82,12 +91,12 @@ export class DashboardService {
       { data: balitaIdsWithVisit },
       { data: lansiaIdsWithVisit },
     ] = await Promise.all([
-      runQuery(supabase.from('balitas').select('id', { count: 'exact', head: true }).eq('posyandu_id', posyanduId), 'totalBalita'),
+      runQuery(supabase.from('balitas').select('id', { count: 'exact', head: true }).eq('posyandu_id', posyanduId).gt('tanggal_lahir', limitDateString), 'totalBalita'),
       runQuery(supabase.from('lansias').select('id', { count: 'exact', head: true }).eq('posyandu_id', posyanduId), 'totalLansia'),
       runQuery(supabase.from('penimbangans').select('id', { count: 'exact', head: true }).in('balita_id', safeBalitaIds).gte('tanggal', startDate).lte('tanggal', endDate), 'balitaVisits'),
       runQuery(supabase.from('pemeriksaan_lansias').select('id', { count: 'exact', head: true }).in('lansia_id', safeLansiaIds).gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate), 'lansiaVisits'),
       runQuery(supabase.from('penimbangans').select('status_bb_u, status_tb_u, status_bb_tb').in('balita_id', safeBalitaIds).gte('tanggal', startDate).lte('tanggal', endDate), 'nutritionData'),
-      runQuery(supabase.from('pemeriksaan_lansias').select('tekanan_darah, gula_darah, kolesterol, asam_urat').in('lansia_id', safeLansiaIds).gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate), 'lansiaData'),
+      runQuery(supabase.from('pemeriksaan_lansias').select('tekanan_darah, gula_darah, kolesterol, asam_urat, lansia:lansias(jenis_kelamin)').in('lansia_id', safeLansiaIds).gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate), 'lansiaData'),
       runQuery(supabase.from('penimbangans').select('balita_id').in('balita_id', safeBalitaIds).gte('tanggal', startDate).lte('tanggal', endDate), 'balitaIdsWithVisit'),
       runQuery(supabase.from('pemeriksaan_lansias').select('lansia_id').in('lansia_id', safeLansiaIds).gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate), 'lansiaIdsWithVisit'),
     ]);
@@ -126,14 +135,17 @@ export class DashboardService {
 
     let atRiskCount = 0;
     lansiaData?.forEach((p: any) => {
-      const { tekanan_darah, gula_darah, kolesterol, asam_urat } = p;
+      const { tekanan_darah, gula_darah, kolesterol, asam_urat, lansia } = p;
       const [sis, dias] = (tekanan_darah || '0/0').split('/').map(Number);
+      const gender = lansia?.jenis_kelamin || 'Perempuan';
+      const limitAsamUrat = gender === 'Laki-laki' ? 7.0 : 6.0;
+
       if (sis >= 140 || dias >= 90) lansiaHealthBreakdown.hipertensi++;
       if ((gula_darah || 0) > 200) lansiaHealthBreakdown.gulaTinggi++;
       if ((kolesterol || 0) > 200) lansiaHealthBreakdown.kolesterolTinggi++;
-      if ((asam_urat || 0) > 7) lansiaHealthBreakdown.asamUratTinggi++;
+      if ((asam_urat || 0) > limitAsamUrat) lansiaHealthBreakdown.asamUratTinggi++;
       
-      const isAtRisk = sis > 140 || (gula_darah || 0) > 200 || (kolesterol || 0) > 200 || (asam_urat || 0) > 7;
+      const isAtRisk = (sis >= 140 || dias >= 90) || (gula_darah || 0) > 200 || (kolesterol || 0) > 200 || (asam_urat || 0) > limitAsamUrat;
       if (isAtRisk) atRiskCount++;
     });
 
@@ -157,15 +169,8 @@ export class DashboardService {
         .eq('id', posyanduId)
         .single();
       posyanduInfo = posData as Posyandu;
-    } else {
-      // Fallback to first posyandu
-      const { data: posData } = await supabase
-        .from('posyandus')
-        .select('*')
-        .limit(1)
-        .single();
-      posyanduInfo = posData as Posyandu;
     }
+
 
     return {
       totalBalita: totalBalita || 0,

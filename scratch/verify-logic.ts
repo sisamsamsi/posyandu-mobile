@@ -1,7 +1,5 @@
-// scratch/verify-logic.ts
 import { ZScoreEngine } from '../services/zscore-engine';
 import { RiskPredictionService } from '../services/risk-prediction';
-import { calculateBMI } from '../services/bmi-calculator';
 import { Balita, Penimbangan } from '../lib/types';
 
 // Mock data for standards (normally from store)
@@ -33,7 +31,7 @@ const runTest = () => {
     const sex: 'L' | 'P' = 'L';
 
     // BMI
-    const bmi = calculateBMI(weight, height);
+    const bmi = weight / ((height / 100) ** 2);
     console.log(`BMI: ${bmi.toFixed(2)}`);
 
     // Z-Scores

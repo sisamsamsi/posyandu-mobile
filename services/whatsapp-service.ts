@@ -4,6 +4,7 @@ import { Balita, Penimbangan, Posyandu } from '../lib/types';
 import { SettingsService } from './settings-service';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+import { calculateAgeMonths } from '../lib/utils';
 
 /**
  * WhatsApp Deep Link Service
@@ -27,7 +28,7 @@ export class WhatsAppService {
     // Hitung usia
     const lahir = new Date(balita.tanggal_lahir);
     const tgl = new Date(penimbangan.tanggal);
-    const usiaBulan = Math.floor((tgl.getTime() - lahir.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
+    const usiaBulan = calculateAgeMonths(balita.tanggal_lahir, penimbangan.tanggal);
 
     // Generate saran berdasarkan status — TANPA memvonis langsung
     const saran = this.generateSaranBijak(penimbangan);
@@ -169,17 +170,7 @@ export class WhatsAppService {
     }
   }
 
-  /**
-   * 4. Salin pesan ke clipboard (alternatif jika tidak punya nomor)
-   */
-  static getFormattedMessage(type: 'hasil' | 'pengingat' | 'unified', data: any): string {
-    if (type === 'hasil') {
-      return this.generateHasilPenimbangan(data.balita, data.penimbangan, data.posyandu);
-    } else if (type === 'unified') {
-      return this.generateHasilUnified(data.balita, data.penimbangan, data.rekomendasi, data.posyandu);
-    }
-    return this.generatePengingat(data.balita, data.posyandu);
-  }
+
 
   /**
    * 5. LAPORAN UNIFIED (TIMBANGAN + PENYULUHAN AI)
@@ -197,7 +188,7 @@ export class WhatsAppService {
     // Hitung usia
     const lahir = new Date(balita.tanggal_lahir);
     const tgl = new Date(penimbangan.tanggal);
-    const usiaBulan = Math.floor((tgl.getTime() - lahir.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
+    const usiaBulan = calculateAgeMonths(balita.tanggal_lahir, penimbangan.tanggal);
 
     let pesan = `📊 *LAPORAN TERPADU POSYANDU & PENYULUHAN AI* 🏥\n`;
     pesan += `_${namaPos}_\n`;
@@ -217,9 +208,9 @@ export class WhatsAppService {
     pesan += `\n`;
 
     pesan += `📊 *ANALISIS STATUS GIZI (WHO Z-Score):*\n`;
-    pesan += `• BB berdasarkan Umur (BB/U): *${penimbangan.status_bb_u || 'Normal'}*\n`;
-    pesan += `• TB berdasarkan Umur (TB/U): *${penimbangan.status_tb_u || 'Normal'}*\n`;
-    pesan += `• BB berdasarkan TB (BB/TB): *${penimbangan.status_bb_tb || 'Normal'}*\n\n`;
+    pesan += `• BB berdasarkan Umur (BB/U): *${this.formatStatusForParent(penimbangan.status_bb_u, 'bb_u')}*\n`;
+    pesan += `• TB berdasarkan Umur (TB/U): *${this.formatStatusForParent(penimbangan.status_tb_u, 'tb_u')}*\n`;
+    pesan += `• BB berdasarkan TB (BB/TB): *${this.formatStatusForParent(penimbangan.status_bb_tb, 'bb_tb')}*\n\n`;
 
     pesan += `💡 *PANDUAN GIZI & STIMULASI AI (Meja 4/5):*\n`;
     pesan += `${rekomendasiAI}\n\n`;
@@ -228,6 +219,61 @@ export class WhatsAppService {
     pesan += `_Layanan Posyandu Digital - AYOMI_`;
 
     return pesan;
+  }
+
+  /**
+   * Helper untuk mereduksi istilah diagnosa medis WHO kasar menjadi bahasa suportif untuk orang tua
+   */
+  private static formatStatusForParent(status: string | null, indicator: 'bb_u' | 'tb_u' | 'bb_tb'): string {
+    if (!status || status === 'Tidak dapat ditentukan') return 'Sesuai standar tumbuh kembang (pertahankan!)';
+    const s = status.toLowerCase();
+    
+    if (indicator === 'bb_u') {
+      if (s.includes('sangat kurang') || s.includes('sk')) {
+        return 'Berat badan masih perlu perhatian khusus & asupan gizi ekstra';
+      }
+      if (s.includes('kurang') || s.includes('k')) {
+        return 'Berat badan perlu tambahan asupan gizi seimbang';
+      }
+      if (s.includes('normal') || s.includes('n')) {
+        return 'Berat badan baik (sesuai standar)';
+      }
+      if (s.includes('lebih') || s.includes('rl')) {
+        return 'Berat badan cukup (jaga pola makan & aktivitas)';
+      }
+    }
+    
+    if (indicator === 'tb_u') {
+      if (s.includes('sangat pendek') || s.includes('sp')) {
+        return 'Tinggi badan memerlukan perhatian khusus & stimulasi tumbuh kembang';
+      }
+      if (s.includes('pendek') || s.includes('p')) {
+        return 'Tinggi badan perlu dukungan asupan protein hewani & kalsium';
+      }
+      if (s.includes('normal') || s.includes('n')) {
+        return 'Tinggi badan baik (sesuai standar)';
+      }
+      if (s.includes('tinggi') || s.includes('t')) {
+        return 'Tinggi badan optimal (sangat baik)';
+      }
+    }
+    
+    if (indicator === 'bb_tb') {
+      if (s.includes('buruk') || s.includes('severely wasted') || s.includes('wasting')) {
+        return 'Proporsi berat dibanding tinggi badan perlu asupan gizi & perhatian intensif';
+      }
+      if (s.includes('kurang') || s.includes('wasted')) {
+        return 'Proporsi berat dibanding tinggi badan perlu tambahan porsi gizi seimbang';
+      }
+      if (s.includes('baik') || s.includes('normal') || s.includes('gizi baik')) {
+        return 'Proporsi berat dibanding tinggi badan ideal & gizi baik';
+      }
+      if (s.includes('lebih') || s.includes('overweight') || s.includes('obesitas')) {
+        return 'Proporsi berat dibanding tinggi badan cukup (imbangi dengan sayur & buah)';
+      }
+    }
+    
+    return 'Sesuai standar tumbuh kembang (pertahankan!)';
   }
 }
 

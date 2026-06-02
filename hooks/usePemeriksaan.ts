@@ -73,7 +73,12 @@ export const usePemeriksaan = () => {
 
       const { data, error } = await supabase
         .from('pemeriksaan_lansias')
-        .select('lansia_id, tanggal_periksa')
+        .select(`
+          lansia_id,
+          tanggal_periksa,
+          lansia:lansias!inner(posyandu_id)
+        `)
+        .eq('lansia.posyandu_id', activePosyanduId || '')
         .gte('tanggal_periksa', start)
         .lte('tanggal_periksa', end);
 

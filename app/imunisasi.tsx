@@ -72,17 +72,49 @@ export default function ImunisasiScreen() {
   );
 
   const handleExport = async () => {
-    if (filteredBalitas.length === 0) {
-      Alert.alert('Info', 'Tidak ada data untuk diekspor');
-      return;
-    }
-    try {
-      const activePosyandu = history.find(h => h.id === activePosyanduId);
-      const posyanduName = activePosyandu?.name || 'Posyandu';
-      await ExportImunisasiService.exportToExcel(filteredBalitas, selectedYear, posyanduName);
-    } catch (e) {
-      Alert.alert('Error', 'Gagal mengekspor data');
-    }
+    const activePosyandu = history.find(h => h.id === activePosyanduId);
+    const posyanduName = activePosyandu?.name || 'Posyandu';
+
+    Alert.alert(
+      'Ekspor Laporan Imunisasi',
+      'Pilih format laporan yang ingin diekspor:',
+      [
+        {
+          text: `Tahun Lahir ${selectedYear} Saja`,
+          onPress: async () => {
+            if (filteredBalitas.length === 0) {
+              Alert.alert('Info', `Tidak ada data imunisasi untuk tahun lahir ${selectedYear}`);
+              return;
+            }
+            try {
+              setLoading(true);
+              await ExportImunisasiService.exportToExcel(filteredBalitas, selectedYear, posyanduName);
+            } catch (e) {
+              Alert.alert('Error', 'Gagal mengekspor data');
+            } finally {
+              setLoading(false);
+            }
+          }
+        },
+        {
+          text: 'Semua Tahun Lahir (Multi-Sheet)',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await ExportImunisasiService.exportAllYearsToExcel(activePosyanduId, years, posyanduName);
+            } catch (e: any) {
+              Alert.alert('Error', e.message || 'Gagal mengekspor seluruh data');
+            } finally {
+              setLoading(false);
+            }
+          }
+        },
+        {
+          text: 'Batal',
+          style: 'cancel'
+        }
+      ]
+    );
   };
 
   const handleOpenForm = (balita: Balita) => {

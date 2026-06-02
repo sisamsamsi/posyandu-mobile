@@ -130,7 +130,7 @@ export default function RegisterScreen() {
 
             <View style={styles.loginPrompt}>
               <Text style={styles.loginPromptText}>Sudah punya akun? </Text>
-              <TouchableOpacity onPress={() => router.push('/login')} disabled={loading}>
+              <TouchableOpacity onPress={() => router.replace('/login')} disabled={loading}>
                 <Text style={styles.loginPromptLink}>Masuk di sini</Text>
               </TouchableOpacity>
             </View>

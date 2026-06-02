@@ -11,11 +11,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useBalita } from '../../hooks/useBalita';
 import { SearchBar } from '../../components/ui/SearchBar';
-import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
-import { Plus, Baby, ArrowLeft, GraduationCap } from 'lucide-react-native';
+import { Plus, ArrowLeft, ChevronRight } from 'lucide-react-native';
 import { Balita } from '../../lib/types';
 import { differenceInMonths } from 'date-fns';
+import { COLORS } from '../../lib/constants';
 
 export default function BalitaIndex() {
   const router = useRouter();
@@ -37,34 +36,36 @@ export default function BalitaIndex() {
     fetchBalitas(text);
   };
 
+  const getInitials = (name: string) => {
+    if (!name) return 'B';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
   const renderItem = ({ item }: { item: Balita }) => {
     const ageMonths = differenceInMonths(new Date(), new Date(item.tanggal_lahir));
-    const isGraduated = ageMonths >= 60;
+    const initials = getInitials(item.nama);
+    const posyanduName = item.posyandu?.nama_posyandu || 'Posyandu';
 
     return (
-      <TouchableOpacity onPress={() => router.push(`/balita/${item.id}`)}>
-        <Card style={styles.childCard}>
-          <View style={styles.childAvatar}>
-            <Baby size={24} color="#0D9488" />
-          </View>
-          <View style={styles.childInfo}>
-            <View style={styles.nameRow}>
-              <Text style={styles.childName}>{item.nama}</Text>
-              {isGraduated && (
-                <View style={styles.lulusBadge}>
-                  <GraduationCap size={12} color="#FFFFFF" />
-                  <Text style={styles.lulusText}>LULUS</Text>
-                </View>
-              )}
-            </View>
-            <Text style={styles.childNik}>{item.nik}</Text>
-            <View style={styles.badgeRow}>
-              <Badge label={item.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'} variant="primary" />
-              <Text style={styles.childRt}>RT {item.rt}</Text>
-              <Text style={styles.childAge}> • {ageMonths} bln</Text>
-            </View>
-          </View>
-        </Card>
+      <TouchableOpacity 
+        onPress={() => router.push(`/balita/${item.id}`)} 
+        activeOpacity={0.7}
+        style={styles.cardWrapper}
+      >
+        <View style={styles.avatarContainer}>
+          <Text style={styles.avatarText}>{initials}</Text>
+        </View>
+        
+        <View style={styles.textContainer}>
+          <Text style={styles.nameText} numberOfLines={1}>{item.nama}</Text>
+          <Text style={styles.subText}>{ageMonths} bln • {posyanduName}</Text>
+        </View>
+        
+        <ChevronRight size={18} color="#94A3B8" />
       </TouchableOpacity>
     );
   };
@@ -120,120 +121,100 @@ export default function BalitaIndex() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
   },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 18,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   backButton: {
     marginRight: 16,
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1E293B',
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: -0.5,
   },
   searchContainer: {
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
   },
   listContent: {
-    padding: 20,
+    paddingHorizontal: 16,
     paddingBottom: 100,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
   },
-  childCard: {
+  cardWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
   },
-  childAvatar: {
+  avatarContainer: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#CCFBF1',
+    backgroundColor: '#0D9488',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 14,
   },
-  childInfo: {
-    flex: 1,
-  },
-  childName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1E293B',
-    marginBottom: 2,
-  },
-  childNik: {
+  avatarText: {
     fontSize: 14,
-    color: '#64748B',
-    marginBottom: 6,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  childRt: {
-    fontSize: 12,
-    color: '#94A3B8',
-    marginLeft: 8,
-  },
-  childAge: {
-    fontSize: 12,
-    color: '#94A3B8',
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  lulusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F59E0B',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    gap: 4,
-  },
-  lulusText: {
-    fontSize: 10,
     fontWeight: '900',
     color: '#FFFFFF',
+  },
+  textContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  nameText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  subText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
   },
   emptyContainer: {
     alignItems: 'center',
     marginTop: 100,
   },
   emptyText: {
-    color: '#64748B',
-    fontSize: 16,
+    color: '#94A3B8',
+    fontSize: 14,
+    fontWeight: '500',
   },
   fab: {
     position: 'absolute',
     right: 20,
-    bottom: 20,
+    bottom: 24,
     width: 56,
     height: 56,
     borderRadius: 28,
     backgroundColor: '#0D9488',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    elevation: 6,
+    shadowColor: '#0D9488',
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowRadius: 12,
   },
 });

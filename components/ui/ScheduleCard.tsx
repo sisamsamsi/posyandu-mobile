@@ -1,13 +1,14 @@
 // components/ui/ScheduleCard.tsx
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Baby, Users, Clock, Calendar } from 'lucide-react-native';
+import { Clock, Calendar } from 'lucide-react-native';
 
 interface ScheduleCardProps {
-  jadwalBalitaTanggal: number | null;
-  jadwalBalitaJam: string | null;
-  jadwalLansiaTanggal: number | null;
-  jadwalLansiaJam: string | null;
+  activeWorkspace: 'balita' | 'lansia';
+  tanggal: number | null;
+  jam: string | null;
+  themeColor: string;
+  themeTonal: string;
 }
 
 /**
@@ -34,11 +35,10 @@ function getCountdownLabel(daysLeft: number): string {
   return `${daysLeft} hari lagi`;
 }
 
-function getCountdownColor(daysLeft: number): string {
-  if (daysLeft <= 1) return '#EF4444';
-  if (daysLeft <= 3) return '#F59E0B';
-  if (daysLeft <= 7) return '#0D9488';
-  return '#64748B';
+function getCountdownColor(daysLeft: number, defaultColor: string): string {
+  if (daysLeft <= 1) return '#EF4444'; // Red for urgent
+  if (daysLeft <= 3) return '#F59E0B'; // Yellow/Orange
+  return defaultColor; // Theme primary color for relax schedules
 }
 
 const MONTHS = [
@@ -47,105 +47,54 @@ const MONTHS = [
 ];
 
 export function ScheduleCard({
-  jadwalBalitaTanggal,
-  jadwalBalitaJam,
-  jadwalLansiaTanggal,
-  jadwalLansiaJam,
+  activeWorkspace,
+  tanggal,
+  jam,
+  themeColor,
+  themeTonal,
 }: ScheduleCardProps) {
-  if (!jadwalBalitaTanggal && !jadwalLansiaTanggal) {
+  if (!tanggal) {
     return (
       <View style={styles.container}>
         <View style={styles.emptyContainer}>
-          <Calendar size={20} color="#CBD5E1" />
+          <Calendar size={18} color="#94A3B8" />
           <Text style={styles.emptyText}>
-            Jadwal posyandu belum diatur. Atur di menu Pengaturan.
+            Jadwal Posyandu {activeWorkspace === 'balita' ? 'Balita' : 'Lansia'} belum diatur.
           </Text>
         </View>
       </View>
     );
   }
 
-  // Find closest schedule
-  let closestDays = Infinity;
-
-  if (jadwalBalitaTanggal) {
-    const { daysLeft } = getNextScheduleDate(jadwalBalitaTanggal);
-    closestDays = Math.min(closestDays, daysLeft);
-  }
-  if (jadwalLansiaTanggal) {
-    const { daysLeft } = getNextScheduleDate(jadwalLansiaTanggal);
-    closestDays = Math.min(closestDays, daysLeft);
-  }
+  const { date, daysLeft } = getNextScheduleDate(tanggal);
+  const monthLabel = MONTHS[date.getMonth()];
+  const labelText = activeWorkspace === 'balita' ? 'Balita' : 'Lansia';
+  const countdownCol = getCountdownColor(daysLeft, themeColor);
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <View style={styles.headerLeft}>
-          <Calendar size={16} color="#0D9488" />
-          <Text style={styles.headerTitle}>Jadwal Terdekat</Text>
-        </View>
-        {closestDays !== Infinity && (
-          <View style={[styles.countdownBadge, { backgroundColor: `${getCountdownColor(closestDays)}15` }]}>
-            <Clock size={12} color={getCountdownColor(closestDays)} />
-            <Text style={[styles.countdownText, { color: getCountdownColor(closestDays) }]}>
-              {getCountdownLabel(closestDays)}
+      <View style={styles.row}>
+        {/* Left: Icon & Details */}
+        <View style={styles.leftCol}>
+          <View style={[styles.iconBox, { backgroundColor: themeTonal }]}>
+            <Calendar size={18} color={themeColor} />
+          </View>
+          <View style={styles.textContainer}>
+            <Text style={styles.subLabel}>JADWAL POSYANDU {labelText.toUpperCase()}</Text>
+            <Text style={styles.dateText}>
+              Tgl {tanggal} {monthLabel} • {jam || '08:00'} WIB
             </Text>
           </View>
-        )}
-      </View>
+        </View>
 
-      <View style={styles.scheduleGrid}>
-        {jadwalBalitaTanggal && (
-          <ScheduleItem
-            icon={<Baby size={18} color="#0D9488" />}
-            label="Balita"
-            tanggal={jadwalBalitaTanggal}
-            jam={jadwalBalitaJam || '08:00'}
-            accentColor="#0D9488"
-            bgColor="#F0FDFA"
-          />
-        )}
-        {jadwalLansiaTanggal && (
-          <ScheduleItem
-            icon={<Users size={18} color="#6366F1" />}
-            label="Lansia"
-            tanggal={jadwalLansiaTanggal}
-            jam={jadwalLansiaJam || '08:00'}
-            accentColor="#6366F1"
-            bgColor="#EEF2FF"
-          />
-        )}
+        {/* Right: Countdown Badge */}
+        <View style={[styles.countdownBadge, { backgroundColor: `${countdownCol}12` }]}>
+          <Clock size={12} color={countdownCol} />
+          <Text style={[styles.countdownText, { color: countdownCol }]}>
+            {getCountdownLabel(daysLeft)}
+          </Text>
+        </View>
       </View>
-    </View>
-  );
-}
-
-function ScheduleItem({
-  icon,
-  label,
-  tanggal,
-  jam,
-  accentColor,
-  bgColor,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  tanggal: number;
-  jam: string;
-  accentColor: string;
-  bgColor: string;
-}) {
-  const { date, daysLeft } = getNextScheduleDate(tanggal);
-  const monthLabel = MONTHS[date.getMonth()];
-
-  return (
-    <View style={[styles.scheduleItem, { backgroundColor: bgColor, borderColor: `${accentColor}30` }]}>
-      <View style={styles.scheduleItemHeader}>
-        {icon}
-        <Text style={[styles.scheduleLabel, { color: accentColor }]}>{label}</Text>
-      </View>
-      <Text style={styles.scheduleDateText}>Tgl {tanggal} {monthLabel}</Text>
-      <Text style={styles.scheduleTimeText}>⏰ {jam}</Text>
     </View>
   );
 }
@@ -153,85 +102,71 @@ function ScheduleItem({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 32,
-    padding: 24,
-    elevation: 4,
-    shadowColor: '#006A63',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.04,
-    shadowRadius: 24,
-    marginBottom: 16,
+    borderRadius: 20, // Compact M3
+    padding: 14,
+    elevation: 2,
+    shadowColor: '#00A896', // Medical Teal
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.02,
+    shadowRadius: 16,
+    marginBottom: 12,
   },
-  emptyContainer: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    padding: 12,
-  },
-  emptyText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#94A3B8',
-    lineHeight: 20,
-  },
-  headerRow: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
+    gap: 12,
   },
-  headerLeft: {
+  leftCol: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
+    flex: 1,
   },
-  headerTitle: {
-    fontSize: 14,
+  iconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  textContainer: {
+    flex: 1,
+  },
+  subLabel: {
+    fontSize: 9,
     fontWeight: '800',
-    color: '#334155',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: '#64748B',
+    letterSpacing: 1.2,
+    marginBottom: 2,
+  },
+  dateText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E293B',
   },
   countdownBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 24,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
   },
   countdownText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
   },
-  scheduleGrid: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  scheduleItem: {
-    flex: 1,
-    padding: 20,
-    borderRadius: 24,
-  },
-  scheduleItemHeader: {
+  emptyContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
+    gap: 10,
+    padding: 4,
   },
-  scheduleLabel: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  scheduleDateText: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#191C1D',
-  },
-  scheduleTimeText: {
+  emptyText: {
+    flex: 1,
     fontSize: 13,
-    color: '#64748B',
-    marginTop: 6,
-    fontWeight: '600',
+    color: '#94A3B8',
+    fontWeight: '500',
   },
 });

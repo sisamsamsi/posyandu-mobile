@@ -26,20 +26,79 @@ export const generateMonthlyReportHtml = (
 
   const weighingRows = weighings.length > 0
     ? weighings.map((w, i) => `
-        <tr>
+        <tr style="${w.status_kehadiran === 'Tidak Hadir' ? 'background-color: #fffbeb; color: #64748b;' : ''}">
           <td style="text-align:center;">${i + 1}</td>
-          <td style="font-weight: bold;">${w.nama}</td>
+          <td style="font-weight: bold; color: ${w.status_kehadiran === 'Tidak Hadir' ? '#64748b' : '#1e293b'};">${w.nama}</td>
           <td style="text-align:center;">${w.umur_bulan} bln</td>
           <td style="text-align:center;">${w.jenis_kelamin}</td>
           <td style="text-align:center;">RT ${String(w.rt).padStart(2, '0')}</td>
-          <td style="text-align:center; font-weight:bold;">${w.berat_badan}</td>
-          <td style="text-align:center;">${w.tinggi_badan}</td>
-          <td style="text-align:center; color: #0d9488; font-weight:bold;">${w.zscore_bb_u?.toFixed(2) || '-'}</td>
-          <td style="text-align:center; color: #0d9488; font-weight:bold;">${w.zscore_tb_u?.toFixed(2) || '-'}</td>
-          <td style="text-align:center; color: #0d9488; font-weight:bold;">${w.zscore_bb_tb?.toFixed(2) || '-'}</td>
+          <td style="text-align:center;">
+            <span class="badge ${w.status_kehadiran === 'Hadir' ? 'bg-teal' : 'bg-orange'}">${w.status_kehadiran}</span>
+          </td>
+          <td style="text-align:center; font-weight:bold;">${w.berat_badan !== null ? w.berat_badan.toFixed(2) : '-'}</td>
+          <td style="text-align:center;">${w.tinggi_badan !== null ? w.tinggi_badan.toFixed(2) : '-'}</td>
+          <td style="text-align:center; color: #0d9488; font-weight:bold;">${w.zscore_bb_u !== null && w.zscore_bb_u !== undefined ? w.zscore_bb_u.toFixed(2) : '-'}</td>
+          <td style="text-align:center; color: #0d9488; font-weight:bold;">${w.zscore_tb_u !== null && w.zscore_tb_u !== undefined ? w.zscore_tb_u.toFixed(2) : '-'}</td>
+          <td style="text-align:center; color: #0d9488; font-weight:bold;">${w.zscore_bb_tb !== null && w.zscore_bb_tb !== undefined ? w.zscore_bb_tb.toFixed(2) : '-'}</td>
         </tr>
       `).join('')
-    : '<tr><td colspan="10" style="text-align:center; padding: 20px;">Tidak ada data penimbangan.</td></tr>';
+    : '<tr><td colspan="11" style="text-align:center; padding: 20px;">Tidak ada data penimbangan.</td></tr>';
+
+  // Filter for children with counseling priority:
+  // - Absent children (Tidak Hadir)
+  // - Present children with poor growth (Z-score <= -2 in weight, height, or wasting) or custom AI remarks
+  const priorityWeighings = weighings.filter(w => 
+    w.status_kehadiran === 'Tidak Hadir' || 
+    (w.catatan_penyuluhan && !w.catatan_penyuluhan.includes('Tumbuh optimal'))
+  );
+
+  const counselingCardsHtml = priorityWeighings.length > 0
+    ? priorityWeighings.map((w) => {
+        const isAbsent = w.status_kehadiran === 'Tidak Hadir';
+        const isPoorGrowth = !isAbsent && (
+          (w.zscore_bb_u !== null && w.zscore_bb_u !== undefined && w.zscore_bb_u <= -2) || 
+          (w.zscore_tb_u !== null && w.zscore_tb_u !== undefined && w.zscore_tb_u <= -2) || 
+          (w.zscore_bb_tb !== null && w.zscore_bb_tb !== undefined && w.zscore_bb_tb <= -2)
+        );
+        
+        let cardClass = 'counseling-text';
+        let statusBadge = '<span class="badge bg-teal">Hadir - Baik</span>';
+        
+        if (isAbsent) {
+          cardClass = 'counseling-text counseling-text-absent';
+          statusBadge = '<span class="badge bg-orange">Tidak Hadir</span>';
+        } else if (isPoorGrowth) {
+          cardClass = 'counseling-text counseling-text-warning';
+          statusBadge = '<span class="badge bg-red">Perlu Perhatian Gizi</span>';
+        }
+        
+        const zscoreInfo = !isAbsent 
+          ? ` • BB/U: ${w.zscore_bb_u?.toFixed(2) || '-'} | TB/U: ${w.zscore_tb_u?.toFixed(2) || '-'} | BB/TB: ${w.zscore_bb_tb?.toFixed(2) || '-'}`
+          : '';
+
+        const counselingText = isAbsent
+          ? 'Anak tidak hadir. Otomatis diingatkan oleh Kader melalui WhatsApp AYOMI untuk melakukan penimbangan mandiri di rumah atau kunjungan susulan ke Posyandu.'
+          : w.catatan_penyuluhan || 'Perlu asupan nutrisi protein hewani seimbang, vitamin, dan pemantauan tumbuh kembang bulanan secara berkala.';
+
+        return `
+          <div class="counseling-card">
+            <div class="counseling-header">
+              <div>
+                <span class="counseling-name">${w.nama}</span>
+                <span class="counseling-meta">(${w.umur_bulan} bln • RT ${String(w.rt).padStart(2, '0')}${zscoreInfo})</span>
+              </div>
+              <div>
+                ${statusBadge}
+              </div>
+            </div>
+            <div class="${cardClass}">
+              <strong>Rekomendasi / Hasil Penyuluhan AI:</strong><br/>
+              ${counselingText}
+            </div>
+          </div>
+        `;
+      }).join('')
+    : '<div style="text-align:center; padding: 30px; color: #94a3b8; border: 1px dashed #cbd5e1; border-radius: 12px; background: #f8fafc; font-size: 12px;">Semua sasaran hadir dengan pertumbuhan optimal bulan ini. Tidak ada tindak lanjut penyuluhan khusus yang diperlukan.</div>';
 
   return `
     <html>
@@ -91,6 +150,16 @@ export const generateMonthlyReportHtml = (
           .analysis-label { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; }
           .analysis-value { font-size: 18px; font-weight: 800; color: #0d9488; margin: 5px 0; }
           .analysis-desc { font-size: 11px; color: #475569; line-height: 1.4; }
+
+           /* Counseling Cards Section */
+          .counseling-container { display: flex; flex-direction: column; gap: 12px; }
+          .counseling-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; margin-bottom: 15px; }
+          .counseling-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 8px; }
+          .counseling-name { font-weight: 800; font-size: 14px; color: #1e293b; }
+          .counseling-meta { font-size: 11px; color: #64748b; font-weight: 600; }
+          .counseling-text { font-size: 11.5px; line-height: 1.5; color: #334155; background: #f8fafc; padding: 10px 12px; border-radius: 8px; border-left: 4px solid #0d9488; }
+          .counseling-text-warning { border-left: 4px solid #ef4444; background: #fef2f2; }
+          .counseling-text-absent { border-left: 4px solid #f59e0b; background: #fffbeb; }
 
           /* Footer */
           .footer { margin-top: 50px; border-top: 1px solid #e2e8f0; padding-top: 20px; color: #94a3b8; font-size: 10px; display: flex; justify-content: space-between; }
@@ -206,6 +275,7 @@ export const generateMonthlyReportHtml = (
                 <th style="text-align:center; width: 40px;">Umur</th>
                 <th style="text-align:center; width: 20px;">L/P</th>
                 <th style="text-align:center; width: 40px;">RT</th>
+                <th style="text-align:center; width: 50px;">Status</th>
                 <th style="text-align:center; width: 35px;">BB</th>
                 <th style="text-align:center; width: 35px;">TB</th>
                 <th style="text-align:center; width: 35px; background-color: #f0fdfa;">BB/U</th>
@@ -217,6 +287,19 @@ export const generateMonthlyReportHtml = (
               ${weighingRows}
             </tbody>
           </table>
+        </div>
+
+        <div class="section" style="page-break-before: always;">
+          <div class="section-header">
+            <div class="section-number">V</div>
+            <div class="section-title">Hasil Penyuluhan & Tindak Lanjut Khusus (Klinis AI)</div>
+          </div>
+          <div style="margin-bottom: 15px; font-size: 11px; color: #475569; line-height: 1.5;">
+            Berikut adalah rekomendasi penyuluhan otomatis berbasis AI untuk balita yang terdeteksi memiliki status gizi kurang baik (Stunting, Wasting, Underweight, 2T) serta instruksi tindak lanjut/keterangan penanganan bagi sasaran yang tidak hadir di Posyandu bulan ini.
+          </div>
+          <div class="counseling-container">
+            ${counselingCardsHtml}
+          </div>
         </div>
 
         <div class="footer">

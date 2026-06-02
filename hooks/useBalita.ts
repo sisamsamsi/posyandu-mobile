@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Balita } from '../lib/types';
-import { useAuthStore } from '../stores/auth-store';
 import { useServiceStore } from '../stores/service-store';
 
 export const useBalita = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuthStore();
   const { activePosyanduId } = useServiceStore();
 
   const getBalitas = async (searchQuery?: string) => {
@@ -48,6 +46,7 @@ export const useBalita = () => {
           penimbangans(*)
         `)
         .eq('id', id)
+        .eq('posyandu_id', activePosyanduId || '')
         .single();
 
       if (error) throw error;
@@ -93,7 +92,8 @@ export const useBalita = () => {
       const { error } = await supabase
         .from('balitas')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('posyandu_id', activePosyanduId || '');
 
       if (error) throw error;
       return true;

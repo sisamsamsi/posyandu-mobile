@@ -187,77 +187,7 @@ Buatkan 1 objek JSON berisi "question" dan "guidance" yang paling relevan untuk 
     }
   }
 
-  /**
-   * Tahap 1: Membuat 3-4 pertanyaan interview gizi secara dinamis sekaligus (untuk backwards compatibility).
-   */
-  static async generateQuestions(
-    balita: Balita,
-    metrics: ZScoreData,
-    ageMonths: number,
-    previousSession?: PreviousCounseling | null
-  ): Promise<string[]> {
-    const systemPrompt = `Anda adalah Ahli Gizi dan Tumbuh Kembang Posyandu (Kemenkes RI) yang sangat ramah, hangat, dan profesional. 
-Tugas Anda adalah merumuskan 3-4 pertanyaan wawancara terarah untuk orang tua balita yang akan diajukan oleh kader posyandu.
 
-Aturan Kritis Penulisan Pertanyaan:
-1. SENSOR SOSIAL-EKONOMI PRIVAT: Dilarang keras menanyakan tentang nominal pendapatan, harta, kekayaan, aset, kendaraan, kondisi rumah tangga privat, atau pekerjaan spesifik orang tua.
-2. FOKUS SOSIAL-EKONOMI MIKRO YANG ETIS: Tanyakan aspek sosial-ekonomi mikro yang mempengaruhi asupan anak secara sopan.
-3. KELANJUTAN MEMORI (EVOLVING MEMORY): Bandingkan dan tanyakan kelanjutan masalah lama jika ada data bulan lalu.
-4. TATA BAHASA: Gunakan bahasa Indonesia yang hangat, sopan, komunikatif, dan mudah dipahami.
-
-Anda HARUS mengembalikan respon dalam format JSON objek dengan format sebagai berikut:
-{
-  "questions": [
-    "Pertanyaan 1",
-    "Pertanyaan 2",
-    "Pertanyaan 3"
-  ]
-}`;
-
-    const userPrompt = `### PROFIL BALITA:
-- Nama: ${balita.nama}
-- Jenis Kelamin: ${balita.jenis_kelamin}
-- Usia saat ini: ${ageMonths} bulan
-- Berat Badan: ${metrics.berat_badan} kg (Status BB/U: ${metrics.status_bb_u ?? 'Normal'})
-- Tinggi Badan: ${metrics.tinggi_badan} cm (Status TB/U: ${metrics.status_tb_u ?? 'Normal'})
-- Status Gizi (BB/TB): ${metrics.status_bb_tb ?? 'Normal'}
-
-### MEMORI PENYULUHAN BULAN LALU:
-${previousSession 
-  ? `Tanggal: ${previousSession.tanggal}
-Pertanyaan Sebelumnya: ${JSON.stringify(previousSession.pertanyaan)}
-Jawaban Orang Tua Sebelumnya: ${JSON.stringify(previousSession.jawaban)}
-Rekomendasi Sebelumnya: ${previousSession.rekomendasi}`
-  : 'TIDAK ADA RIWAYAT PENYULUHAN.'
-}
-
-Buatkan 3 hingga 4 pertanyaan interview yang spesifik.`;
-
-    const messages = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
-    ];
-
-    const response = await this.callGroq(messages, true);
-    try {
-      const parsed = JSON.parse(response);
-      if (parsed && Array.isArray(parsed.questions)) {
-        return parsed.questions;
-      }
-      return [
-        'Bagaimana nafsu makan si kecil dalam seminggu terakhir?',
-        'Bahan protein apa saja yang biasanya mudah diperoleh dan dikonsumsi si kecil sehari-hari?',
-        'Apakah si kecil sudah bisa melakukan gerakan fisik baru sesuai usianya?'
-      ];
-    } catch (e) {
-      console.error('Failed to parse Groq questions JSON response:', response);
-      return [
-        'Bagaimana nafsu makan si kecil dalam seminggu terakhir?',
-        'Bahan protein apa saja yang biasanya mudah diperoleh dan dikonsumsi si kecil sehari-hari?',
-        'Apakah si kecil sudah aktif bergerak atau menunjukkan pencapaian fisik baru bulan ini?'
-      ];
-    }
-  }
 
   /**
    * Tahap 2: Menghasilkan rekomendasi gizi & MPASI adaptif yang hangat, terarah, dan sopan.

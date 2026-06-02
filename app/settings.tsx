@@ -169,34 +169,7 @@ export default function SettingsScreen() {
     );
   };
 
-  const handleMigrasiData = async () => {
-    if (!posyanduId) return;
-    
-    Alert.alert(
-      'Migrasi Data Testing',
-      'Apakah Anda ingin menarik data lansia dari database testing ke posyandu ini?',
-      [
-        { text: 'Batal', style: 'cancel' },
-        { 
-          text: 'Ya, Migrasi', 
-          onPress: async () => {
-            try {
-              const { data, error, count } = await supabase
-                .from('lansias')
-                .update({ posyandu_id: posyanduId })
-                .eq('posyandu_id', '00000000-0000-0000-0000-000000000003');
 
-              if (error) throw error;
-              
-              Alert.alert('Sukses', `Berhasil memindahkan data testing ke posyandu Anda.`);
-            } catch (e: any) {
-              Alert.alert('Gagal', e.message);
-            }
-          }
-        },
-      ]
-    );
-  };
 
   if (loading) {
     return (
@@ -502,14 +475,7 @@ export default function SettingsScreen() {
             <Text style={styles.logoutText}>Keluar Akun</Text>
           </TouchableOpacity>
 
-          {/* Migration Tools (Temporary) */}
-          <TouchableOpacity 
-            style={[styles.logoutButton, { marginTop: 40, borderStyle: 'dashed', borderWidth: 1, borderColor: '#6366F1', backgroundColor: '#EEF2FF' }]} 
-            onPress={handleMigrasiData}
-          >
-            <Users size={20} color="#6366F1" />
-            <Text style={[styles.logoutText, { color: '#6366F1' }]}>[Maintenance] Tarik Data Lansia</Text>
-          </TouchableOpacity>
+
 
           <View style={{ height: 40 }} />
         </ScrollView>

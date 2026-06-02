@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
-import { BarChart } from 'react-native-chart-kit';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Card } from '../ui/Card';
 
 interface DistributionChartProps {
@@ -9,8 +8,6 @@ interface DistributionChartProps {
   color?: string;
   onPress?: (status: string) => void;
 }
-
-const screenWidth = Dimensions.get('window').width;
 
 export function DistributionChart({ title, data, color = '#0D9488', onPress }: DistributionChartProps) {
   if (data.length === 0) {

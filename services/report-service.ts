@@ -1,5 +1,6 @@
-import { supabaseAdmin } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { calculateAgeMonths } from '../lib/utils';
 
 export interface SKDNStats {
   s: number; // Semua balita target
@@ -22,11 +23,13 @@ export interface WeighingItem {
   jenis_kelamin: string;
   nama_ortu: string;
   rt: number;
-  berat_badan: number;
-  tinggi_badan: number;
+  berat_badan: number | null;
+  tinggi_badan: number | null;
   zscore_bb_u?: number | null;
   zscore_tb_u?: number | null;
   zscore_bb_tb?: number | null;
+  status_kehadiran: 'Hadir' | 'Tidak Hadir';
+  catatan_penyuluhan?: string | null;
 }
 
 export interface NutritionSummary {
@@ -58,13 +61,11 @@ export class ReportService {
    */
   static async getMonthlySKDN(posyanduId: string, month: number, year: number): Promise<SKDNStats> {
     const startDate = new Date(year, month - 1, 1);
-    const endDate = endOfMonth(startDate);
-
-    // 1. S (Semua) - Active balitas (under 60 months at report month)
     const birthThreshold = subMonths(startDate, 60);
     const birthThresholdStr = format(birthThreshold, 'yyyy-MM-dd');
 
-    const { count: s, error: sError } = await supabaseAdmin
+    // 1. S (Semua) - Active balitas (under 60 months at report month)
+    const { count: s, error: sError } = await supabase
       .from('balitas')
       .select('*', { count: 'exact', head: true })
       .eq('posyandu_id', posyanduId)
@@ -79,8 +80,8 @@ export class ReportService {
     const startStr = format(startOfMonth(startDate), 'yyyy-MM-dd');
     const endStr = format(endOfMonth(startDate), 'yyyy-MM-dd');
 
-    // ── STEP 1: Ambil balitas milik posyandu ini ──
-    const { data: balitas, error: bError } = await supabaseAdmin
+    // Ambil balitas milik posyandu ini
+    const { data: balitas, error: bError } = await supabase
       .from('balitas')
       .select('id, tanggal_lahir')
       .eq('posyandu_id', posyanduId)
@@ -91,7 +92,7 @@ export class ReportService {
     const safeBalitaIds = balitaIds.length > 0 ? balitaIds : ['00000000-0000-0000-0000-000000000000'];
 
     // 3. D (Datang) - Unique balitas who visited this month
-    const { data: dData, error: dError } = await supabaseAdmin
+    const { data: dData, error: dError } = await supabase
       .from('penimbangans')
       .select('balita_id, berat_badan')
       .in('balita_id', safeBalitaIds)
@@ -105,21 +106,31 @@ export class ReportService {
 
     // 4. N (Naik)
     let n = 0;
-    const prevMonthStart = startOfMonth(subMonths(startDate, 1)).toISOString();
-    const prevMonthEnd = endOfMonth(subMonths(startDate, 1)).toISOString();
+    const prevStartStr = format(startOfMonth(subMonths(startDate, 1)), 'yyyy-MM-dd');
+    const prevEndStr = format(endOfMonth(subMonths(startDate, 1)), 'yyyy-MM-dd');
+
+    // Batch query previous month's weighings to optimize N+1 pattern
+    const { data: prevVisitsData, error: prevError } = await supabase
+      .from('penimbangans')
+      .select('balita_id, berat_badan, tanggal')
+      .in('balita_id', safeBalitaIds)
+      .gte('tanggal', prevStartStr)
+      .lte('tanggal', prevEndStr)
+      .order('tanggal', { ascending: false });
+
+    if (prevError) console.error('SKDN Error (PrevVisits):', prevError);
+
+    // Map to get latest visit for each child in the previous month
+    const prevVisitsMap = new Map<string, number>();
+    (prevVisitsData || []).forEach(pv => {
+      if (!prevVisitsMap.has(pv.balita_id)) {
+        prevVisitsMap.set(pv.balita_id, pv.berat_badan);
+      }
+    });
 
     for (const p of filteredD) {
-      const { data: prevVisit } = await supabaseAdmin
-        .from('penimbangans')
-        .select('berat_badan')
-        .eq('balita_id', p.balita_id)
-        .gte('tanggal', startOfMonth(subMonths(startDate, 1)).toISOString())
-        .lte('tanggal', endOfMonth(subMonths(startDate, 1)).toISOString())
-        .order('tanggal', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (prevVisit && p.berat_badan > prevVisit.berat_badan) {
+      const prevWeight = prevVisitsMap.get(p.balita_id);
+      if (prevWeight !== undefined && p.berat_badan > prevWeight) {
         n++;
       }
     }
@@ -133,10 +144,9 @@ export class ReportService {
   static async getProblematicGroups(posyanduId: string, month: number, year: number): Promise<ProblematicBalita[]> {
     const startDate = new Date(year, month - 1, 1);
     const birthThresholdStr = format(subMonths(startDate, 60), 'yyyy-MM-dd');
-    const endDate = endOfMonth(startDate);
 
     // ── STEP 1: Ambil balitas ──
-    const { data: balitas, error: bError } = await supabaseAdmin
+    const { data: balitas, error: bError } = await supabase
       .from('balitas')
       .select('id, nama, nik, posyandu_id, tanggal_lahir')
       .eq('posyandu_id', posyanduId)
@@ -147,7 +157,7 @@ export class ReportService {
     const balitaMap = new Map((balitas || []).map(b => [b.id, b]));
 
     // ── STEP 2: Ambil penimbangans ──
-    const { data: visits, error: vError } = await supabaseAdmin
+    const { data: visits, error: vError } = await supabase
       .from('penimbangans')
       .select(`
         id,
@@ -164,6 +174,26 @@ export class ReportService {
     if (vError) console.error('ProblematicGroups Error:', vError);
 
     if (!visits) return [];
+
+    // Batch query history for all toddlers to optimize N+1 query loop
+    const { data: allHistory, error: hError } = await supabase
+      .from('penimbangans')
+      .select('balita_id, berat_badan, tanggal')
+      .in('balita_id', safeBalitaIds)
+      .lte('tanggal', format(endOfMonth(startDate), 'yyyy-MM-dd'))
+      .order('tanggal', { ascending: false });
+
+    if (hError) console.error('ProblematicGroups History Error:', hError);
+
+    // Group history by balita_id (up to 3 latest records)
+    const historyMap = new Map<string, { berat_badan: number, tanggal: string }[]>();
+    (allHistory || []).forEach(h => {
+      const list = historyMap.get(h.balita_id) || [];
+      if (list.length < 3) {
+        list.push({ berat_badan: h.berat_badan, tanggal: h.tanggal });
+        historyMap.set(h.balita_id, list);
+      }
+    });
 
     const problematic: ProblematicBalita[] = [];
 
@@ -188,15 +218,8 @@ export class ReportService {
       }
 
       // 4. Check 2T (Tidak Naik 2x berturut-turut)
-      const { data: history } = await supabaseAdmin
-        .from('penimbangans')
-        .select('berat_badan, tanggal')
-        .eq('balita_id', v.balita_id)
-        .lte('tanggal', endOfMonth(startDate).toISOString())
-        .order('tanggal', { ascending: false })
-        .limit(3);
-
-      if (history && history.length >= 3) {
+      const history = historyMap.get(v.balita_id) || [];
+      if (history.length >= 3) {
         const [curr, prev, beforePrev] = history;
         if (curr.berat_badan <= prev.berat_badan && prev.berat_badan <= beforePrev.berat_badan) {
           issues.push('2T (Tidak Naik 2x)');
@@ -218,60 +241,26 @@ export class ReportService {
   }
 
   /**
-   * Safe language map for parent sharing
-   */
-  static getSensitiveStatus(status: string) {
-    const s = (status || '').toLowerCase();
-    
-    if (s.includes('buruk') || s.includes('sangat pendek') || s.includes('sangat kurang') || s.includes('severe')) {
-      return { 
-        label: 'Memerlukan Perhatian Khusus', 
-        advice: 'Segera lakukan konsultasi intensif dengan Bidan atau Puskesmas terdekat untuk mendapatkan pendampingan gizi.' 
-      };
-    }
-    
-    if (s.includes('kurang') || s.includes('pendek') || s.includes('waspada')) {
-      return { 
-        label: 'Perlu Peningkatan Gizi', 
-        advice: 'Disarankan menambah porsi protein hewani dan vitamin. Jangan lupa pantau nafsu makan si kecil.' 
-      };
-    }
-    
-    if (s.includes('lebih') || s.includes('obesitas')) {
-      return { 
-        label: 'Kelebihan Gizi', 
-        advice: 'Atur kembali pola makan dan kurangi asupan gula atau snacks berlebih. Perbanyak aktivitas fisik.' 
-      };
-    }
-
-    // Default Good Status
-    return { 
-      label: 'Kondisi Normal & Baik', 
-      advice: 'Pertahankan pola makan bergizi dan pola asuh saat ini. Terus rutin menimbang setiap bulan ya Bunda!' 
-    };
-  }
-
-  /**
    * Get full list of weighings for the month
    */
   static async getMonthlyWeighingList(posyanduId: string, month: number, year: number): Promise<WeighingItem[]> {
     const startDate = new Date(year, month - 1, 1);
     const birthThresholdStr = format(subMonths(startDate, 60), 'yyyy-MM-dd');
-    const endDate = endOfMonth(startDate);
 
     // ── STEP 1: Ambil balitas ──
-    const { data: balitas, error: bError } = await supabaseAdmin
+    const { data: balitas, error: bError } = await supabase
       .from('balitas')
       .select('id, nama, tanggal_lahir, jenis_kelamin, nama_ortu, rt, posyandu_id')
       .eq('posyandu_id', posyanduId)
       .gt('tanggal_lahir', birthThresholdStr);
       
-    const balitaIds = balitas?.map(b => b.id) || [];
+    if (bError) console.error('WeighingList Balitas Error:', bError);
+    const balitaList = balitas || [];
+    const balitaIds = balitaList.map(b => b.id);
     const safeBalitaIds = balitaIds.length > 0 ? balitaIds : ['00000000-0000-0000-0000-000000000000'];
-    const balitaMap = new Map((balitas || []).map(b => [b.id, b]));
 
     // ── STEP 2: Ambil penimbangans ──
-    const { data: visits, error: wError } = await supabaseAdmin
+    const { data: visits, error: wError } = await supabase
       .from('penimbangans')
       .select(`
         balita_id,
@@ -279,7 +268,10 @@ export class ReportService {
         tinggi_badan,
         zscore_bb_u,
         zscore_tb_u,
-        zscore_bb_tb
+        zscore_bb_tb,
+        status_bb_u,
+        status_tb_u,
+        status_bb_tb
       `)
       .in('balita_id', safeBalitaIds)
       .gte('tanggal', format(startOfMonth(startDate), 'yyyy-MM-dd'))
@@ -287,26 +279,75 @@ export class ReportService {
       .order('tanggal', { ascending: true });
 
     if (wError) console.error('WeighingList Error:', wError);
+    const visitList = visits || [];
 
-    if (!visits) return [];
+    // Map latest visit for each balita
+    const latestVisitsMap = new Map<string, any>();
+    visitList.forEach(v => {
+      latestVisitsMap.set(v.balita_id, v);
+    });
 
-    return visits.map(v => {
-      const b = balitaMap.get(v.balita_id);
-      if (!b) return null;
-      const ageMonths = (year - new Date(b.tanggal_lahir).getFullYear()) * 12 + (month - 1 - new Date(b.tanggal_lahir).getMonth());
-      return {
-        nama: b.nama,
-        umur_bulan: Math.max(0, ageMonths),
-        jenis_kelamin: b.jenis_kelamin === 'Laki-laki' ? 'L' : 'P',
-        nama_ortu: b.nama_ortu,
-        rt: b.rt,
-        berat_badan: v.berat_badan,
-        tinggi_badan: v.tinggi_badan,
-        zscore_bb_u: (v as any).zscore_bb_u,
-        zscore_tb_u: (v as any).zscore_tb_u,
-        zscore_bb_tb: (v as any).zscore_bb_tb
-      };
-    }).filter(Boolean) as WeighingItem[];
+    // ── STEP 3: Ambil penyuluhans ──
+    const { data: counselings, error: cError } = await supabase
+      .from('penyuluhans')
+      .select('balita_id, rekomendasi')
+      .in('balita_id', safeBalitaIds)
+      .gte('tanggal', format(startOfMonth(startDate), 'yyyy-MM-dd'))
+      .lte('tanggal', format(endOfMonth(startDate), 'yyyy-MM-dd'));
+
+    if (cError) console.error('WeighingList Counselings Error:', cError);
+    const counselingMap = new Map((counselings || []).map(c => [c.balita_id, c.rekomendasi]));
+
+    return balitaList.map(b => {
+      const ageMonths = calculateAgeMonths(b.tanggal_lahir, new Date(year, month - 1, 15));
+      const v = latestVisitsMap.get(b.id);
+      
+      if (v) {
+        // Child was present / weighed
+        const isPoorGrowth = 
+          (v.zscore_bb_u !== null && v.zscore_bb_u <= -2) || 
+          (v.zscore_tb_u !== null && v.zscore_tb_u <= -2) || 
+          (v.zscore_bb_tb !== null && v.zscore_bb_tb <= -2);
+        
+        let advice = '-';
+        if (isPoorGrowth) {
+          advice = counselingMap.get(b.id) || 'Perlu asupan gizi seimbang dan pemantauan berkala.';
+        } else {
+          advice = 'Tumbuh optimal, pertahankan pola makan seimbang.';
+        }
+
+        return {
+          nama: b.nama,
+          umur_bulan: Math.max(0, ageMonths),
+          jenis_kelamin: b.jenis_kelamin === 'Laki-laki' ? 'L' : 'P',
+          nama_ortu: b.nama_ortu,
+          rt: b.rt,
+          berat_badan: v.berat_badan,
+          tinggi_badan: v.tinggi_badan,
+          zscore_bb_u: v.zscore_bb_u,
+          zscore_tb_u: v.zscore_tb_u,
+          zscore_bb_tb: v.zscore_bb_tb,
+          status_kehadiran: 'Hadir' as const,
+          catatan_penyuluhan: advice
+        };
+      } else {
+        // Child was absent
+        return {
+          nama: b.nama,
+          umur_bulan: Math.max(0, ageMonths),
+          jenis_kelamin: b.jenis_kelamin === 'Laki-laki' ? 'L' : 'P',
+          nama_ortu: b.nama_ortu,
+          rt: b.rt,
+          berat_badan: null,
+          tinggi_badan: null,
+          zscore_bb_u: null,
+          zscore_tb_u: null,
+          zscore_bb_tb: null,
+          status_kehadiran: 'Tidak Hadir' as const,
+          catatan_penyuluhan: 'Diingatkan Penimbangan Mandiri'
+        };
+      }
+    });
   }
 
   /**
@@ -314,9 +355,6 @@ export class ReportService {
    */
   static async getNutritionSummary(posyanduId: string, month: number, year: number): Promise<NutritionSummary> {
     const problems = await this.getProblematicGroups(posyanduId, month, year);
-    
-    // Also need Gizi Buruk specifically if not caught by getProblematicGroups
-    // Actually getProblematicGroups should catch it in issues list.
     
     return {
       stunting: problems.filter(p => p.jenis_masalah.some(m => m.includes('Stunting'))).length,
@@ -328,21 +366,17 @@ export class ReportService {
   }
 
   /**
-   * Get Lansia report data — Two-step query untuk keandalan maksimal.
-   * Step 1: Ambil semua lansias yang terdaftar di posyandu ini.
-   * Step 2: Ambil pemeriksaan_lansias menggunakan ID yang ditemukan.
+   * Get Lansia report data
    */
   static async getLansiaReportData(posyanduId: string, month: number, year: number): Promise<LansiaReportItem[]> {
     const startDate = new Date(year, month - 1, 1);
     const startStr = format(startOfMonth(startDate), 'yyyy-MM-dd');
     const endStr = format(endOfMonth(startDate), 'yyyy-MM-dd');
 
-    // ── STEP 1: Ambil lansias milik posyandu ini ─────────────────────────────
-    // Strategi: coba filter posyandu_id dulu.
-    // Jika 0 hasil (data lama mungkin punya posyandu_id NULL), fallback ke semua lansias.
-    let { data: lansias, error: lansiaError } = await supabaseAdmin
+    // Ambil lansias milik posyandu ini
+    let { data: lansias, error: lansiaError } = await supabase
       .from('lansias')
-      .select('id, nama, tanggal_lahir, rt, posyandu_id')
+      .select('id, nama, tanggal_lahir, rt, jenis_kelamin, posyandu_id')
       .eq('posyandu_id', posyanduId);
 
     if (lansiaError) console.error('[LansiaReport] Step1 Error:', lansiaError);
@@ -354,11 +388,10 @@ export class ReportService {
     }
 
     const lansiaIds = lansias.map(l => l.id);
-    // Buat lookup map untuk akses cepat
     const lansiaMap = new Map(lansias.map(l => [l.id, l]));
 
-    // ── STEP 2: Ambil pemeriksaan_lansias berdasarkan ID yang ditemukan ──────
-    const { data: checks, error: checkError } = await supabaseAdmin
+    // Ambil pemeriksaan_lansias berdasarkan ID yang ditemukan
+    const { data: checks, error: checkError } = await supabase
       .from('pemeriksaan_lansias')
       .select('*')
       .in('lansia_id', lansiaIds)
@@ -372,7 +405,7 @@ export class ReportService {
     if (!checks || checks.length === 0) return [];
 
     return checks.map(c => {
-      const l = lansiaMap.get(c.lansia_id) as any;
+      const l = lansiaMap.get(c.lansia_id);
       if (!l || !l.nama) return null;
 
       const age = year - new Date(l.tanggal_lahir).getFullYear();
@@ -380,11 +413,15 @@ export class ReportService {
       const bmi = (c.berat_badan && c.tinggi_badan) ? c.berat_badan / Math.pow(c.tinggi_badan / 100, 2) : null;
       let statusBmi = '-';
       if (bmi) {
-        if (bmi < 18.5) statusBmi = 'Kurus';
-        else if (bmi < 25) statusBmi = 'Normal';
-        else if (bmi < 30) statusBmi = 'Overweight';
+        if (bmi < 17.0) statusBmi = 'Sangat Kurus';
+        else if (bmi < 18.5) statusBmi = 'Kurus';
+        else if (bmi < 25.0) statusBmi = 'Normal';
+        else if (bmi < 27.0) statusBmi = 'Gemuk';
         else statusBmi = 'Obesitas';
       }
+
+      const gender = l.jenis_kelamin || 'Perempuan';
+      const limitAsamUrat = gender === 'Laki-laki' ? 7.0 : 6.0;
 
       const issues: string[] = [];
       if (c.tekanan_darah && c.tekanan_darah !== '-') {
@@ -392,7 +429,7 @@ export class ReportService {
         if (sys >= 140 || dia >= 90) issues.push('Hipertensi');
       }
       if (Number(c.gula_darah) > 200) issues.push('Gula Darah Tinggi');
-      if (Number(c.asam_urat) > 7) issues.push('Asam Urat Tinggi');
+      if (Number(c.asam_urat) > limitAsamUrat) issues.push('Asam Urat Tinggi');
       if (Number(c.kolesterol) > 200) issues.push('Kolesterol Tinggi');
 
       return {
@@ -411,5 +448,4 @@ export class ReportService {
       };
     }).filter(Boolean) as LansiaReportItem[];
   }
-
 }

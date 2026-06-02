@@ -23,7 +23,8 @@ export class HealthAnalyzer {
       const heightInMeters = pemeriksaan.tinggi_badan / 100;
       imt = pemeriksaan.berat_badan / (heightInMeters * heightInMeters);
       
-      if (imt < 18.5) imtStatus = 'Kurus';
+      if (imt < 17.0) imtStatus = 'Sangat Kurus';
+      else if (imt < 18.5) imtStatus = 'Kurus';
       else if (imt < 25) imtStatus = 'Normal';
       else if (imt < 27) imtStatus = 'Gemuk';
       else imtStatus = 'Obesitas';
