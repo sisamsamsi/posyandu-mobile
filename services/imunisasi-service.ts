@@ -22,7 +22,15 @@ export class ImunisasiService {
       return [];
     }
 
-    return data as Balita[];
+    const cleaned = (data || []).map(item => {
+      const balita = item as any;
+      if (balita.imunisasi && Array.isArray(balita.imunisasi)) {
+        balita.imunisasi = balita.imunisasi.length > 0 ? balita.imunisasi[0] : null;
+      }
+      return balita as Balita;
+    });
+
+    return cleaned;
   }
 
   static async saveImunisasi(imunisasi: Partial<Imunisasi>): Promise<{ data: any; error: any }> {

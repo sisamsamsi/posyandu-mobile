@@ -250,215 +250,221 @@ export default function SettingsScreen() {
           {/* =========================== */}
           {/* SECTION: PROFIL POSYANDU    */}
           {/* =========================== */}
-          <SectionHeader
-            icon={<MapPin size={18} color={COLORS.primary} />}
-            title="Profil Posyandu"
-            expanded={expandedSections.profil}
-            onToggle={() => toggleSection('profil')}
-            accentColor={COLORS.primary}
-          />
-          {expandedSections.profil && (
-            <View style={styles.sectionBody}>
-              <FormField
-                label="Nama Posyandu"
-                value={form.nama_posyandu || ''}
-                onChangeText={(v) => updateField('nama_posyandu', v)}
-                placeholder="Posyandu Melati"
-              />
-              <FormField
-                label="Alamat Lengkap"
-                value={form.alamat_lengkap || ''}
-                onChangeText={(v) => updateField('alamat_lengkap', v)}
-                placeholder="Jl. Kenanga No. 5, RT 03/RW 02"
-                multiline
-              />
-              <View style={styles.rowFields}>
-                <View style={{ flex: 1, marginRight: 8 }}>
-                  <FormField
-                    label="Kelurahan/Desa"
-                    value={form.kelurahan || ''}
-                    onChangeText={(v) => updateField('kelurahan', v)}
-                    placeholder="Sukajadi"
-                  />
+          <View style={styles.bentoCard}>
+            <SectionHeader
+              icon={<MapPin size={18} color={COLORS.primary} />}
+              title="Profil Posyandu"
+              expanded={expandedSections.profil}
+              onToggle={() => toggleSection('profil')}
+              accentColor={COLORS.primary}
+            />
+            {expandedSections.profil && (
+              <View style={styles.sectionBody}>
+                <FormField
+                  label="Nama Posyandu"
+                  value={form.nama_posyandu || ''}
+                  onChangeText={(v) => updateField('nama_posyandu', v)}
+                  placeholder="Posyandu Melati"
+                />
+                <FormField
+                  label="Alamat Lengkap"
+                  value={form.alamat_lengkap || ''}
+                  onChangeText={(v) => updateField('alamat_lengkap', v)}
+                  placeholder="Jl. Kenanga No. 5, RT 03/RW 02"
+                  multiline
+                />
+                <View style={styles.rowFields}>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <FormField
+                      label="Kelurahan/Desa"
+                      value={form.kelurahan || ''}
+                      onChangeText={(v) => updateField('kelurahan', v)}
+                      placeholder="Sukajadi"
+                    />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <FormField
+                      label="Kecamatan"
+                      value={form.kecamatan || ''}
+                      onChangeText={(v) => updateField('kecamatan', v)}
+                      placeholder="Pamanukan"
+                    />
+                  </View>
                 </View>
-                <View style={{ flex: 1, marginLeft: 8 }}>
-                  <FormField
-                    label="Kecamatan"
-                    value={form.kecamatan || ''}
-                    onChangeText={(v) => updateField('kecamatan', v)}
-                    placeholder="Pamanukan"
-                  />
+                <View style={styles.rowFields}>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <FormField
+                      label="Kabupaten/Kota"
+                      value={form.kabupaten || ''}
+                      onChangeText={(v) => updateField('kabupaten', v)}
+                      placeholder="Subang"
+                    />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <FormField
+                      label="Provinsi"
+                      value={form.provinsi || ''}
+                      onChangeText={(v) => updateField('provinsi', v)}
+                      placeholder="Jawa Barat"
+                    />
+                  </View>
                 </View>
               </View>
-              <View style={styles.rowFields}>
-                <View style={{ flex: 1, marginRight: 8 }}>
-                  <FormField
-                    label="Kabupaten/Kota"
-                    value={form.kabupaten || ''}
-                    onChangeText={(v) => updateField('kabupaten', v)}
-                    placeholder="Subang"
-                  />
-                </View>
-                <View style={{ flex: 1, marginLeft: 8 }}>
-                  <FormField
-                    label="Provinsi"
-                    value={form.provinsi || ''}
-                    onChangeText={(v) => updateField('provinsi', v)}
-                    placeholder="Jawa Barat"
-                  />
-                </View>
-              </View>
-            </View>
-          )}
+            )}
+          </View>
 
           {/* =========================== */}
           {/* SECTION: JADWAL POSYANDU    */}
           {/* =========================== */}
-          <SectionHeader
-            icon={<Calendar size={18} color="#6366F1" />}
-            title="Jadwal Posyandu"
-            expanded={expandedSections.jadwal}
-            onToggle={() => toggleSection('jadwal')}
-            accentColor="#6366F1"
-          />
-          {expandedSections.jadwal && (
-            <View style={styles.sectionBody}>
-              {/* Balita Schedule */}
-              <View style={styles.scheduleCard}>
-                <View style={styles.scheduleHeader}>
-                  <View style={[styles.scheduleIconCircle, { backgroundColor: '#F0FDFA' }]}>
-                    <Baby size={20} color={COLORS.primary} />
+          <View style={styles.bentoCard}>
+            <SectionHeader
+              icon={<Calendar size={18} color="#6366F1" />}
+              title="Jadwal Posyandu"
+              expanded={expandedSections.jadwal}
+              onToggle={() => toggleSection('jadwal')}
+              accentColor="#6366F1"
+            />
+            {expandedSections.jadwal && (
+              <View style={styles.sectionBody}>
+                {/* Balita Schedule */}
+                <View style={styles.scheduleCard}>
+                  <View style={styles.scheduleHeader}>
+                    <View style={[styles.scheduleIconCircle, { backgroundColor: '#F0FDFA' }]}>
+                      <Baby size={20} color={COLORS.primary} />
+                    </View>
+                    <Text style={styles.scheduleTitle}>Posyandu Balita</Text>
                   </View>
-                  <Text style={styles.scheduleTitle}>Posyandu Balita</Text>
+                  <View style={styles.scheduleRow}>
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text style={styles.fieldLabel}>Setiap Tanggal</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={form.jadwal_balita_tanggal?.toString() || ''}
+                        onChangeText={(v) => {
+                          const num = parseInt(v, 10);
+                          updateField('jadwal_balita_tanggal', isNaN(num) ? null : Math.min(31, Math.max(1, num)));
+                        }}
+                        placeholder="15"
+                        keyboardType="number-pad"
+                        maxLength={2}
+                      />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 8 }}>
+                      <Text style={styles.fieldLabel}>Jam Mulai</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={form.jadwal_balita_jam || ''}
+                        onChangeText={(v) => updateField('jadwal_balita_jam', v)}
+                        placeholder="08:00"
+                      />
+                    </View>
+                  </View>
                 </View>
-                <View style={styles.scheduleRow}>
-                  <View style={{ flex: 1, marginRight: 8 }}>
-                    <Text style={styles.fieldLabel}>Setiap Tanggal</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={form.jadwal_balita_tanggal?.toString() || ''}
-                      onChangeText={(v) => {
-                        const num = parseInt(v, 10);
-                        updateField('jadwal_balita_tanggal', isNaN(num) ? null : Math.min(31, Math.max(1, num)));
-                      }}
-                      placeholder="15"
-                      keyboardType="number-pad"
-                      maxLength={2}
-                    />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 8 }}>
-                    <Text style={styles.fieldLabel}>Jam Mulai</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={form.jadwal_balita_jam || ''}
-                      onChangeText={(v) => updateField('jadwal_balita_jam', v)}
-                      placeholder="08:00"
-                    />
-                  </View>
-                </View>
-              </View>
 
-              {/* Lansia Schedule */}
-              <View style={[styles.scheduleCard, { marginTop: 12 }]}>
-                <View style={styles.scheduleHeader}>
-                  <View style={[styles.scheduleIconCircle, { backgroundColor: '#EEF2FF' }]}>
-                    <Users size={20} color="#6366F1" />
+                {/* Lansia Schedule */}
+                <View style={[styles.scheduleCard, { marginTop: 12 }]}>
+                  <View style={styles.scheduleHeader}>
+                    <View style={[styles.scheduleIconCircle, { backgroundColor: '#EEF2FF' }]}>
+                      <Users size={20} color="#6366F1" />
+                    </View>
+                    <Text style={styles.scheduleTitle}>Posyandu Lansia</Text>
                   </View>
-                  <Text style={styles.scheduleTitle}>Posyandu Lansia</Text>
+                  <View style={styles.scheduleRow}>
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text style={styles.fieldLabel}>Setiap Tanggal</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={form.jadwal_lansia_tanggal?.toString() || ''}
+                        onChangeText={(v) => {
+                          const num = parseInt(v, 10);
+                          updateField('jadwal_lansia_tanggal', isNaN(num) ? null : Math.min(31, Math.max(1, num)));
+                        }}
+                        placeholder="22"
+                        keyboardType="number-pad"
+                        maxLength={2}
+                      />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 8 }}>
+                      <Text style={styles.fieldLabel}>Jam Mulai</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={form.jadwal_lansia_jam || ''}
+                        onChangeText={(v) => updateField('jadwal_lansia_jam', v)}
+                        placeholder="09:00"
+                      />
+                    </View>
+                  </View>
                 </View>
-                <View style={styles.scheduleRow}>
-                  <View style={{ flex: 1, marginRight: 8 }}>
-                    <Text style={styles.fieldLabel}>Setiap Tanggal</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={form.jadwal_lansia_tanggal?.toString() || ''}
-                      onChangeText={(v) => {
-                        const num = parseInt(v, 10);
-                        updateField('jadwal_lansia_tanggal', isNaN(num) ? null : Math.min(31, Math.max(1, num)));
-                      }}
-                      placeholder="22"
-                      keyboardType="number-pad"
-                      maxLength={2}
-                    />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 8 }}>
-                    <Text style={styles.fieldLabel}>Jam Mulai</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={form.jadwal_lansia_jam || ''}
-                      onChangeText={(v) => updateField('jadwal_lansia_jam', v)}
-                      placeholder="09:00"
-                    />
-                  </View>
-                </View>
-              </View>
 
-              <View style={styles.hintCard}>
-                <Info size={14} color="#64748B" />
-                <Text style={styles.hintText}>
-                  Jadwal ini akan ditampilkan di dashboard dan digunakan untuk menghitung countdown posyandu terdekat.
-                </Text>
+                <View style={styles.hintCard}>
+                  <Info size={14} color="#64748B" />
+                  <Text style={styles.hintText}>
+                    Jadwal ini akan ditampilkan di dashboard dan digunakan untuk menghitung countdown posyandu terdekat.
+                  </Text>
+                </View>
               </View>
-            </View>
-          )}
+            )}
+          </View>
 
           {/* =========================== */}
           {/* SECTION: TENTANG APLIKASI   */}
           {/* =========================== */}
-          <SectionHeader
-            icon={<Info size={18} color="#64748B" />}
-            title="Tentang Aplikasi"
-            expanded={expandedSections.info}
-            onToggle={() => toggleSection('info')}
-            accentColor="#64748B"
-          />
-          {expandedSections.info && (
-            <View style={styles.sectionBody}>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Versi Aplikasi</Text>
-                <Text style={styles.infoValue}>v2.0.0 (Premium)</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Platform</Text>
-                <Text style={styles.infoValue}>React Native + Expo</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Database</Text>
-                <Text style={styles.infoValue}>Supabase (PostgreSQL)</Text>
-              </View>
-              <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-                <Text style={styles.infoLabel}>Filosofi</Text>
-                <Text style={styles.infoValue}>Rawat Tumbuhnya, Jaga Tuanya</Text>
-              </View>
+          <View style={styles.bentoCard}>
+            <SectionHeader
+              icon={<Info size={18} color="#64748B" />}
+              title="Tentang Aplikasi"
+              expanded={expandedSections.info}
+              onToggle={() => toggleSection('info')}
+              accentColor="#64748B"
+            />
+            {expandedSections.info && (
+              <View style={styles.sectionBody}>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Versi Aplikasi</Text>
+                  <Text style={styles.infoValue}>v2.0.0 (Premium)</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Platform</Text>
+                  <Text style={styles.infoValue}>React Native + Expo</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Database</Text>
+                  <Text style={styles.infoValue}>Supabase (PostgreSQL)</Text>
+                </View>
+                <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+                  <Text style={styles.infoLabel}>Filosofi</Text>
+                  <Text style={styles.infoValue}>Rawat Tumbuhnya, Jaga Tuanya</Text>
+                </View>
 
-              {posyandu?.invite_code && (
-                <View style={styles.waFormatCard}>
-                  <Text style={[styles.waFormatTitle, { color: '#4338CA' }]}>🤝 Kode Undangan (Invite Code)</Text>
-                  <Text style={[styles.waFormatText, { color: '#3730A3' }]}>
-                    Bagikan kode ini kepada kader lain agar mereka bisa bergabung ke Posyandu Anda secara mandiri di halaman awal.
+                {posyandu?.invite_code && (
+                  <View style={styles.waFormatCard}>
+                    <Text style={[styles.waFormatTitle, { color: '#4338CA' }]}>🤝 Kode Undangan (Invite Code)</Text>
+                    <Text style={[styles.waFormatText, { color: '#3730A3' }]}>
+                      Bagikan kode ini kepada kader lain agar mereka bisa bergabung ke Posyandu Anda secara mandiri di halaman awal.
+                    </Text>
+                    <View style={styles.waFormatExample}>
+                      <Text style={[styles.waFormatCode, { fontSize: 24, letterSpacing: 3, fontWeight: '900', color: '#312E81' }]}>{posyandu.invite_code}</Text>
+                    </View>
+                  </View>
+                )}
+
+                <View style={[styles.waFormatCard, !posyandu?.invite_code && { marginTop: 16 }]}>
+                  <Text style={styles.waFormatTitle}>📱 Format Nomor WhatsApp</Text>
+                  <Text style={styles.waFormatText}>
+                    Saat mengisi nomor HP orang tua, gunakan format berikut:
                   </Text>
                   <View style={styles.waFormatExample}>
-                    <Text style={[styles.waFormatCode, { fontSize: 24, letterSpacing: 3, fontWeight: '900', color: '#312E81' }]}>{posyandu.invite_code}</Text>
+                    <Text style={styles.waFormatCode}>0812-3456-7890</Text>
+                    <Text style={styles.waFormatCode}>atau</Text>
+                    <Text style={styles.waFormatCode}>6281234567890</Text>
                   </View>
+                  <Text style={styles.waFormatNote}>
+                    Aplikasi akan otomatis mengkonversi ke format internasional (62xxx).
+                  </Text>
                 </View>
-              )}
-
-              <View style={[styles.waFormatCard, !posyandu?.invite_code && { marginTop: 16 }]}>
-                <Text style={styles.waFormatTitle}>📱 Format Nomor WhatsApp</Text>
-                <Text style={styles.waFormatText}>
-                  Saat mengisi nomor HP orang tua, gunakan format berikut:
-                </Text>
-                <View style={styles.waFormatExample}>
-                  <Text style={styles.waFormatCode}>0812-3456-7890</Text>
-                  <Text style={styles.waFormatCode}>atau</Text>
-                  <Text style={styles.waFormatCode}>6281234567890</Text>
-                </View>
-                <Text style={styles.waFormatNote}>
-                  Aplikasi akan otomatis mengkonversi ke format internasional (62xxx).
-                </Text>
               </View>
-            </View>
-          )}
+            )}
+          </View>
 
           {/* Ganti Layanan Button */}
           <TouchableOpacity 
@@ -533,11 +539,16 @@ function FormField({
   multiline?: boolean;
   keyboardType?: 'default' | 'number-pad';
 }) {
+  const [isFocused, setIsFocused] = useState(false);
   return (
     <View style={styles.fieldContainer}>
       <Text style={styles.fieldLabel}>{label}</Text>
       <TextInput
-        style={[styles.input, multiline && styles.inputMultiline]}
+        style={[
+          styles.input, 
+          multiline && styles.inputMultiline,
+          isFocused && { borderColor: COLORS.primary, borderWidth: 1.5 }
+        ]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -545,6 +556,8 @@ function FormField({
         multiline={multiline}
         numberOfLines={multiline ? 3 : 1}
         keyboardType={keyboardType}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
       />
     </View>
   );
@@ -557,13 +570,13 @@ function FormField({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     gap: 12,
   },
   loadingText: {
@@ -659,19 +672,26 @@ const styles = StyleSheet.create({
     padding: 16,
   },
 
-  // Section
+  // Bento Card Section
+  bentoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
+    elevation: 2,
+    shadowColor: '#00A896',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.02,
+    shadowRadius: 8,
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
     padding: 16,
-    borderRadius: 20,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
   },
   sectionHeaderLeft: {
     flexDirection: 'row',
@@ -693,12 +713,8 @@ const styles = StyleSheet.create({
   sectionBody: {
     backgroundColor: '#FFFFFF',
     padding: 20,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    borderWidth: 1,
-    borderTopWidth: 0,
-    borderColor: '#F1F5F9',
-    marginBottom: 4,
+    borderTopWidth: 1.5,
+    borderTopColor: '#F1F5F9',
   },
 
   // Form fields

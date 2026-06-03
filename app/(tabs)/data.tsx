@@ -1,71 +1,128 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+// app/(tabs)/data.tsx
+import React, { useState, useEffect } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  FlatList, 
+  ActivityIndicator 
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Baby, Users, ChevronRight, ClipboardList } from 'lucide-react-native';
+import { useBalita } from '../../hooks/useBalita';
+import { useLansia } from '../../hooks/useLansia';
 import { useServiceStore } from '../../stores/service-store';
+import { SearchBar } from '../../components/ui/SearchBar';
+import { Plus, ChevronRight, Baby, Users } from 'lucide-react-native';
 import { COLORS } from '../../lib/constants';
 import { WorkspaceSwitcher } from '../../components/ui/WorkspaceSwitcher';
+import { differenceInMonths } from 'date-fns';
 
 export default function DataMasterScreen() {
   const router = useRouter();
-  const { activeWorkspace } = useServiceStore();
-
+  const { activeWorkspace, activePosyanduId } = useServiceStore();
   const isBalita = activeWorkspace === 'balita';
+  
+  const { getBalitas, loading: balitaLoading } = useBalita();
+  const { getLansias, loading: lansiaLoading } = useLansia();
+
+  const [search, setSearch] = useState('');
+  const [listData, setListData] = useState<any[]>([]);
+
   const theme = {
     primary: isBalita ? COLORS.tealPrimary : COLORS.indigoPrimary,
     background: isBalita ? COLORS.tealBg : COLORS.indigoBg,
     tonal: isBalita ? COLORS.tealTonal : COLORS.indigoTonal,
   };
 
-  const allMenuItems = [
-    {
-      title: 'Data Balita',
-      subtitle: 'Pendaftaran & data induk anak',
-      icon: <Baby size={22} color={theme.primary} />,
-      route: '/balita',
-      ws: 'balita',
-    },
-    {
-      title: 'Data Imunisasi',
-      subtitle: 'Pantau kelengkapan vaksin anak',
-      icon: <Baby size={22} color={theme.primary} />,
-      route: '/imunisasi',
-      ws: 'balita',
-    },
-    {
-      title: 'Monitoring Balita',
-      subtitle: 'Analisis status kehadiran bulanan',
-      icon: <ClipboardList size={22} color={theme.primary} />,
-      route: '/monitoring/balita',
-      ws: 'balita',
-    },
-    {
-      title: 'Data Lansia',
-      subtitle: 'Pendaftaran & profil kesehatan lansia',
-      icon: <Users size={22} color={theme.primary} />,
-      route: '/lansia',
-      ws: 'lansia',
-    },
-    {
-      title: 'Monitoring Lansia',
-      subtitle: 'Pantau kunjungan pemeriksaan bulanan',
-      icon: <ClipboardList size={22} color={theme.primary} />,
-      route: '/monitoring/lansia',
-      ws: 'lansia',
-    },
-  ];
+  const loading = isBalita ? balitaLoading : lansiaLoading;
 
-  const menuItems = allMenuItems.filter((item) => item.ws === activeWorkspace);
+  const fetchData = async (query?: string) => {
+    if (!activePosyanduId) return;
+    if (isBalita) {
+      const data = await getBalitas(query);
+      setListData(data);
+    } else {
+      const data = await getLansias(query);
+      setListData(data);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [activeWorkspace, activePosyanduId]);
+
+  const handleSearch = (text: string) => {
+    setSearch(text);
+    fetchData(text);
+  };
+
+  const getInitials = (name: string) => {
+    if (!name) return isBalita ? 'B' : 'L';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  const getAgeText = (birthDate: string) => {
+    if (isBalita) {
+      const months = differenceInMonths(new Date(), new Date(birthDate));
+      return `${months} bulan`;
+    } else {
+      const years = new Date().getFullYear() - new Date(birthDate).getFullYear();
+      return `${years} tahun`;
+    }
+  };
+
+  const renderItem = ({ item }: { item: any }) => {
+    const initials = getInitials(item.nama);
+    const posyanduName = item.posyandu?.nama_posyandu || 'Posyandu';
+    const ageText = getAgeText(item.tanggal_lahir);
+    
+    // Check if balita is graduated (age > 60 months)
+    const ageMonths = isBalita ? differenceInMonths(new Date(), new Date(item.tanggal_lahir)) : 0;
+    const isGraduated = isBalita && ageMonths > 60;
+
+    return (
+      <TouchableOpacity 
+        onPress={() => router.push(`/${activeWorkspace}/${item.id}`)} 
+        activeOpacity={0.7}
+        style={styles.cardWrapper}
+      >
+        <View style={[styles.avatarContainer, { backgroundColor: theme.tonal }]}>
+          <Text style={[styles.avatarText, { color: theme.primary }]}>{initials}</Text>
+        </View>
+        
+        <View style={styles.textContainer}>
+          <View style={styles.nameRow}>
+            <Text style={styles.nameText} numberOfLines={1}>{item.nama}</Text>
+            {isGraduated && (
+              <View style={styles.graduatedBadge}>
+                <Text style={styles.graduatedBadgeText}>Lulus</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.subText}>{ageText} • RT {item.rt || 1} • {posyanduName}</Text>
+        </View>
+        
+        <View style={styles.actionCircle}>
+          <ChevronRight size={16} color={theme.primary} />
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView style={styles.container}>
       {/* Header Section */}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Data Master</Text>
+          <Text style={styles.title}>Daftar {isBalita ? 'Balita' : 'Lansia'}</Text>
           <Text style={styles.subtitle}>
-            Kelola informasi dan riwayat layanan untuk {isBalita ? 'Balita' : 'Lansia'}
+            Kelola data & riwayat {isBalita ? 'tumbuh kembang anak' : 'kesehatan lansia'}
           </Text>
         </View>
         <View style={styles.headerRight}>
@@ -73,28 +130,57 @@ export default function DataMasterScreen() {
         </View>
       </View>
 
-      {/* Content Section */}
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {menuItems.map((item, index) => (
-          <TouchableOpacity 
-            key={index} 
-            onPress={() => router.push(item.route as any)}
-            activeOpacity={0.7}
-            style={styles.menuCard}
-          >
-            <View style={[styles.iconContainer, { backgroundColor: theme.tonal }]}>
-              {item.icon}
+      {/* Search Bar Container */}
+      <View style={styles.searchContainer}>
+        <SearchBar 
+          value={search} 
+          onChangeText={handleSearch} 
+          onClear={() => handleSearch('')} 
+          placeholder={isBalita ? "Cari nama balita atau NIK..." : "Cari nama lansia atau NIK..."}
+        />
+      </View>
+
+      {/* List Container */}
+      {loading && listData.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.primary} />
+          <Text style={styles.loadingText}>Memuat data warga...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={listData}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <View style={[styles.emptyIconCircle, { backgroundColor: theme.tonal }]}>
+                {isBalita ? (
+                  <Baby size={32} color={theme.primary} />
+                ) : (
+                  <Users size={32} color={theme.primary} />
+                )}
+              </View>
+              <Text style={styles.emptyTitle}>Data Tidak Ditemukan</Text>
+              <Text style={styles.emptySubtitle}>
+                Belum ada data {isBalita ? 'balita' : 'lansia'} yang terdaftar untuk posyandu ini.
+              </Text>
             </View>
-            <View style={styles.textContainer}>
-              <Text style={styles.menuTitle}>{item.title}</Text>
-              <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
-            </View>
-            <View style={styles.actionCircle}>
-              <ChevronRight size={16} color={theme.primary} />
-            </View>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+          }
+          refreshing={loading}
+          onRefresh={() => fetchData(search)}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
+
+      {/* FLOATING ACTION BUTTON (FAB) */}
+      <TouchableOpacity 
+        style={[styles.fab, { backgroundColor: theme.primary, shadowColor: theme.primary }]} 
+        onPress={() => router.push(`/${activeWorkspace}/create`)}
+        activeOpacity={0.8}
+      >
+        <Plus size={28} color="#FFFFFF" strokeWidth={2.5} />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -102,6 +188,7 @@ export default function DataMasterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
   },
   header: {
     paddingHorizontal: 24,
@@ -110,11 +197,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    elevation: 3,
-    shadowColor: '#00A896',
-    shadowOpacity: 0.04,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 4 },
+    borderBottomWidth: 0,
   },
   headerRight: {
     justifyContent: 'center',
@@ -123,7 +206,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#1E293B',
+    color: '#0F172A',
     letterSpacing: -0.5,
   },
   subtitle: {
@@ -133,49 +216,85 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 18,
   },
-  content: {
-    padding: 16,
-    paddingBottom: 40,
-    gap: 16,
+  searchContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
-  menuCard: {
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 100,
+    gap: 12,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  cardWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     padding: 16,
-    borderRadius: 24, // Premium wide-rounded cards
-    elevation: 3,
-    shadowColor: '#00A896',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.04,
-    shadowRadius: 16,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: '#F1F5F9',
+    elevation: 2,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
   },
-  iconContainer: {
+  avatarContainer: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 16,
+  },
+  avatarText: {
+    fontSize: 15,
+    fontWeight: '900',
   },
   textContainer: {
     flex: 1,
-    marginLeft: 16,
-    marginRight: 8,
+    justifyContent: 'center',
   },
-  menuTitle: {
-    fontSize: 17,
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  nameText: {
+    fontSize: 15,
     fontWeight: '800',
-    color: '#1E293B',
-    letterSpacing: -0.2,
+    color: '#0F172A',
+    flexShrink: 1,
   },
-  menuSubtitle: {
-    fontSize: 13,
+  graduatedBadge: {
+    backgroundColor: '#F0FDF4', // soft green Kemenkes
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
+  },
+  graduatedBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#16A34A', // Green text
+  },
+  subText: {
+    fontSize: 12,
     color: '#64748B',
-    marginTop: 4,
+    marginTop: 6,
     fontWeight: '500',
-    lineHeight: 18,
   },
   actionCircle: {
     width: 32,
@@ -184,5 +303,46 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 80,
+    paddingHorizontal: 32,
+  },
+  emptyIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
   },
 });

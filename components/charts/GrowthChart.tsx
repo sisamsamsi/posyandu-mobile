@@ -3,6 +3,7 @@ import { View, Text, Dimensions, StyleSheet } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { WHOReferenceRow, Penimbangan } from '../../lib/types';
 import { differenceInMonths } from 'date-fns';
+import { Info } from 'lucide-react-native';
 
 interface GrowthChartProps {
   standards: WHOReferenceRow[];
@@ -40,17 +41,17 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
   // Set display limit: stop exactly at the last visit to avoid flatlining into the future
   const displayLimit = indicator === 'BB_TB' 
     ? 120 
-    : Math.min(Math.max(maxMonthRecorded, 12), 60);
+    : Math.min(Math.max(maxMonthRecorded, 12), 30); // Show up to 30 months as in the reference mockup
 
   const filteredStandards = indicator === 'BB_TB'
     ? standards.filter(s => s.measurement >= 45 && s.measurement <= 120)
     : standards.filter(s => s.measurement <= displayLimit);
 
-  // Labels for X-axis (sampled for spacing)
+  // Labels for X-axis (sampled for spacing - e.g. every 6 months)
   const labels = filteredStandards.filter((_, i) => {
     if (indicator === 'BB_TB') return i % 20 === 0;
-    return i % 12 === 0 || i === filteredStandards.length - 1;
-  }).map(s => `${s.measurement}${indicator === 'BB_TB' ? 'cm' : 'bln'}`);
+    return i % 6 === 0 || i === filteredStandards.length - 1;
+  }).map(s => `${s.measurement}`);
   
   const getLine = (key: keyof WHOReferenceRow) => {
     return filteredStandards.map(s => s[key] as number);
@@ -98,7 +99,7 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
   if (actualVisits.length === 0) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.chartTitleText}>{title}</Text>
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>Belum ada data penimbangan untuk grafik ini.</Text>
         </View>
@@ -140,58 +141,114 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
     datasets: [
       {
         data: getLine('minus_3sd'),
-        color: () => '#EF4444', // Solid Red
-        strokeWidth: 2,
+        color: () => '#EF4444', // -3 SD Red
+        strokeWidth: 1.5,
         withDots: false,
       },
       {
         data: getLine('minus_2sd'),
-        color: () => '#F59E0B', // Solid Orange/Yellow
+        color: () => '#F97316', // -2 SD Orange
+        strokeWidth: 1.5,
+        withDots: false,
+      },
+      {
+        data: getLine('minus_1sd'),
+        color: () => '#EAB308', // -1 SD Yellow
         strokeWidth: 1.5,
         withDots: false,
       },
       {
         data: getLine('median'),
-        color: () => '#10B981', // Solid Green (Kemenkes)
-        strokeWidth: 3,
+        color: () => '#09A477', // Median Green (Kemenkes)
+        strokeWidth: 2.5,
+        withDots: false,
+      },
+      {
+        data: getLine('plus_1sd'),
+        color: () => '#EAB308', // 1 SD Yellow
+        strokeWidth: 1.5,
         withDots: false,
       },
       {
         data: getLine('plus_2sd'),
-        color: () => '#F59E0B', // Solid Orange/Yellow
+        color: () => '#F97316', // 2 SD Orange
         strokeWidth: 1.5,
         withDots: false,
       },
       {
         data: getLine('plus_3sd'),
-        color: () => '#EF4444', // Solid Red
-        strokeWidth: 2,
+        color: () => '#EF4444', // 3 SD Red
+        strokeWidth: 1.5,
         withDots: false,
       },
       {
         data: balitaDataRaw,
-        color: () => '#4F46E5', // Premium Royal Indigo for child's curve
-        strokeWidth: 4,
+        color: () => '#0F766E', // Child Curve Dark Teal
+        strokeWidth: 3.5,
         withDots: true,
       },
     ],
-    legend: [title]
   };
+
+  // Dynamic labels and titles
+  const getChartMetadata = () => {
+    switch (indicator) {
+      case 'TB':
+        return {
+          chartTitle: 'Tinggi Badan menurut Umur (TB/U)',
+          yLabel: 'Tinggi Badan (cm)',
+          xLabel: 'Umur (bulan)'
+        };
+      case 'IMT':
+        return {
+          chartTitle: 'Indeks Massa Tubuh menurut Umur (IMT/U)',
+          yLabel: 'IMT (kg/m²)',
+          xLabel: 'Umur (bulan)'
+        };
+      case 'BB_TB':
+        return {
+          chartTitle: 'Berat Badan menurut Tinggi Badan (BB/TB)',
+          yLabel: 'Berat Badan (kg)',
+          xLabel: 'Tinggi Badan (cm)'
+        };
+      case 'BB':
+      default:
+        return {
+          chartTitle: 'Berat Badan menurut Umur (BB/U)',
+          yLabel: 'Berat Badan (kg)',
+          xLabel: 'Umur (bulan)'
+        };
+    }
+  };
+
+  const metadata = getChartMetadata();
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{title}</Text>
+      {/* Chart Header Row */}
+      <View style={styles.headerRow}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.chartTitleText}>{metadata.chartTitle}</Text>
+          <Info size={14} color="#64748B" style={{ marginLeft: 6 }} />
+        </View>
+        <Text style={styles.referenceText}>WHO Antro 2005</Text>
+      </View>
+
+      {/* Y-Axis Label */}
+      <Text style={styles.yAxisLabel}>{metadata.yLabel}</Text>
+
+      {/* Chart */}
       <LineChart
         data={chartData}
         width={screenWidth - 40}
-        height={240}
+        height={220}
         chartConfig={{
           backgroundColor: '#ffffff',
           backgroundGradientFrom: '#ffffff',
           backgroundGradientTo: '#ffffff',
           decimalPlaces: 1,
           color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-          labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
+          labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`,
           style: {
             borderRadius: 16,
           },
@@ -206,17 +263,55 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
         withShadow={false}
         hidePointsAtIndex={hideIndices}
         style={styles.chart}
-        withInnerLines={false}
-        withOuterLines={true}
+        withInnerLines={true}
+        withOuterLines={false}
         withVerticalLines={false}
         withHorizontalLines={true}
         fromZero={false}
       />
-      <View style={styles.legend}>
-        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#22c55e' }]} /><Text style={styles.legendText}>Ideal (Median)</Text></View>
-        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#f59e0b' }]} /><Text style={styles.legendText}>Batas Normal (±2 SD)</Text></View>
-        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#ef4444' }]} /><Text style={styles.legendText}>Risiko (±3 SD)</Text></View>
-        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#4F46E5' }]} /><Text style={styles.legendText}>Pertumbuhan Balita</Text></View>
+
+      {/* X-Axis Label */}
+      <Text style={styles.xAxisLabel}>{metadata.xLabel}</Text>
+
+      {/* Custom Legend */}
+      <View style={styles.legendContainer}>
+        <View style={styles.legendRow}>
+          <View style={styles.legendItem}>
+            <View style={[styles.dot, { backgroundColor: '#EF4444' }]} />
+            <Text style={styles.legendText}>-3 SD</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.dot, { backgroundColor: '#F97316' }]} />
+            <Text style={styles.legendText}>-2 SD</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.dot, { backgroundColor: '#EAB308' }]} />
+            <Text style={styles.legendText}>-1 SD</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.dot, { backgroundColor: '#09A477' }]} />
+            <Text style={styles.legendText}>Median</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.dot, { backgroundColor: '#EAB308' }]} />
+            <Text style={styles.legendText}>1 SD</Text>
+          </View>
+        </View>
+
+        <View style={styles.legendRow}>
+          <View style={styles.legendItem}>
+            <View style={[styles.dot, { backgroundColor: '#F97316' }]} />
+            <Text style={styles.legendText}>2 SD</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.dot, { backgroundColor: '#EF4444' }]} />
+            <Text style={styles.legendText}>3 SD</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.dot, { backgroundColor: '#0F766E' }]} />
+            <Text style={styles.legendText}>Hasil Pengukuran</Text>
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -230,38 +325,67 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#F1F5F9',
-    elevation: 4,
-    shadowColor: '#64748B',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
+    elevation: 2,
+    shadowColor: '#000000',
+    shadowOpacity: 0.03,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
   },
-  title: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#0F172A',
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 12,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  chartTitleText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#1E293B',
+  },
+  referenceText: {
+    fontSize: 10,
+    color: '#94A3B8',
+    fontWeight: '700',
+  },
+  yAxisLabel: {
+    fontSize: 9,
+    color: '#94A3B8',
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  xAxisLabel: {
+    fontSize: 10,
+    color: '#64748B',
+    fontWeight: '700',
     textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 12,
   },
   chart: {
     marginVertical: 4,
     borderRadius: 16,
-    marginLeft: -10, 
+    marginLeft: -15,
   },
-  legend: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    marginTop: 12,
+  legendContainer: {
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
     paddingTop: 12,
+    gap: 8,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 8,
-    marginBottom: 4,
   },
   dot: {
     width: 8,
@@ -270,8 +394,8 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   legendText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '700',
     color: '#64748B',
   },
   loading: {

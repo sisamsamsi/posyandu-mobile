@@ -45,40 +45,63 @@ export const generateMonthlyReportHtml = (
     : '<tr><td colspan="11" style="text-align:center; padding: 20px;">Tidak ada data penimbangan.</td></tr>';
 
   // Filter for children with counseling priority:
-  // - Absent children (Tidak Hadir)
-  // - Present children with poor growth (Z-score <= -2 in weight, height, or wasting) or custom AI remarks
-  const priorityWeighings = weighings.filter(w => 
-    w.status_kehadiran === 'Tidak Hadir' || 
-    (w.catatan_penyuluhan && !w.catatan_penyuluhan.includes('Tumbuh optimal'))
-  );
+  // Only present children (Hadir) who have nutritional problems (Z-score <= -2)
+  const priorityWeighings = weighings.filter(w => {
+    if (w.status_kehadiran !== 'Hadir') return false;
+    const isPoor = 
+      (w.zscore_bb_u !== null && w.zscore_bb_u !== undefined && w.zscore_bb_u <= -2) || 
+      (w.zscore_tb_u !== null && w.zscore_tb_u !== undefined && w.zscore_tb_u <= -2) || 
+      (w.zscore_bb_tb !== null && w.zscore_bb_tb !== undefined && w.zscore_bb_tb <= -2);
+    return isPoor;
+  });
+
+  // Helper to summarize long AI recommendations into brief bullet titles
+  const summarizePenyuluhan = (text: string | null | undefined): string => {
+    if (!text) return 'Perlu asupan gizi seimbang dan pemantauan berkala.';
+    
+    // Clean markdown bold and headers
+    let clean = text.replace(/\*\*/g, '').replace(/###/g, '').replace(/#/g, '').trim();
+    
+    // Split into points
+    const lines = clean.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const briefPoints: string[] = [];
+    
+    lines.forEach(line => {
+      const match = line.match(/^(\d+\.|\-|\*)\s*(.*?)$/);
+      if (match) {
+        let content = match[2];
+        const colonIdx = content.indexOf(':');
+        if (colonIdx > -1) {
+          content = content.substring(0, colonIdx).trim();
+        } else {
+          const firstSentence = content.split(/[.\n]/)[0].trim();
+          if (firstSentence.length < 50) {
+            content = firstSentence;
+          } else {
+            content = firstSentence.substring(0, 45) + '...';
+          }
+        }
+        if (content.length > 0) {
+          briefPoints.push(content);
+        }
+      }
+    });
+
+    if (briefPoints.length > 0) {
+      return briefPoints.map((p, i) => `${i + 1}. ${p}`).join('; ');
+    }
+
+    if (clean.length > 120) {
+      return clean.substring(0, 117) + '...';
+    }
+    return clean;
+  };
 
   const counselingCardsHtml = priorityWeighings.length > 0
     ? priorityWeighings.map((w) => {
-        const isAbsent = w.status_kehadiran === 'Tidak Hadir';
-        const isPoorGrowth = !isAbsent && (
-          (w.zscore_bb_u !== null && w.zscore_bb_u !== undefined && w.zscore_bb_u <= -2) || 
-          (w.zscore_tb_u !== null && w.zscore_tb_u !== undefined && w.zscore_tb_u <= -2) || 
-          (w.zscore_bb_tb !== null && w.zscore_bb_tb !== undefined && w.zscore_bb_tb <= -2)
-        );
-        
-        let cardClass = 'counseling-text';
-        let statusBadge = '<span class="badge bg-teal">Hadir - Baik</span>';
-        
-        if (isAbsent) {
-          cardClass = 'counseling-text counseling-text-absent';
-          statusBadge = '<span class="badge bg-orange">Tidak Hadir</span>';
-        } else if (isPoorGrowth) {
-          cardClass = 'counseling-text counseling-text-warning';
-          statusBadge = '<span class="badge bg-red">Perlu Perhatian Gizi</span>';
-        }
-        
-        const zscoreInfo = !isAbsent 
-          ? ` • BB/U: ${w.zscore_bb_u?.toFixed(2) || '-'} | TB/U: ${w.zscore_tb_u?.toFixed(2) || '-'} | BB/TB: ${w.zscore_bb_tb?.toFixed(2) || '-'}`
-          : '';
-
-        const counselingText = isAbsent
-          ? 'Anak tidak hadir. Otomatis diingatkan oleh Kader melalui WhatsApp AYOMI untuk melakukan penimbangan mandiri di rumah atau kunjungan susulan ke Posyandu.'
-          : w.catatan_penyuluhan || 'Perlu asupan nutrisi protein hewani seimbang, vitamin, dan pemantauan tumbuh kembang bulanan secara berkala.';
+        const statusBadge = '<span class="badge bg-red">Perlu Perhatian Gizi</span>';
+        const zscoreInfo = ` • BB/U: ${w.zscore_bb_u?.toFixed(2) || '-'} | TB/U: ${w.zscore_tb_u?.toFixed(2) || '-'} | BB/TB: ${w.zscore_bb_tb?.toFixed(2) || '-'}`;
+        const briefAdvice = summarizePenyuluhan(w.catatan_penyuluhan);
 
         return `
           <div class="counseling-card">
@@ -91,14 +114,14 @@ export const generateMonthlyReportHtml = (
                 ${statusBadge}
               </div>
             </div>
-            <div class="${cardClass}">
-              <strong>Rekomendasi / Hasil Penyuluhan AI:</strong><br/>
-              ${counselingText}
+            <div class="counseling-text counseling-text-warning">
+              <strong>Ringkasan Hasil Penyuluhan AI:</strong><br/>
+              ${briefAdvice}
             </div>
           </div>
         `;
       }).join('')
-    : '<div style="text-align:center; padding: 30px; color: #94a3b8; border: 1px dashed #cbd5e1; border-radius: 12px; background: #f8fafc; font-size: 12px;">Semua sasaran hadir dengan pertumbuhan optimal bulan ini. Tidak ada tindak lanjut penyuluhan khusus yang diperlukan.</div>';
+    : '<div style="text-align:center; padding: 30px; color: #94a3b8; border: 1px dashed #cbd5e1; border-radius: 12px; background: #f8fafc; font-size: 12px;">Semua sasaran hadir dengan pertumbuhan optimal bulan ini. Tidak ada data penyuluhan khusus yang perlu dilaporkan.</div>';
 
   return `
     <html>

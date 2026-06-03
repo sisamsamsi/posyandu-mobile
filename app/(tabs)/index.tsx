@@ -10,7 +10,8 @@ import {
   RefreshControl,
   Dimensions,
   Modal,
-  Image
+  Image,
+  FlatList
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -22,6 +23,9 @@ import {
   FileUp, 
   Bell, 
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  LayoutGrid,
   BarChart3,
   X,
   CheckCircle2,
@@ -35,13 +39,19 @@ import {
   Sparkles,
   RefreshCw,
   Settings,
+  Brain,
+  MapPin,
+  Flower
 } from 'lucide-react-native';
+import { PieChart } from 'react-native-chart-kit';
 import * as Updates from 'expo-updates';
 import { DashboardService, DashboardStats } from '../../services/dashboard-service';
 import { Card } from '../../components/ui/Card';
 import { ScheduleCard } from '../../components/ui/ScheduleCard';
 import { StatsGrid } from '../../components/ui/StatsGrid';
 import { useServiceStore } from '../../stores/service-store';
+import { useAuthStore } from '../../stores/auth-store';
+import { usePosyandu } from '../../hooks/usePosyandu';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { WorkspaceSwitcher } from '../../components/ui/WorkspaceSwitcher';
@@ -87,16 +97,25 @@ function PressableRow({ icon, label, onPress }: { icon: React.ReactNode; label: 
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { setActiveWorkspace, activePosyanduId, activeWorkspace } = useServiceStore();
+  const { setActiveWorkspace, activePosyanduId, setActivePosyandu, activeWorkspace } = useServiceStore();
+  const { user } = useAuthStore();
+  const { getLinkedPosyandus } = usePosyandu();
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isNotifVisible, setIsNotifVisible] = useState(false);
 
+  // Posyandu selection states
+  const [showPosyanduPicker, setShowPosyanduPicker] = useState(false);
+  const [allPosyandus, setAllPosyandus] = useState<any[]>([]);
+  const [activePosyanduName, setActivePosyanduName] = useState<string>('Pilih Posyandu');
+
   // OTA Updates States
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [isDownloadingUpdate, setIsDownloadingUpdate] = useState(false);
   const [updateDismissed, setUpdateDismissed] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Dynamic Theme Selection based on Active Workspace
   const isBalita = activeWorkspace === 'balita';
@@ -135,6 +154,26 @@ export default function DashboardScreen() {
     }
   };
 
+  const loadPosyandus = async () => {
+    const rels = await getLinkedPosyandus();
+    const list = rels.map(r => r.posyandus).filter(Boolean);
+    setAllPosyandus(list);
+    
+    if (activePosyanduId) {
+      const active = list.find(p => p.id === activePosyanduId);
+      if (active) setActivePosyanduName(active.nama_posyandu);
+    } else if (list.length > 0) {
+      setActivePosyandu(list[0].id);
+      setActivePosyanduName(list[0].nama_posyandu);
+    }
+  };
+
+  const handleSelectPosyandu = (p: any) => {
+    setActivePosyandu(p.id);
+    setActivePosyanduName(p.nama_posyandu);
+    setShowPosyanduPicker(false);
+  };
+
   const fetchStats = async () => {
     try {
       const data = await DashboardService.getStats(activePosyanduId);
@@ -148,18 +187,63 @@ export default function DashboardScreen() {
   };
 
   useEffect(() => {
+    loadPosyandus();
     fetchStats();
     checkOtaUpdate();
   }, [activePosyanduId]);
 
   const onRefresh = () => {
     setRefreshing(true);
+    loadPosyandus();
     fetchStats();
     checkOtaUpdate();
   };
 
   const today = format(new Date(), 'EEEE, d MMMM yyyy', { locale: idLocale });
-  const posyanduName = stats?.posyanduInfo?.nama_posyandu || 'Posyandu';
+  const kaderName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Kader';
+
+  const nutritionBreakdown = React.useMemo(() => {
+    if (!stats || !stats.nutritionStats) return [];
+    
+    let baik = 0;
+    let normal = 0;
+    let kurang = 0;
+    let buruk = 0;
+
+    stats.nutritionStats.forEach(item => {
+      const label = item.label;
+      if (label.includes('Baik') || label.includes('Lebih') || label.includes('RL')) {
+        baik += item.count;
+      } else if (label.includes('Normal') || (label.includes('N') && !label.includes('Kurang'))) {
+        normal += item.count;
+      } else if (label.includes('Kurang') || (label.includes('K') && !label.includes('Sangat'))) {
+        kurang += item.count;
+      } else if (label.includes('Buruk') || label.includes('Sangat') || label.includes('SK')) {
+        buruk += item.count;
+      } else {
+        normal += item.count;
+      }
+    });
+
+    const total = baik + normal + kurang + buruk || 1;
+
+    return [
+      { label: 'Baik', count: baik, percent: Math.round((baik / total) * 100), color: '#3B82F6' },
+      { label: 'Normal', count: normal, percent: Math.round((normal / total) * 100), color: '#10B981' },
+      { label: 'Kurang', count: kurang, percent: Math.round((kurang / total) * 100), color: '#F59E0B' },
+      { label: 'Buruk', count: buruk, percent: Math.round((buruk / total) * 100), color: '#EF4444' },
+    ];
+  }, [stats]);
+
+  const pieData = React.useMemo(() => {
+    return nutritionBreakdown.map(item => ({
+      name: item.label,
+      population: item.count || 0.0001,
+      color: item.color,
+      legendFontColor: '#64748B',
+      legendFontSize: 12
+    }));
+  }, [nutritionBreakdown]);
 
   if (loading && !stats) {
     return (
@@ -170,39 +254,169 @@ export default function DashboardScreen() {
     );
   }
 
+  const fullQuickActions = isBalita ? [
+    {
+      label: 'Data Balita',
+      icon: <Users size={18} color="#2563EB" />,
+      bgColor: '#EFF6FF',
+      onPress: () => router.push('/(tabs)/data'),
+    },
+    {
+      label: 'Imunisasi',
+      icon: <Syringe size={18} color="#2563EB" />,
+      bgColor: '#EFF6FF',
+      onPress: () => router.push('/imunisasi'),
+    },
+    {
+      label: 'Laporan',
+      icon: <FileDown size={18} color="#16A34A" />,
+      bgColor: '#F0FDF4',
+      onPress: () => router.push(`/admin/reports?type=balita`),
+    },
+    {
+      label: 'Penimbangan',
+      icon: <Activity size={18} color="#7C3AED" />,
+      bgColor: '#F5F3FF',
+      onPress: () => router.push('/service-desk/balita'),
+    },
+    {
+      label: 'Pengguna',
+      icon: <Users size={18} color="#2563EB" />,
+      bgColor: '#EFF6FF',
+      onPress: () => router.push('/settings'),
+    },
+    {
+      label: 'Pengaturan',
+      icon: <Settings size={18} color="#475569" />,
+      bgColor: '#F8FAFC',
+      onPress: () => router.push('/settings'),
+    },
+    {
+      label: 'Konseling AI',
+      icon: <Brain size={18} color="#EC4899" />,
+      bgColor: '#FDF2F8',
+      onPress: () => router.push('/counseling/queue'),
+    },
+    {
+      label: 'Kirim WA',
+      icon: <MessageCircle size={18} color="#22C55E" />,
+      bgColor: '#F0FDF4',
+      onPress: () => router.push('/admin/whatsapp-share'),
+    },
+    {
+      label: 'Monitoring',
+      icon: <ClipboardCheck size={18} color="#F97316" />,
+      bgColor: '#FFF7ED',
+      onPress: () => router.push('/monitoring/balita'),
+    },
+  ] : [
+    {
+      label: 'Data Lansia',
+      icon: <Users size={18} color="#4F46E5" />,
+      bgColor: '#EEF2FF',
+      onPress: () => router.push('/(tabs)/data'),
+    },
+    {
+      label: 'Tensi Fisik',
+      icon: <Activity size={18} color="#DC2626" />,
+      bgColor: '#FEE2E2',
+      onPress: () => router.push('/service-desk/lansia'),
+    },
+    {
+      label: 'Monitoring',
+      icon: <ClipboardCheck size={18} color="#F97316" />,
+      bgColor: '#FFF7ED',
+      onPress: () => router.push('/monitoring/lansia'),
+    },
+    {
+      label: 'Laporan',
+      icon: <FileDown size={18} color="#16A34A" />,
+      bgColor: '#F0FDF4',
+      onPress: () => router.push(`/admin/reports?type=lansia`),
+    },
+    {
+      label: 'Kirim WA',
+      icon: <MessageCircle size={18} color="#22C55E" />,
+      bgColor: '#F0FDF4',
+      onPress: () => router.push('/admin/whatsapp-share'),
+    },
+    {
+      label: 'Pengaturan',
+      icon: <Settings size={18} color="#475569" />,
+      bgColor: '#F8FAFC',
+      onPress: () => router.push('/settings'),
+    },
+    {
+      label: 'Import Data',
+      icon: <FileUp size={18} color="#0EA5E9" />,
+      bgColor: '#E0F2FE',
+      onPress: () => router.push('/admin/import-data'),
+    },
+  ];
+
+  const quickActions = !isExpanded && fullQuickActions.length > 8
+    ? [
+        ...fullQuickActions.slice(0, 7),
+        {
+          label: 'Lainnya',
+          icon: <LayoutGrid size={18} color="#475569" />,
+          bgColor: '#F1F5F9',
+          onPress: () => setIsExpanded(true),
+        }
+      ]
+    : isExpanded
+      ? [
+          ...fullQuickActions,
+          {
+            label: 'Sembunyikan',
+            icon: <ChevronUp size={18} color="#64748B" />,
+            bgColor: '#F1F5F9',
+            onPress: () => setIsExpanded(false),
+          }
+        ]
+      : fullQuickActions;
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView style={styles.container}>
       {/* ============================= */}
       {/* HEADER                        */}
       {/* ============================= */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          {/* Row 1: Logo & Status + Actions */}
+          {/* Row 1: Dropdown Posyandu & Profile Avatar */}
           <View style={styles.headerRow}>
-            <View style={styles.headerLogoContainer}>
-              <View style={[styles.logoBadge, { backgroundColor: theme.tonal }]}>
-                <Activity size={12} color={theme.primary} />
-                <Text style={[styles.headerLogoText, { color: theme.primary }]}>AYOMI</Text>
+            <TouchableOpacity 
+              style={styles.posyanduDropdown}
+              onPress={() => setShowPosyanduPicker(true)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.posyanduLogoCircle}>
+                <Flower size={14} color="#FFFFFF" />
               </View>
-              <View style={styles.headerDivider} />
-              <Text style={styles.kaderLabel}>KADER</Text>
-            </View>
+              <Text style={styles.dropdownText} numberOfLines={1}>
+                {activePosyanduName}
+              </Text>
+              <ChevronDown size={14} color="#64748B" />
+            </TouchableOpacity>
+
             <View style={styles.headerRight}>
-              <WorkspaceSwitcher size={18} color="#1E293B" />
-              <TouchableOpacity style={styles.notifBtn} onPress={() => router.push('/settings')}>
-                <Settings size={18} color="#1E293B" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.notifBtn} onPress={() => setIsNotifVisible(true)}>
-                <Bell size={18} color="#1E293B" />
-                {(stats?.risikoTinggiBalita || 0) > 0 && <View style={styles.notifDot} />}
+              <TouchableOpacity 
+                style={styles.avatarContainer}
+                onPress={() => router.push('/settings')}
+                activeOpacity={0.7}
+              >
+                <Image 
+                  source={require('../../assets/images/kader_avatar.png')} 
+                  style={styles.profileImage} 
+                />
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Row 2: Posyandu Name & Date */}
-          <View style={styles.headerTextBlock}>
-            <Text style={styles.posyanduNameHeader}>{posyanduName}</Text>
-            <Text style={styles.dateText}>{today}</Text>
+          {/* Row 2: Sapaan & Date */}
+          <View style={styles.sapaanSection}>
+            <Text style={styles.sapaanGreeting}>Hai, Kader {kaderName}</Text>
+            <Text style={styles.sapaanSub}>{today}</Text>
           </View>
         </View>
       </View>
@@ -215,7 +429,7 @@ export default function DashboardScreen() {
         {/* ==================================== */}
         {/* M3 SEGMENTED CONTROL SWITCHER (TOP)  */}
         {/* ==================================== */}
-        <View style={[styles.switcherContainer, { backgroundColor: theme.tonal }]}>
+        <View style={[styles.switcherContainer, { backgroundColor: '#F1F5F9' }]}>
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => setActiveWorkspace('balita')}
@@ -224,8 +438,8 @@ export default function DashboardScreen() {
               isBalita && styles.switcherTabActive,
             ]}
           >
-            <Baby size={16} color={isBalita ? theme.primary : '#64748B'} />
-            <Text style={[styles.switcherTabText, isBalita && { color: theme.primary, fontWeight: '800' }]}>
+            <Baby size={16} color={isBalita ? '#09A477' : '#64748B'} />
+            <Text style={[styles.switcherTabText, isBalita && { color: '#09A477', fontWeight: '800' }]}>
               Layanan Balita
             </Text>
           </TouchableOpacity>
@@ -237,8 +451,8 @@ export default function DashboardScreen() {
               !isBalita && styles.switcherTabActive,
             ]}
           >
-            <Users size={16} color={!isBalita ? theme.primary : '#64748B'} />
-            <Text style={[styles.switcherTabText, !isBalita && { color: theme.primary, fontWeight: '800' }]}>
+            <Users size={16} color={!isBalita ? '#4F46E5' : '#64748B'} />
+            <Text style={[styles.switcherTabText, !isBalita && { color: '#4F46E5', fontWeight: '800' }]}>
               Layanan Lansia
             </Text>
           </TouchableOpacity>
@@ -255,7 +469,7 @@ export default function DashboardScreen() {
           >
             <View style={styles.otaBannerContent}>
               <View style={styles.otaBannerIconContainer}>
-                <Sparkles size={18} color={theme.primary} />
+                <Sparkles size={18} color="#0D9488" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.otaBannerTitle}>Pembaruan Sistem Tersedia!</Text>
@@ -270,132 +484,123 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         )}
 
-        {/* ==================================== */}
-        {/* STATISTIK OVERVIEW (CLINICAL BENTO)  */}
-        {/* ==================================== */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Statistik Bulan Ini</Text>
+        {/* ============================= */}
+        {/* AKSI CEPAT GRID 4x2           */}
+        {/* ============================= */}
+        <View style={styles.quickActionHeader}>
+          <Text style={styles.quickActionTitle}>Aksi Cepat</Text>
         </View>
-        <StatsGrid
-          items={isBalita ? [
-            {
-              label: 'Total Balita',
-              value: stats?.totalBalita || 0,
-              icon: <Baby size={18} color={theme.primary} />,
-              color: theme.primary,
-              bgColor: theme.tonal,
-              onPress: () => router.push('/balita'),
-            },
-            {
-              label: 'Kunjungan',
-              value: stats?.balitaVisitsThisMonth || 0,
-              icon: <ClipboardCheck size={18} color={theme.primary} />,
-              color: theme.primary,
-              bgColor: theme.tonal,
-              onPress: () => router.push('/monitoring/balita'),
-            },
-            {
-              label: 'Stunting / Wasting',
-              value: stats?.risikoTinggiBalita || 0,
-              icon: <AlertTriangle size={18} color={theme.primary} />,
-              color: theme.primary,
-              bgColor: theme.tonal,
-              onPress: () => router.push('/monitoring/balita'),
-            },
-            {
-              label: 'Belum Timbang',
-              value: stats?.belumTimbangBalita || 0,
-              icon: <Activity size={18} color={theme.primary} />,
-              color: theme.primary,
-              bgColor: theme.tonal,
-              onPress: () => router.push('/monitoring/balita'),
-            },
-          ] : [
-            {
-              label: 'Total Lansia',
-              value: stats?.totalLansia || 0,
-              icon: <Users size={18} color={theme.primary} />,
-              color: theme.primary,
-              bgColor: theme.tonal,
-              onPress: () => router.push('/lansia'),
-            },
-            {
-              label: 'Pemeriksaan',
-              value: stats?.lansiaVisitsThisMonth || 0,
-              icon: <ClipboardCheck size={18} color={theme.primary} />,
-              color: theme.primary,
-              bgColor: theme.tonal,
-              onPress: () => router.push('/monitoring/lansia'),
-            },
-            {
-              label: 'Berisiko',
-              value: stats?.healthAlertStats?.find(s => s.label === 'Berisiko')?.count || 0,
-              icon: <AlertCircle size={18} color={theme.primary} />,
-              color: theme.primary,
-              bgColor: theme.tonal,
-              onPress: () => router.push('/monitoring/lansia'),
-            },
-            {
-              label: 'Belum Periksa',
-              value: stats?.belumPeriksaLansia || 0,
-              icon: <Activity size={18} color={theme.primary} />,
-              color: theme.primary,
-              bgColor: theme.tonal,
-              onPress: () => router.push('/monitoring/lansia'),
-            },
-          ]}
-        />
+        
+        <View style={styles.quickActionGrid}>
+          {quickActions.map((action, idx) => (
+            <TouchableOpacity
+              key={idx}
+              style={styles.quickActionBtn}
+              onPress={action.onPress}
+              activeOpacity={0.7}
+            >
+              <View style={styles.quickActionSquircle}>
+                <View style={[styles.quickActionIconCircle, { backgroundColor: action.bgColor }]}>
+                  {action.icon}
+                </View>
+              </View>
+              <Text style={styles.quickActionLabel} numberOfLines={1}>
+                {action.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-        {/* ============================= */}
-        {/* JADWAL TERDEKAT (CONTEXTUAL)  */}
-        {/* ============================= */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Agenda Posyandu</Text>
+        {/* ==================================== */}
+        {/* RINGKASAN HARI INI (SOLID GREEN CARD) */}
+        {/* ==================================== */}
+        <View style={[styles.ringkasanCard, { backgroundColor: isBalita ? '#09A477' : '#4F46E5' }]}>
+          <Text style={styles.ringkasanTitleInside}>Ringkasan Hari Ini</Text>
+          <View style={styles.ringkasanRow}>
+            {/* Column 1: Total */}
+            <View style={styles.ringkasanCol}>
+              <Text style={styles.ringkasanValue}>
+                {isBalita ? (stats?.totalBalita || 0) : (stats?.totalLansia || 0)}
+              </Text>
+              <Text style={styles.ringkasanLabel} numberOfLines={2}>
+                {isBalita ? 'Total Balita' : 'Total Lansia'}
+              </Text>
+            </View>
+            
+            {/* Column 2: Aktif / Kunjungan */}
+            <View style={styles.ringkasanCol}>
+              <Text style={styles.ringkasanValue}>
+                {isBalita ? (stats?.balitaVisitsThisMonth || 0) : (stats?.lansiaVisitsThisMonth || 0)}
+              </Text>
+              <Text style={styles.ringkasanLabel} numberOfLines={2}>
+                {isBalita ? 'Balita Aktif' : 'Lansia Aktif'}
+              </Text>
+            </View>
+            
+            {/* Column 3: Imunisasi / Risiko */}
+            <View style={styles.ringkasanCol}>
+              <Text style={styles.ringkasanValue}>
+                {isBalita 
+                  ? (stats?.imunisasiCount || 0) 
+                  : (stats?.healthAlertStats?.find(s => s.label === 'Berisiko')?.count || 0)}
+              </Text>
+              <Text style={styles.ringkasanLabel} numberOfLines={2}>
+                {isBalita ? 'Imunisasi' : 'Berisiko'}
+              </Text>
+            </View>
+          </View>
         </View>
-        <ScheduleCard
-          activeWorkspace={activeWorkspace || 'balita'}
-          tanggal={(isBalita ? stats?.posyanduInfo?.jadwal_balita_tanggal : stats?.posyanduInfo?.jadwal_lansia_tanggal) ?? null}
-          jam={(isBalita ? stats?.posyanduInfo?.jadwal_balita_jam : stats?.posyanduInfo?.jadwal_lansia_jam) ?? null}
-          themeColor={theme.primary}
-          themeTonal={theme.tonal}
-        />
 
         {/* ==================================== */}
         {/* BALITA SPECIFIC SECTIONS             */}
         {/* ==================================== */}
         {isBalita && (
           <>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Status Gizi Balita</Text>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Distribusi Status Gizi</Text>
+              <TouchableOpacity onPress={() => router.push('/penimbangan')}>
+                <Text style={styles.cardLink}>Lihat Semua</Text>
+              </TouchableOpacity>
             </View>
-            <Card style={{ paddingVertical: 8, paddingHorizontal: 16 }}>
-              <GiziRow 
-                label="Normal" 
-                count={stats?.nutritionStats?.find(s => s.label === 'Normal' || s.label === 'Gizi Baik')?.count || 0} 
-                percent={stats?.nutritionStats?.find(s => s.label === 'Normal' || s.label === 'Gizi Baik')?.count 
-                  ? `${Math.round((stats.nutritionStats.find(s => s.label === 'Normal' || s.label === 'Gizi Baik')!.count / (stats.totalBalita || 1)) * 100)}%` 
-                  : '0%'} 
-                color={theme.primary} 
-              />
-              <View style={styles.divider} />
-              <GiziRow 
-                label="Stunting / Wasting" 
-                count={stats?.risikoTinggiBalita || 0} 
-                percent={stats?.risikoTinggiBalita 
-                  ? `${Math.round((stats.risikoTinggiBalita / (stats.totalBalita || 1)) * 100)}%` 
-                  : '0%'} 
-                color={COLORS.error} 
-              />
-              <View style={styles.divider} />
-              <GiziRow 
-                label="Overweight" 
-                count={stats?.nutritionStats?.find(s => s.label === 'Overweight' || s.label === 'Gizi Lebih' || s.label === 'Obesitas')?.count || 0} 
-                percent={stats?.nutritionStats?.find(s => s.label === 'Overweight' || s.label === 'Gizi Lebih' || s.label === 'Obesitas')?.count 
-                  ? `${Math.round((stats.nutritionStats.find(s => s.label === 'Overweight' || s.label === 'Gizi Lebih' || s.label === 'Obesitas')!.count / (stats.totalBalita || 1)) * 100)}%` 
-                  : '0%'} 
-                color={COLORS.warning} 
-              />
-            </Card>
+
+            <View style={styles.bentoCard}>
+              <View style={styles.chartLegendContainer}>
+                {/* Left side: Donut Chart wrapper */}
+                <View style={styles.chartWrapper}>
+                  <PieChart
+                    data={pieData}
+                    width={130}
+                    height={130}
+                    chartConfig={{
+                      backgroundColor: 'transparent',
+                      backgroundGradientFrom: 'transparent',
+                      backgroundGradientTo: 'transparent',
+                      color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                    }}
+                    accessor="population"
+                    backgroundColor="transparent"
+                    paddingLeft="32"
+                    hasLegend={false}
+                  />
+                  <View style={styles.donutHole} />
+                </View>
+
+                {/* Right side: Custom Legend Table */}
+                <View style={styles.legendWrapper}>
+                  {nutritionBreakdown.map((item, idx) => (
+                    <View key={idx} style={styles.legendRow}>
+                      <View style={styles.legendLeft}>
+                        <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+                        <Text style={styles.legendLabel}>{item.label}</Text>
+                      </View>
+                      <Text style={styles.legendValue}>
+                        {item.count} <Text style={styles.legendPercent}>({item.percent}%)</Text>
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </View>
           </>
         )}
 
@@ -404,84 +609,67 @@ export default function DashboardScreen() {
         {/* ==================================== */}
         {!isBalita && (
           <>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Pemantauan Kesehatan Lansia</Text>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Pemantauan Kesehatan Lansia</Text>
+              <TouchableOpacity onPress={() => router.push('/pemeriksaan')}>
+                <Text style={styles.cardLink}>Lihat Semua</Text>
+              </TouchableOpacity>
             </View>
-            <Card style={{ paddingVertical: 8, paddingHorizontal: 16 }}>
+            <View style={styles.bentoCard}>
               <GiziRow 
                 label="Hipertensi" 
                 count={stats?.lansiaHealthBreakdown?.hipertensi || 0} 
                 percent="Tekanan Darah Tinggi" 
-                color={theme.primary} 
+                color="#4F46E5" 
               />
               <View style={styles.divider} />
               <GiziRow 
                 label="Gula Darah Tinggi" 
                 count={stats?.lansiaHealthBreakdown?.gulaTinggi || 0} 
                 percent="Kadar Gula > 200 mg/dL" 
-                color={theme.primary} 
+                color="#4F46E5" 
               />
               <View style={styles.divider} />
               <GiziRow 
                 label="Kolesterol Tinggi" 
                 count={stats?.lansiaHealthBreakdown?.kolesterolTinggi || 0} 
                 percent="Kolesterol > 200 mg/dL" 
-                color={theme.primary} 
+                color="#4F46E5" 
               />
               <View style={styles.divider} />
               <GiziRow 
                 label="Asam Urat Tinggi" 
                 count={stats?.lansiaHealthBreakdown?.asamUratTinggi || 0} 
                 percent="Asam Urat > 7.0 mg/dL" 
-                color={theme.primary} 
+                color="#4F46E5" 
               />
-            </Card>
+            </View>
           </>
         )}
 
         {/* ============================= */}
-        {/* AKSI CEPAT (OPTION A LINEAR)  */}
+        {/* JADWAL TERDEKAT (CONTEXTUAL)  */}
         {/* ============================= */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Aksi Cepat</Text>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>Kegiatan Terdekat</Text>
+          <TouchableOpacity onPress={() => router.push(isBalita ? '/monitoring/balita' : '/monitoring/lansia')}>
+            <Text style={styles.cardLink}>Lihat Semua</Text>
+          </TouchableOpacity>
         </View>
-        <Card style={{ paddingVertical: 6, paddingHorizontal: 16 }}>
-          <PressableRow 
-            icon={<FileUp size={16} color={theme.primary} />} 
-            label="Import Data Balita/Lansia" 
-            onPress={() => router.push('/admin/import-data')} 
-          />
-          <View style={styles.divider} />
-          <PressableRow 
-            icon={<FileDown size={16} color={theme.primary} />} 
-            label="Export Laporan Bulanan" 
-            onPress={() => router.push(`/admin/reports?type=${activeWorkspace}`)} 
-          />
-          <View style={styles.divider} />
-          <PressableRow 
-            icon={<MessageCircle size={16} color={theme.primary} />} 
-            label="Kirim Undangan WhatsApp" 
-            onPress={() => router.push('/admin/whatsapp-share')} 
-          />
-          <View style={styles.divider} />
-          <PressableRow 
-            icon={<BarChart3 size={16} color={theme.primary} />} 
-            label="Analisis & Grafik Gizi" 
-            onPress={() => router.push('/(tabs)/analisis')} 
-          />
-          <View style={styles.divider} />
-          <PressableRow 
-            icon={<Syringe size={16} color={theme.primary} />} 
-            label="Jadwal & Catatan Imunisasi" 
-            onPress={() => router.push('/imunisasi')} 
-          />
-        </Card>
+        <ScheduleCard
+          activeWorkspace={activeWorkspace || 'balita'}
+          tanggal={(isBalita ? stats?.posyanduInfo?.jadwal_balita_tanggal : stats?.posyanduInfo?.jadwal_lansia_tanggal) ?? null}
+          jam={(isBalita ? stats?.posyanduInfo?.jadwal_balita_jam : stats?.posyanduInfo?.jadwal_lansia_jam) ?? null}
+          themeColor={theme.primary}
+          themeTonal={theme.tonal}
+          posyanduName={activePosyanduName}
+        />
 
         {/* ============================= */}
         {/* APP INFO FOOTER               */}
         {/* ============================= */}
         <View style={styles.footer}>
-          <View style={[styles.footerDivider, { backgroundColor: theme.tonal }]} />
+          <View style={[styles.footerDivider, { backgroundColor: '#E2E8F0' }]} />
           <Text style={styles.footerText}>AYOMI v2.0 — Rawat Tumbuhnya, Jaga Tuanya</Text>
         </View>
       </ScrollView>
@@ -615,6 +803,36 @@ export default function DashboardScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ============================= */}
+      {/* POSYANDU PICKER MODAL         */}
+      {/* ============================= */}
+      <Modal visible={showPosyanduPicker} animationType="slide" transparent>
+         <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+               <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Pilih Posyandu</Text>
+                  <TouchableOpacity onPress={() => setShowPosyanduPicker(false)}>
+                     <Text style={styles.closeBtn}>Batal</Text>
+                  </TouchableOpacity>
+               </View>
+               <FlatList 
+                  data={allPosyandus}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity 
+                      style={styles.pickerItem}
+                      onPress={() => handleSelectPosyandu(item)}
+                    >
+                       <MapPin size={18} color="#94A3B8" />
+                       <Text style={styles.pickerItemText}>{item.nama_posyandu}</Text>
+                       {activePosyanduId === item.id && <View style={[styles.activeDot, { backgroundColor: isBalita ? '#09A477' : '#4F46E5' }]} />}
+                    </TouchableOpacity>
+                  )}
+               />
+            </View>
+         </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -643,21 +861,17 @@ function NotifItem({ icon, title, desc, time }: { icon: any, title: string, desc
 // ============================================
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
   loadingText: { color: '#64748B', fontSize: 13 },
   
   // Header
   header: {
     paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingTop: 12,
+    paddingBottom: 16,
     backgroundColor: '#FFFFFF',
-    elevation: 3,
-    shadowColor: '#00A896',
-    shadowOpacity: 0.03,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
+    borderBottomWidth: 0,
   },
   headerContent: {
     width: '100%',
@@ -668,86 +882,80 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
   },
-  headerLogoContainer: {
+  posyanduDropdown: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    gap: 8,
+    maxWidth: '75%',
   },
-  logoBadge: {
-    flexDirection: 'row',
+  posyanduLogoCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#09A477',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    gap: 4,
   },
-  headerLogoText: {
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  headerDivider: {
-    width: 1,
-    height: 12,
-    backgroundColor: '#E2E8F0',
-    marginHorizontal: 2,
-  },
-  kaderLabel: {
-    fontSize: 9,
+  dropdownText: {
+    fontSize: 15,
     fontWeight: '800',
-    color: '#64748B',
-    letterSpacing: 1,
+    color: '#0F172A',
+    flexShrink: 1,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
-  notifBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F8FAFC',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
+  profileImage: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
   },
-  notifDot: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#EF4444',
+  avatarContainer: {
+    marginLeft: 4,
   },
-  headerTextBlock: {
-    marginTop: 6,
+  sapaanSection: {
+    marginTop: 16,
   },
-  posyanduNameHeader: {
-    fontSize: 16,
+  sapaanGreeting: {
+    fontSize: 20,
     fontWeight: '900',
-    color: '#1E293B',
-    letterSpacing: -0.3,
+    color: '#0F172A',
+    letterSpacing: -0.5,
   },
-  dateText: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 1,
+  sapaanSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
     fontWeight: '600',
   },
 
   scrollContent: { padding: 16, paddingBottom: 40 },
 
-  // Section
-  sectionHeader: { marginTop: 20, marginBottom: 12, paddingHorizontal: 4 },
-  sectionTitle: {
-    fontSize: 12,
+  // Section / Bento Card Title Header
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  cardTitle: {
+    fontSize: 14,
     fontWeight: '800',
-    color: '#64748B',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    color: '#1E293B',
+  },
+  cardLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2563EB', // Blue link "Lihat Semua"
   },
 
   // Switcher
@@ -782,94 +990,10 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
 
-  // Alert Card
-  alertCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFBEB',
-    borderRadius: 20,
-    padding: 14,
-    marginTop: 12,
-    gap: 12,
-    elevation: 2,
-    shadowColor: '#F59E0B',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.03,
-    shadowRadius: 12,
-  },
-  alertIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FEF3C7',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  alertTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#92400E',
-  },
-  alertStatsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 4,
-  },
-  alertChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  alertChipText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#78350F',
-  },
-
   divider: {
     height: 1,
     backgroundColor: '#F1F5F9',
     width: '100%',
-  },
-
-  // Tip Styles
-  tipContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    borderRadius: 20,
-    marginTop: 12,
-    gap: 12,
-    elevation: 2,
-    shadowColor: '#00A896',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.02,
-    shadowRadius: 16,
-  },
-  tipIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  tipTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  tipText: {
-    fontSize: 13,
-    color: '#475569',
-    marginTop: 4,
-    lineHeight: 18,
-    fontWeight: '500',
   },
 
   // Footer
@@ -907,7 +1031,7 @@ const styles = StyleSheet.create({
   // OTA Modal Styles (Glassmorphism & Teal theme)
   otaOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.75)', // Elegant Slate-900 transparent overlay
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -919,7 +1043,7 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     padding: 32,
     borderWidth: 1.5,
-    borderColor: 'rgba(13, 148, 136, 0.25)', // Teal semi-transparent border
+    borderColor: 'rgba(13, 148, 136, 0.25)',
     elevation: 20,
     shadowColor: '#0D9488',
     shadowOpacity: 0.18,
@@ -1070,5 +1194,195 @@ const styles = StyleSheet.create({
     backgroundColor: '#0D9488',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  
+  // Ringkasan Hari Ini Card
+  ringkasanCard: {
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 20,
+    elevation: 3,
+    shadowColor: '#000000',
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  ringkasanTitleInside: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 16,
+  },
+  ringkasanRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  ringkasanCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  ringkasanValue: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  ringkasanLabel: {
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+
+  // Quick Action Grid Styles
+  quickActionHeader: {
+    marginTop: 16,
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  quickActionTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  quickActionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    marginVertical: 12,
+  },
+  quickActionBtn: {
+    width: '25%', // 4 columns grid
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  quickActionSquircle: {
+    width: 58,
+    height: 58,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  quickActionIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quickActionLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
+    textAlign: 'center',
+    marginTop: 6,
+  },
+
+  // Bento Card Layout
+  bentoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    elevation: 2,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 12,
+  },
+  chartLegendContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  chartWrapper: {
+    width: 130,
+    height: 130,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  donutHole: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FFFFFF',
+  },
+  legendWrapper: {
+    flex: 1,
+    paddingLeft: 16,
+    gap: 8,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  legendLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  legendValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  legendPercent: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+
+  // Picker Modal Styles
+  closeBtn: {
+    color: '#EF4444',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  pickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F5',
+  },
+  pickerItemText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginLeft: 12,
+  },
+  activeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
 });

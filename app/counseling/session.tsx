@@ -1,5 +1,5 @@
 // app/counseling/session.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Share
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -24,6 +25,8 @@ import {
   ChevronRight,
   ClipboardList,
   Baby,
+  Smile,
+  Trash2
 } from 'lucide-react-native';
 import { useAuthStore } from '../../stores/auth-store';
 import { useServiceStore } from '../../stores/service-store';
@@ -58,7 +61,7 @@ export default function CounselingSessionScreen() {
   const [posyandu, setPosyandu] = useState<any>(null);
   const [previousSession, setPreviousSession] = useState<PreviousCounseling | null>(null);
   
-  // Wizard & Adaptive States (Skema B)
+  // Wizard & Adaptive States
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [activeQuestion, setActiveQuestion] = useState<AdaptiveQuestion | null>(null);
   const [questionsHistory, setQuestionsHistory] = useState<AdaptiveQuestion[]>([]);
@@ -68,6 +71,7 @@ export default function CounselingSessionScreen() {
   const [loadingNext, setLoadingNext] = useState<boolean>(false);
   const [aiRecommendation, setAiRecommendation] = useState<string>('');
 
+  const chatScrollRef = useRef<ScrollView>(null);
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   useEffect(() => {
@@ -78,6 +82,15 @@ export default function CounselingSessionScreen() {
       router.back();
     }
   }, [balitaId, penimbanganId]);
+
+  // Auto scroll to end of chat when messages or typing status updates
+  useEffect(() => {
+    if (stage === 'interview') {
+      setTimeout(() => {
+        chatScrollRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [currentStep, qaList, loadingNext, stage]);
 
   const initializeSession = async () => {
     try {
@@ -176,9 +189,10 @@ export default function CounselingSessionScreen() {
   };
 
   const handleNextStep = () => {
-    if (!activeQuestion) return;
+    const isStep4 = currentStep === 4;
+    const currentVal = isStep4 ? catatanKader : currentAnswer;
 
-    if (currentAnswer.trim().length === 0) {
+    if (!isStep4 && currentVal.trim().length === 0) {
       Alert.alert(
         'Jawaban Belum Lengkap',
         'Kader disarankan mengisi jawaban orang tua agar analisis AI lebih mendalam. Apakah Anda yakin ingin membiarkannya kosong?',
@@ -193,6 +207,11 @@ export default function CounselingSessionScreen() {
   };
 
   const proceedToNext = async () => {
+    if (currentStep === 4) {
+      processRecommendation();
+      return;
+    }
+
     if (!activeQuestion || !balita || !penimbangan) return;
 
     const answerText = currentAnswer.trim() || 'Tidak dijawab / kondisi umum anak baik.';
@@ -247,20 +266,23 @@ export default function CounselingSessionScreen() {
   const handlePrevStep = () => {
     if (currentStep === 1) return;
 
-    const prevIndex = currentStep - 2; // Step 2 -> Index 0, Step 3 -> Index 1, Step 4 -> Index 2
+    if (currentStep === 4) {
+      const lastQA = qaList[2];
+      setCurrentAnswer(lastQA ? lastQA.answer : '');
+      setActiveQuestion(questionsHistory[2]);
+      setQaList(qaList.slice(0, 2));
+      setCurrentStep(3);
+      return;
+    }
+
+    const prevIndex = currentStep - 2;
     const restoredQA = qaList[prevIndex];
 
-    // Kurangi qaList ke indeks sebelumnya
     const updatedQaList = qaList.slice(0, prevIndex);
     setQaList(updatedQaList);
 
-    // Kembalikan isi jawaban kader sebelumnya ke input teks
     setCurrentAnswer(restoredQA ? restoredQA.answer : '');
-
-    // Set active question dari history
     setActiveQuestion(questionsHistory[prevIndex]);
-
-    // Kurangi langkah
     setCurrentStep(currentStep - 1);
   };
 
@@ -300,28 +322,34 @@ export default function CounselingSessionScreen() {
         rekomendasi: rec,
       };
 
-      const { error: saveErr } = await supabase.from('penyuluhans').insert(payload);
+      const { data: saveResult, error: saveErr } = await supabase
+        .from('penyuluhans')
+        .insert(payload)
+        .select()
+        .single();
       if (saveErr) {
         console.warn('Failed to save to penyuluhans table in Supabase. You might need to run the SQL migration.', saveErr);
         Alert.alert(
           'Pemberitahuan',
           'Rekomendasi AI berhasil dibuat, namun gagal disimpan di riwayat database. Silakan pastikan tabel "penyuluhans" telah di-migrate di Supabase Anda.'
         );
+        setStage('success');
+      } else if (saveResult) {
+        router.replace(`/counseling/summary?id=${saveResult.id}`);
+      } else {
+        setStage('success');
       }
-
-      setStage('success');
     } catch (e: any) {
       console.error(e);
       Alert.alert('Gagal Memproses Rekomendasi', e.message || 'Terjadi gangguan jaringan.');
       setStage('interview');
-      setCurrentStep(4); // Kembalikan ke halaman konfirmasi
+      setCurrentStep(4);
     }
   };
 
   const handleShareWhatsAppUnified = async () => {
     if (!balita || !penimbangan || !aiRecommendation) return;
 
-    // Gabungkan data timbangan dan AI ke dalam satu pesan terpadu
     const message = WhatsAppService.generateHasilUnified(
       balita,
       penimbangan,
@@ -360,26 +388,57 @@ export default function CounselingSessionScreen() {
     }
   };
 
-  const getStepDesc = (step: number) => {
+  const getQuickReplies = (step: number) => {
     switch (step) {
-      case 1: return 'AI menggali kualitas asupan gizi, frekuensi makan, dan protein hewani si kecil.';
-      case 2: return 'AI menganalisis kerentanan anak terhadap infeksi dan perlindungan imunisasinya.';
-      case 3: return 'AI mengevaluasi kebiasaan asuhan makan (feeding rules) serta kebersihan air/sanitasi.';
-      case 4: return 'Tinjau kembali seluruh rangkuman jawaban orang tua dan tambahkan catatan klinis lapangan Anda.';
-      default: return '';
+      case 1:
+        return [
+          "Makan 3x sehari lauk telur/ikan, tanpa penolakan.",
+          "Nafsu makan anak berkurang, lebih suka minum susu/ASI.",
+          "Anak sulit makan nasi, hanya mau makan camilan biskuit.",
+          "Masih ASI eksklusif saja, belum mulai MPASI."
+        ];
+      case 2:
+        return [
+          "Anak sehat walafiat, tidak ada sakit dalam 2 minggu terakhir.",
+          "Sempat batuk-pilek ringan selama 3 hari, nafsu makan stabil.",
+          "Sempat demam dan diare ringan, sekarang sudah membaik.",
+          "Imunisasi dasar lengkap sesuai jadwal umur anak."
+        ];
+      case 3:
+        return [
+          "Disuapi ibu dengan telaten tanpa gawai/HP.",
+          "Rewel saat disuapi, sering diemut atau dilepeh.",
+          "Sumber air bersih dimasak matang, rajin cuci tangan pakai sabun.",
+          "Tinggal bersama nenek karena orang tua bekerja."
+        ];
+      case 4:
+        return [
+          "Anak tampak lincah, aktif, ceria, dan tidak ada tanda klinis lesu.",
+          "Fisik anak tampak agak lesu dan rambut kusam.",
+          "Keluarga sedang dalam pengawasan TBC/ISPA.",
+          "Tidak ada catatan khusus lapangan."
+        ];
+      default:
+        return [];
     }
   };
 
-  const getPlaceholderText = (step: number) => {
-    switch (step) {
-      case 1: return 'Contoh: Makan bubur lumat 3x sehari porsi 3 sdm, lauk hati ayam blender halus & telur kocok setengah butir. Tidak ada penolakan saat disuapi.';
-      case 2: return 'Contoh: Sempat batuk pilek ringan selama 3 hari minggu lalu, tanpa demam. Imunisasi dasar lengkap sesuai usia. Nafsu makan anak sedikit turun saat sakit.';
-      case 3: return 'Contoh: Ibu menyuapi langsung secara telaten tanpa memaksa. Anak tidak makan sambil bermain HP. Air minum bersumber dari sumur bersih yang dimasak matang.';
-      default: return '';
+  const handleHeaderBack = () => {
+    if (stage === 'interview' && currentStep > 1) {
+      handlePrevStep();
+    } else {
+      router.back();
     }
   };
 
-  // Rendering Helper
+  const handleQuickReplyPress = (reply: string) => {
+    if (currentStep === 4) {
+      setCatatanKader(reply);
+    } else {
+      setCurrentAnswer(reply);
+    }
+  };
+
   const renderStageContent = () => {
     switch (stage) {
       case 'loading-data':
@@ -388,9 +447,9 @@ export default function CounselingSessionScreen() {
         return (
           <View style={styles.centerContainer}>
             <View style={styles.spinnerWrapper}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
+              <ActivityIndicator size="large" color="#09A477" />
               <View style={styles.spinnerPulse}>
-                <Sparkles size={24} color={COLORS.primary} />
+                <Sparkles size={24} color="#09A477" />
               </View>
             </View>
             <Text style={styles.loadingTitle}>Proses Kecerdasan Gizi AI</Text>
@@ -398,210 +457,254 @@ export default function CounselingSessionScreen() {
           </View>
         );
 
-      case 'interview':
-        if (loadingNext) {
-          return (
-            <View style={styles.centerContainer}>
-              <View style={styles.spinnerWrapper}>
-                <ActivityIndicator size="large" color={COLORS.primary} />
-                <View style={styles.spinnerPulse}>
-                  <Brain size={24} color={COLORS.primary} />
-                </View>
-              </View>
-              <Text style={styles.loadingTitle}>AI Sedang Berpikir...</Text>
-              <Text style={styles.loadingDesc}>
-                AI sedang menganalisis respon Anda dan merumuskan pertanyaan berikutnya secara spesifik & adaptif...
-              </Text>
-            </View>
-          );
-        }
+      case 'interview': {
+        const quickReplies = getQuickReplies(currentStep);
+        const isStep4 = currentStep === 4;
 
         return (
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={{ flex: 1 }}
           >
-            <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-              
-              {/* Profile Card Header */}
-              <View style={styles.profileSummaryCard}>
-                <View style={styles.profileSummaryHeader}>
-                  <Baby size={32} color={COLORS.primaryDark} />
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.profileName}>{balita?.nama}</Text>
-                    <Text style={styles.profileAge}>
-                      {balita?.jenis_kelamin} • {calculateAgeMonths(balita?.tanggal_lahir || '', todayStr)} bulan
-                    </Text>
-                  </View>
+            {/* Minimalist Profile Header */}
+            <View style={styles.chatProfileHeader}>
+              <View style={styles.chatProfileAvatar}>
+                <Text style={styles.chatProfileAvatarText}>
+                  {balita?.nama ? balita.nama.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() : 'B'}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.chatProfileName}>{balita?.nama}</Text>
+                <Text style={styles.chatProfileSub}>
+                  {balita?.jenis_kelamin} • {calculateAgeMonths(balita?.tanggal_lahir || '', todayStr)} bln
+                </Text>
+              </View>
+              <View style={styles.chatProfileZscores}>
+                <View style={styles.zBadgeMini}>
+                  <Text style={styles.zBadgeLabelMini}>BB/U</Text>
+                  <Text style={styles.zBadgeValMini}>{penimbangan?.status_bb_u?.split(' ')[0]}</Text>
                 </View>
-                <View style={styles.summaryZscores}>
-                  <View style={styles.zscoreBadge}>
-                    <Text style={styles.zscoreBadgeLabel}>BB/U</Text>
-                    <Text style={styles.zscoreBadgeVal}>{penimbangan?.status_bb_u}</Text>
+                <View style={styles.zBadgeMini}>
+                  <Text style={styles.zBadgeLabelMini}>TB/U</Text>
+                  <Text style={styles.zBadgeValMini}>{penimbangan?.status_tb_u?.split(' ')[0]}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Step Indicator Header Line */}
+            <View style={styles.stepProgressContainer}>
+              <View style={styles.stepIndicatorRow}>
+                <Text style={styles.stepIndicatorText}>Langkah {currentStep} dari 4</Text>
+                <Text style={styles.stepIndicatorTitle}>{getStepTitle(currentStep)}</Text>
+              </View>
+              <View style={styles.progressBarBg}>
+                <View style={[styles.progressBarFill, { width: `${(currentStep / 4) * 100}%` }]} />
+              </View>
+            </View>
+
+            {/* Chat Area */}
+            <ScrollView 
+              ref={chatScrollRef}
+              style={styles.chatScroll} 
+              contentContainerStyle={styles.chatContentContainer}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Welcome Message */}
+              <View style={styles.aiBubbleWrapper}>
+                <View style={styles.aiBubble}>
+                  <View style={styles.aiBubbleHeader}>
+                    <Sparkles size={14} color="#09A477" />
+                    <Text style={styles.aiBubbleHeaderTitle}>AI Posyandu</Text>
                   </View>
-                  <View style={styles.zscoreBadge}>
-                    <Text style={styles.zscoreBadgeLabel}>TB/U</Text>
-                    <Text style={styles.zscoreBadgeVal}>{penimbangan?.status_tb_u}</Text>
-                  </View>
-                  <View style={styles.zscoreBadge}>
-                    <Text style={styles.zscoreBadgeLabel}>BB/TB</Text>
-                    <Text style={styles.zscoreBadgeVal}>{penimbangan?.status_bb_tb}</Text>
-                  </View>
+                  <Text style={styles.aiBubbleText}>
+                    Halo Kader! Saya AI Posyandu. Mari kita lakukan sesi penyuluhan gizi terpadu untuk {balita?.nama} ({calculateAgeMonths(balita?.tanggal_lahir || '', todayStr)} bulan) hari ini agar dapat memberikan saran kesehatan yang personal dan relevan.
+                  </Text>
                 </View>
               </View>
 
-              {/* Step Progress Tracker */}
-              <View style={styles.stepTrackerCard}>
-                <View style={styles.stepTrackerHeader}>
-                  <Text style={styles.stepTrackerStep}>LANGKAH {currentStep} DARI 4</Text>
-                  <Text style={styles.stepTrackerTitle}>{getStepTitle(currentStep)}</Text>
-                </View>
-                <Text style={styles.stepTrackerDesc}>{getStepDesc(currentStep)}</Text>
-                
-                {/* Visual Premium Line Tracker */}
-                <View style={styles.trackerProgressBar}>
-                  <View style={[styles.trackerProgressBarFill, { width: `${(currentStep / 4) * 100}%` }]} />
-                </View>
-              </View>
-
-              {/* Memory Box Alert if previous memory exists (Hanya di langkah 1) */}
+              {/* Previous Counseling Note if Cold Start has previous data (Step 1) */}
               {currentStep === 1 && previousSession && (
                 <View style={styles.memoryAlert}>
-                  <Brain size={18} color="#0D9488" />
+                  <Brain size={18} color="#0F766E" />
                   <Text style={styles.memoryAlertText}>
-                    AI mendeteksi memori penyuluhan bulan lalu ({format(new Date(previousSession.tanggal), 'MMMM yyyy', { locale: idLocale })}). Pertanyaan pertama dirancang berkembang dari riwayat asuhan tersebut.
+                    AI mendeteksi memori penyuluhan bulan lalu ({format(new Date(previousSession.tanggal), 'MMMM yyyy', { locale: idLocale })}). Wawancara disesuaikan secara adaptif.
                   </Text>
                 </View>
               )}
 
-              {/* Dynamic Step Content */}
-              {currentStep <= 3 ? (
-                <View>
-                  {/* Card Pertanyaan AI */}
-                  <Card style={styles.questionCard}>
-                    <View style={styles.questionHeader}>
-                      <View style={styles.questionNumberCircle}>
-                        <Text style={styles.questionNumberText}>{currentStep}</Text>
-                      </View>
-                      <Text style={styles.questionText}>{activeQuestion?.question}</Text>
-                    </View>
+              {/* Step 1 */}
+              <AiChatBubble 
+                stepNumber={1}
+                title="Nutrisi & MPASI"
+                text={questionsHistory[0]?.question || activeQuestion?.question || ''} 
+                guidance={questionsHistory[0]?.guidance || activeQuestion?.guidance || ''}
+              />
+              {qaList.length >= 1 && (
+                <UserChatBubble text={qaList[0].answer} />
+              )}
 
-                    {/* Box Panduan Eksplorasi Kader Posyandu (💡 PANDUAN PENGGALIAN KADER) */}
-                    <View style={styles.guidanceContainer}>
-                      <View style={styles.guidanceHeader}>
-                        <Brain size={16} color="#0F766E" />
-                        <Text style={styles.guidanceTitle}>💡 PANDUAN WAWANCARA KADER</Text>
-                      </View>
-                      <Text style={styles.guidanceText}>{activeQuestion?.guidance}</Text>
-                    </View>
+              {/* Step 2 */}
+              {currentStep >= 2 && (
+                <AiChatBubble 
+                  stepNumber={2}
+                  title="Kesehatan & Infeksi"
+                  text={questionsHistory[1]?.question || (currentStep === 2 ? activeQuestion?.question : '') || ''} 
+                  guidance={questionsHistory[1]?.guidance || (currentStep === 2 ? activeQuestion?.guidance : '') || ''}
+                />
+              )}
+              {qaList.length >= 2 && (
+                <UserChatBubble text={qaList[1].answer} />
+              )}
 
-                    {/* Input Jawaban */}
-                    <Text style={styles.inputLabel}>Tulis Respon Orang Tua:</Text>
-                    <View style={styles.inputGroup}>
-                      <MessageSquare size={18} color="#94A3B8" style={{ marginTop: 12, marginRight: 8, alignSelf: 'flex-start' }} />
-                      <TextInput
-                        style={styles.answerInput}
-                        placeholder={getPlaceholderText(currentStep)}
-                        multiline
-                        numberOfLines={4}
-                        value={currentAnswer}
-                        onChangeText={setCurrentAnswer}
-                      />
-                    </View>
-                  </Card>
+              {/* Step 3 */}
+              {currentStep >= 3 && (
+                <AiChatBubble 
+                  stepNumber={3}
+                  title="Pola Asuh & Sanitasi"
+                  text={questionsHistory[2]?.question || (currentStep === 3 ? activeQuestion?.question : '') || ''} 
+                  guidance={questionsHistory[2]?.guidance || (currentStep === 3 ? activeQuestion?.guidance : '') || ''}
+                />
+              )}
+              {qaList.length >= 3 && (
+                <UserChatBubble text={qaList[2].answer} />
+              )}
 
-                  {/* Navigation Button Row */}
-                  <View style={styles.buttonRow}>
-                    {currentStep > 1 && (
-                      <TouchableOpacity style={styles.backStepBtn} onPress={handlePrevStep}>
-                        <ArrowLeft size={18} color="#64748B" />
-                        <Text style={styles.backStepBtnText}>Kembali</Text>
-                      </TouchableOpacity>
-                    )}
-                    <TouchableOpacity style={styles.nextStepBtn} onPress={handleNextStep}>
-                      <Text style={styles.nextStepBtnText}>
-                        {currentStep === 3 ? 'Simpan & Tinjau' : 'Lanjut'}
-                      </Text>
-                      <ChevronRight size={18} color="#FFF" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ) : (
-                /* Langkah 4: Rangkuman Q&A & Catatan Khusus Kader */
-                <View>
-                  <Text style={styles.sectionTitle}>Rangkuman Tanya Jawab Sesi Ini</Text>
-                  
-                  {qaList.map((item, idx) => (
-                    <Card key={idx} style={styles.summaryCard}>
-                      <View style={styles.summaryQuestionHeader}>
-                        <Text style={styles.summaryQuestionNumber}>Langkah {idx + 1}: {getStepTitle(idx + 1)}</Text>
-                        <Text style={styles.summaryQuestionText}>{item.question}</Text>
-                      </View>
-                      <View style={styles.summaryAnswerContainer}>
-                        <Text style={styles.summaryAnswerLabel}>Respon:</Text>
-                        <Text style={styles.summaryAnswerText}>"{item.answer}"</Text>
-                      </View>
-                    </Card>
-                  ))}
+              {/* Step 4 */}
+              {currentStep >= 4 && (
+                <AiChatBubble 
+                  stepNumber={4}
+                  title="Catatan Khusus Kader"
+                  text="Apakah ada catatan khusus lapangan lainnya yang ingin Anda tambahkan? Misalnya kondisi fisik anak lesu, rambut kusam, masalah keluarga, dll. Silakan ketik langsung di bawah, pilih rekomendasi cepat, atau tekan Kirim/Selesai jika tidak ada."
+                  guidance="Panduan Kader: Tuliskan pengamatan penting secara bebas untuk memperkuat analisis dan rekomendasi gizi AI."
+                />
+              )}
+              {catatanKader.trim().length > 0 && currentStep > 4 && (
+                <UserChatBubble text={catatanKader} />
+              )}
 
-                  {/* Input Catatan Khusus Kader (Opsional) */}
-                  <Card style={styles.notesCard}>
-                    <View style={styles.notesHeader}>
-                      <ClipboardList size={20} color={COLORS.primary} />
-                      <Text style={styles.notesTitle}>Catatan Khusus Kader (Opsional)</Text>
-                    </View>
-                    <Text style={styles.notesDesc}>
-                      Tuliskan pengamatan lapangan penting secara bebas (misal: fisik anak lesu, rambut kusam pirang, riwayat TBC keluarga, atau masalah pengasuhan) untuk memperkuat rekomendasi AI.
-                    </Text>
-                    <View style={styles.notesInputGroup}>
-                      <TextInput
-                        style={styles.notesInput}
-                        placeholder="Contoh: Kulit anak agak kusam, mata lesu. Ibu bercerita bahwa anak sering rewel semenjak disapih dan tinggal dengan nenek karena ibu bekerja di pabrik..."
-                        multiline
-                        numberOfLines={4}
-                        value={catatanKader}
-                        onChangeText={setCatatanKader}
-                      />
-                    </View>
-                  </Card>
-
-                  {/* Navigation Button Row */}
-                  <View style={styles.buttonRow}>
-                    <TouchableOpacity style={styles.backStepBtn} onPress={handlePrevStep}>
-                      <ArrowLeft size={18} color="#64748B" />
-                      <Text style={styles.backStepBtnText}>Kembali</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.nextStepBtn, { backgroundColor: COLORS.primary }]} onPress={processRecommendation}>
-                      <Sparkles size={18} color="#FFF" />
-                      <Text style={styles.nextStepBtnText}>Proses Rekomendasi AI</Text>
-                    </TouchableOpacity>
-                  </View>
+              {/* Inline AI Typing Indicator */}
+              {loadingNext && (
+                <View style={styles.aiTypingBubble}>
+                  <Sparkles size={16} color="#09A477" />
+                  <Text style={styles.aiTypingText}>AI sedang merumuskan pertanyaan...</Text>
                 </View>
               )}
             </ScrollView>
+
+            {/* Quick Replies chips bar */}
+            {quickReplies.length > 0 && (
+              <View style={styles.quickRepliesContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickRepliesScroll}>
+                  {quickReplies.map((reply, idx) => (
+                    <TouchableOpacity 
+                      key={idx} 
+                      style={styles.quickReplyChip}
+                      onPress={() => handleQuickReplyPress(reply)}
+                    >
+                      <Text style={styles.quickReplyChipText} numberOfLines={1}>
+                        {reply}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Input Chat Box */}
+            <View style={styles.chatInputContainer}>
+              <View style={styles.chatInputWrapper}>
+                <TextInput
+                  style={[styles.chatTextInput, { maxHeight: 80 }]}
+                  placeholder={
+                    isStep4 
+                      ? "Tulis catatan khusus kader..." 
+                      : `Tulis jawaban langkah ${currentStep}...`
+                  }
+                  value={isStep4 ? catatanKader : currentAnswer}
+                  onChangeText={isStep4 ? setCatatanKader : setCurrentAnswer}
+                  multiline
+                />
+                <TouchableOpacity 
+                  style={[
+                    styles.chatSendBtn, 
+                    ((isStep4 ? catatanKader : currentAnswer).trim().length === 0 && !isStep4) && styles.chatSendBtnDisabled
+                  ]}
+                  onPress={handleNextStep}
+                >
+                  {isStep4 ? (
+                    <CheckCircle2 size={20} color="#FFF" />
+                  ) : (
+                    <Send size={18} color="#FFF" />
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
           </KeyboardAvoidingView>
         );
+      }
 
-      case 'success':
+      case 'success': {
+        const chipColors = [
+          { bg: '#F0FDFA', text: '#09A477', label: 'Nutrisi' }, 
+          { bg: '#FFFBEB', text: '#D97706', label: 'Kesehatan' }, 
+          { bg: '#FCE7F3', text: '#DB2777', label: 'Pola Asuh' }
+        ];
+
         return (
           <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
             <View style={styles.successHeader}>
-              <CheckCircle2 size={56} color="#22C55E" />
+              <CheckCircle2 size={56} color="#09A477" />
               <Text style={styles.successTitle}>Penyuluhan AI Selesai!</Text>
               <Text style={styles.successDesc}>Rekomendasi gizi personal berhasil dirumuskan oleh kecerdasan buatan.</Text>
+            </View>
+
+            {/* Ringkasan Hasil AI Card */}
+            <View style={styles.ringkasanHasilCard}>
+              <View style={styles.ringkasanHasilHeader}>
+                <Brain size={20} color="#FFFFFF" />
+                <Text style={styles.ringkasanHasilTitle}>Ringkasan Hasil Tanya Jawab</Text>
+              </View>
+              
+              <View style={styles.summaryList}>
+                {qaList.map((item, index) => {
+                  const theme = chipColors[index % chipColors.length];
+                  return (
+                    <View key={index} style={styles.summaryItemRow}>
+                      <View style={[styles.summaryIconCircle, { backgroundColor: theme.bg }]}>
+                        <Text style={[styles.summaryIconText, { color: theme.text }]}>
+                          {index + 1}
+                        </Text>
+                      </View>
+                      <View style={styles.summaryTextContent}>
+                        <Text style={[styles.summaryLabel, { color: theme.text }]}>{theme.label}</Text>
+                        <Text style={styles.summaryQuestionText}>{item.question}</Text>
+                        <Text style={styles.summaryAnswerText}>"{item.answer}"</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+
+              {/* Catatan Tambahan Kader */}
+              {catatanKader.trim().length > 0 && (
+                <View style={styles.kaderNotesCard}>
+                  <Text style={styles.kaderNotesTitle}>Catatan Khusus Kader:</Text>
+                  <Text style={styles.kaderNotesText}>"{catatanKader}"</Text>
+                </View>
+              )}
             </View>
 
             {/* Glassmorphic AI Recommendation Card */}
             <Card style={styles.premiumAdviceCard}>
               <View style={styles.adviceCardHeader}>
-                <Sparkles size={22} color={COLORS.primary} />
+                <Sparkles size={22} color="#09A477" />
                 <Text style={styles.adviceCardTitle}>Rekomendasi Gizi & Stimulasi</Text>
               </View>
               <View style={styles.divider} />
               <Text style={styles.adviceMarkdown}>{aiRecommendation}</Text>
             </Card>
 
-            {/* Combined WhatsApp Button */}
+            {/* Actions */}
             <TouchableOpacity 
               style={[styles.actionBtn, { backgroundColor: '#25D366' }]} 
               onPress={handleShareWhatsAppUnified}
@@ -619,6 +722,7 @@ export default function CounselingSessionScreen() {
             </TouchableOpacity>
           </ScrollView>
         );
+      }
     }
   };
 
@@ -627,13 +731,31 @@ export default function CounselingSessionScreen() {
       {/* Header bar */}
       {stage !== 'loading-data' && stage !== 'generating-questions' && stage !== 'generating-recommendations' && (
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <ArrowLeft size={24} color="#1E293B" />
-          </TouchableOpacity>
-          <View>
-            <Text style={styles.headerTitle}>Sesi Penyuluhan Terbimbing</Text>
-            <Text style={styles.headerSub}>Konseling Gizi Bertenaga AI</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <TouchableOpacity onPress={handleHeaderBack} style={styles.backBtn}>
+              <ArrowLeft size={24} color="#1E293B" />
+            </TouchableOpacity>
+            <View>
+              <Text style={styles.headerTitle}>Penyuluhan AI</Text>
+            </View>
           </View>
+          {stage === 'interview' && (
+            <TouchableOpacity 
+              style={styles.trashBtn} 
+              onPress={() => {
+                Alert.alert(
+                  'Batalkan Sesi',
+                  'Apakah Anda yakin ingin membatalkan dan mengulang sesi penyuluhan gizi ini?',
+                  [
+                    { text: 'Tidak', style: 'cancel' },
+                    { text: 'Ya, Ulangi', onPress: () => router.back(), style: 'destructive' }
+                  ]
+                );
+              }}
+            >
+              <Trash2 size={20} color="#EF4444" />
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -642,15 +764,56 @@ export default function CounselingSessionScreen() {
   );
 }
 
+// Sub components for Chat
+const AiChatBubble = ({ stepNumber, title, text, guidance }: { stepNumber: number; title: string; text: string; guidance?: string }) => {
+  return (
+    <View style={styles.aiBubbleWrapper}>
+      <View style={styles.aiBubble}>
+        <View style={styles.aiBubbleHeader}>
+          <Sparkles size={14} color="#09A477" />
+          <Text style={styles.aiBubbleHeaderTitle}>AI Posyandu</Text>
+          <View style={{ flex: 1 }} />
+          <View style={styles.aiBubbleBadge}>
+            <Text style={styles.aiBubbleBadgeText}>Langkah {stepNumber}: {title}</Text>
+          </View>
+        </View>
+        <Text style={styles.aiBubbleText}>{text}</Text>
+        {guidance ? (
+          <View style={styles.aiGuidanceBox}>
+            <Text style={styles.aiGuidanceTitle}>💡 Panduan Wawancara Kader:</Text>
+            <Text style={styles.aiGuidanceText}>{guidance}</Text>
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
+};
+
+const UserChatBubble = ({ text }: { text: string }) => {
+  const timeStr = format(new Date(), 'HH:mm');
+  return (
+    <View style={styles.userBubbleWrapper}>
+      <View style={styles.userBubble}>
+        <Text style={styles.userBubbleSender}>Anda</Text>
+        <Text style={styles.userBubbleText}>{text}</Text>
+        <View style={styles.userBubbleFooter}>
+          <Text style={styles.userBubbleTime}>{timeStr}</Text>
+          <Text style={styles.userBubbleTicks}>✓✓</Text>
+        </View>
+      </View>
+    </View>
+  );
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
     backgroundColor: '#FFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
@@ -660,15 +823,16 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#1E293B',
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0F172A',
     letterSpacing: -0.5,
   },
   headerSub: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#64748B',
     fontWeight: '500',
+    marginTop: 1,
   },
   centerContainer: {
     flex: 1,
@@ -688,14 +852,14 @@ const styles = StyleSheet.create({
     width: 54,
     height: 54,
     borderRadius: 27,
-    backgroundColor: '#E0F2F1',
+    backgroundColor: '#F0FDFA',
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingTitle: {
     fontSize: 20,
-    fontWeight: '900',
-    color: '#1E293B',
+    fontWeight: 'bold',
+    color: '#0F172A',
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -710,341 +874,441 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
   },
-  profileSummaryCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 16,
-  },
-  profileSummaryHeader: {
+  
+  // MINIMALIST CHAT PROFILE HEADER
+  chatProfileHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
-  profileName: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#1E293B',
+  chatProfileAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E6F4EA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
-  profileAge: {
-    fontSize: 12,
+  chatProfileAvatarText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#09A477',
+  },
+  chatProfileName: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#0F172A',
+  },
+  chatProfileSub: {
+    fontSize: 11,
     color: '#64748B',
-    fontWeight: '500',
     marginTop: 2,
   },
-  summaryZscores: {
+  chatProfileZscores: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
-  zscoreBadge: {
-    flex: 1,
+  zBadgeMini: {
     backgroundColor: '#F1F5F9',
-    borderRadius: 12,
-    padding: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
     alignItems: 'center',
   },
-  zscoreBadgeLabel: {
-    fontSize: 9,
-    fontWeight: '800',
+  zBadgeLabelMini: {
+    fontSize: 8,
+    fontWeight: 'bold',
     color: '#64748B',
-    textTransform: 'uppercase',
   },
-  zscoreBadgeVal: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#1E293B',
-    marginTop: 2,
-    textAlign: 'center',
+  zBadgeValMini: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    marginTop: 1,
   },
-  stepTrackerCard: {
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 16,
+
+  // PROGRESS TRACKER
+  stepProgressContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
-  stepTrackerHeader: {
+  stepIndicatorRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  stepTrackerStep: {
+  stepIndicatorText: {
     fontSize: 10,
-    fontWeight: '900',
-    color: COLORS.primaryDark,
-    letterSpacing: 1,
+    fontWeight: 'bold',
+    color: '#09A477',
+    textTransform: 'uppercase',
   },
-  stepTrackerTitle: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#1E293B',
+  stepIndicatorTitle: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#0F172A',
   },
-  stepTrackerDesc: {
-    fontSize: 12,
-    color: '#64748B',
-    lineHeight: 18,
-    fontWeight: '500',
-    marginBottom: 14,
-  },
-  trackerProgressBar: {
-    height: 6,
+  progressBarBg: {
+    height: 4,
     backgroundColor: '#F1F5F9',
-    borderRadius: 3,
-    overflow: 'hidden',
+    borderRadius: 2,
   },
-  trackerProgressBarFill: {
+  progressBarFill: {
     height: '100%',
-    backgroundColor: COLORS.primary,
-    borderRadius: 3,
+    backgroundColor: '#09A477',
+    borderRadius: 2,
+  },
+
+  // CHAT SCROLLVIEW
+  chatScroll: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  chatContentContainer: {
+    padding: 16,
+    paddingBottom: 24,
   },
   memoryAlert: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E0F2F1',
+    backgroundColor: '#F0FDFA',
     borderRadius: 16,
-    padding: 14,
+    padding: 12,
     marginBottom: 20,
     gap: 10,
     borderWidth: 1,
-    borderColor: '#B2DFDB',
+    borderColor: '#CCFBF1',
   },
   memoryAlertText: {
     flex: 1,
     fontSize: 12,
-    color: '#006A63',
+    color: '#0F766E',
     fontWeight: '600',
     lineHeight: 18,
   },
-  sectionTitle: {
-    fontSize: 14,
+
+  // BUBBLES
+  aiBubbleWrapper: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    alignItems: 'flex-start',
+  },
+  aiBubble: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderTopLeftRadius: 4,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  aiBubbleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  aiBubbleHeaderTitle: {
+    fontSize: 12,
     fontWeight: '800',
+    color: '#09A477',
+  },
+  aiBubbleBadge: {
+    backgroundColor: '#F0FDFA',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  aiBubbleBadgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#09A477',
+  },
+  aiBubbleText: {
+    fontSize: 14,
+    color: '#0F172A',
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+  aiGuidanceBox: {
+    marginTop: 10,
+    backgroundColor: '#F0FDFA',
+    borderRadius: 12,
+    padding: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#09A477',
+  },
+  aiGuidanceTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#0F766E',
+    marginBottom: 2,
+  },
+  aiGuidanceText: {
+    fontSize: 11,
+    color: '#134E4A',
+    lineHeight: 16,
+  },
+
+  userBubbleWrapper: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 20,
+  },
+  userBubble: {
+    backgroundColor: '#E6F4EA',
+    borderRadius: 20,
+    borderTopRightRadius: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    maxWidth: '80%',
+  },
+  userBubbleSender: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#09A477',
+    marginBottom: 2,
+  },
+  userBubbleText: {
+    fontSize: 14,
+    color: '#0F766E',
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+  userBubbleFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+    marginTop: 4,
+  },
+  userBubbleTime: {
+    fontSize: 9,
+    color: '#09A477',
+    fontWeight: '600',
+  },
+  userBubbleTicks: {
+    fontSize: 10,
+    color: '#09A477',
+    fontWeight: '800',
+  },
+  trashBtn: {
+    padding: 8,
+    backgroundColor: '#FDF2F8',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FCE7F3',
+  },
+
+  // INLINE AI TYPING INDICATOR
+  aiTypingBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginLeft: 42,
+    marginBottom: 20,
+    gap: 6,
+  },
+  aiTypingText: {
+    fontSize: 11.5,
     color: '#64748B',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 12,
-    marginLeft: 4,
+    fontWeight: '500',
   },
-  questionCard: {
-    marginBottom: 16,
+
+  // QUICK REPLIES BAR
+  quickRepliesContainer: {
+    backgroundColor: '#F8FAFC',
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  quickRepliesScroll: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  quickReplyChip: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    maxWidth: 240,
+  },
+  quickReplyChipText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#334155',
+  },
+
+  // CHAT INPUT BAR
+  chatInputContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
+    paddingTop: 8,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  chatInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+  },
+  chatTextInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0F172A',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  chatSendBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#09A477',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 2,
+  },
+  chatSendBtnDisabled: {
+    backgroundColor: '#94A3B8',
+  },
+
+  // SUCCESS LAYOUT
+  successHeader: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+  },
+  successTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    marginTop: 16,
+    letterSpacing: -0.5,
+  },
+  successDesc: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginTop: 8,
+    fontWeight: '500',
+  },
+
+  // RINGKASAN HASIL CARD
+  ringkasanHasilCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 24,
+    overflow: 'hidden',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  ringkasanHasilHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#09A477',
+    padding: 16,
+    gap: 10,
+  },
+  ringkasanHasilTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  summaryList: {
     padding: 20,
+    gap: 16,
   },
-  questionHeader: {
+  summaryItemRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 16,
   },
-  questionNumberCircle: {
+  summaryIconCircle: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#F0FDFA',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
     marginTop: 2,
   },
-  questionNumberText: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: COLORS.primaryDark,
-  },
-  questionText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#1E293B',
-    lineHeight: 24,
-  },
-  guidanceContainer: {
-    backgroundColor: '#F0FDFA',
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.primary,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
-  },
-  guidanceHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  guidanceTitle: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: '#0F766E',
-    letterSpacing: 0.5,
-  },
-  guidanceText: {
+  summaryIconText: {
     fontSize: 12,
-    color: '#134E4A',
-    lineHeight: 18,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#64748B',
-    marginBottom: 8,
-    marginLeft: 2,
-  },
-  inputGroup: {
-    flexDirection: 'row',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 12,
-  },
-  answerInput: {
+  summaryTextContent: {
     flex: 1,
-    fontSize: 14,
-    color: '#1E293B',
-    paddingVertical: 12,
-    textAlignVertical: 'top',
   },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-    marginBottom: 20,
-  },
-  backStepBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 20,
-    paddingVertical: 16,
-    backgroundColor: '#FFF',
-    gap: 6,
-  },
-  backStepBtnText: {
-    color: '#64748B',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  nextStepBtn: {
-    flex: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.primary,
-    borderRadius: 20,
-    paddingVertical: 16,
-    gap: 6,
-    elevation: 2,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  nextStepBtnText: {
-    color: '#FFF',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  summaryCard: {
-    marginBottom: 16,
-    padding: 16,
-  },
-  summaryQuestionHeader: {
-    marginBottom: 10,
-  },
-  summaryQuestionNumber: {
-    fontSize: 11,
+  summaryLabel: {
+    fontSize: 10,
     fontWeight: '900',
-    color: COLORS.primary,
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
     marginBottom: 4,
   },
   summaryQuestionText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1E293B',
-    lineHeight: 20,
-  },
-  summaryAnswerContainer: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  summaryAnswerLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#94A3B8',
-    marginBottom: 2,
-  },
-  summaryAnswerText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#334155',
-    fontStyle: 'italic',
-  },
-  notesCard: {
-    marginBottom: 24,
-    padding: 20,
-  },
-  notesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  notesTitle: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#1E293B',
-  },
-  notesDesc: {
-    fontSize: 12,
+    fontSize: 12.5,
     color: '#64748B',
     lineHeight: 18,
     fontWeight: '500',
-    marginBottom: 14,
+    marginBottom: 4,
   },
-  notesInputGroup: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 12,
+  summaryAnswerText: {
+    fontSize: 13.5,
+    fontWeight: 'bold',
+    color: '#0F172A',
   },
-  notesInput: {
-    fontSize: 14,
-    color: '#1E293B',
-    paddingVertical: 12,
-    textAlignVertical: 'top',
+  kaderNotesCard: {
+    backgroundColor: '#F0FDFA',
+    borderTopWidth: 1,
+    borderTopColor: '#CCFBF1',
+    padding: 16,
   },
-  successHeader: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 24,
-    paddingHorizontal: 16,
-  },
-  successTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#1E293B',
-    marginTop: 16,
-    letterSpacing: -0.5,
-  },
-  successDesc: {
+  kaderNotesTitle: {
     fontSize: 13,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginTop: 8,
-    fontWeight: '500',
+    fontWeight: 'bold',
+    color: '#0F766E',
+    marginBottom: 4,
   },
+  kaderNotesText: {
+    fontSize: 13,
+    color: '#134E4A',
+    lineHeight: 18,
+    fontWeight: '500',
+    fontStyle: 'italic',
+  },
+
+  // PREMIUM ADVICE
   premiumAdviceCard: {
     backgroundColor: '#FFF',
     borderWidth: 1,
@@ -1053,7 +1317,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     marginBottom: 24,
     elevation: 4,
-    shadowColor: '#006A63',
+    shadowColor: '#09A477',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.05,
     shadowRadius: 16,
@@ -1066,12 +1330,12 @@ const styles = StyleSheet.create({
   },
   adviceCardTitle: {
     fontSize: 16,
-    fontWeight: '900',
-    color: '#134E4A',
+    fontWeight: 'bold',
+    color: '#0F766E',
   },
   divider: {
     height: 1,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#F1F5F9',
     marginBottom: 16,
   },
   adviceMarkdown: {
@@ -1084,13 +1348,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 18,
+    paddingVertical: 16,
     borderRadius: 20,
     gap: 8,
   },
   actionBtnText: {
     color: '#FFF',
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: 'bold',
   },
 });

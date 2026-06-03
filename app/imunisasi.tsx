@@ -8,27 +8,23 @@ import {
   TouchableOpacity, 
   ActivityIndicator,
   Alert,
-  Linking,
   ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { 
   Baby, 
-  Search, 
-  Filter, 
   ChevronRight, 
   MessageCircle, 
   Download,
   AlertCircle,
-  CheckCircle2,
-  Syringe
+  ArrowLeft
 } from 'lucide-react-native';
 import { useServiceStore } from '../stores/service-store';
 import { ImunisasiService } from '../services/imunisasi-service';
 import { ExportImunisasiService } from '../services/export-imunisasi-service';
 import { WhatsAppService } from '../services/whatsapp-service';
-import { Balita, Imunisasi } from '../lib/types';
+import { Balita } from '../lib/types';
 import { COLORS } from '../lib/constants';
 import { SearchBar } from '../components/ui/SearchBar';
 import ImunisasiForm from '../components/ImunisasiForm';
@@ -147,20 +143,22 @@ export default function ImunisasiScreen() {
       <TouchableOpacity 
         style={styles.card}
         onPress={() => handleOpenForm(item)}
+        activeOpacity={0.7}
       >
         <View style={styles.cardHeader}>
-          <View style={styles.babyIconContainer}>
-            <Baby size={20} color={COLORS.primary} />
+          <View style={[styles.babyIconContainer, { backgroundColor: COLORS.tealTonal }]}>
+            <Baby size={20} color={COLORS.tealPrimary} />
           </View>
           <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.babyName}>{item.nama}</Text>
+            <Text style={styles.babyName} numberOfLines={1}>{item.nama}</Text>
             <Text style={styles.babyInfo}>NIK: {item.nik} • RT: {item.rt}</Text>
           </View>
           <TouchableOpacity 
             onPress={() => handleSendWA(item)}
             style={styles.waBtn}
+            activeOpacity={0.7}
           >
-            <MessageCircle size={20} color="#25D366" />
+            <MessageCircle size={20} color="#10B981" />
           </TouchableOpacity>
         </View>
 
@@ -169,13 +167,16 @@ export default function ImunisasiScreen() {
             <Text style={styles.progressLabel}>Kelengkapan Imunisasi</Text>
             <Text style={[
               styles.progressValue, 
-              { color: completeness === 100 ? '#059669' : COLORS.primary }
+              { color: completeness === 100 ? '#10B981' : COLORS.tealPrimary }
             ]}>
               {completeness}%
             </Text>
           </View>
           <View style={styles.progressBarBg}>
-            <View style={[styles.progressBarFill, { width: `${completeness}%` }]} />
+            <View style={[
+              styles.progressBarFill, 
+              { width: `${completeness}%`, backgroundColor: completeness === 100 ? '#10B981' : COLORS.tealPrimary }
+            ]} />
           </View>
         </View>
 
@@ -191,24 +192,43 @@ export default function ImunisasiScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
       
+      {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Data Imunisasi</Text>
-          <Text style={styles.subtitle}>Pemantauan Vaksin Dasar Lengkap</Text>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity 
+            style={{ marginRight: 8, padding: 4 }} 
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={24} color="#1E293B" />
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.title}>Data Imunisasi</Text>
+            <Text style={styles.subtitle}>Pemantauan Vaksin Dasar Lengkap</Text>
+          </View>
         </View>
-        <TouchableOpacity style={styles.exportBtn} onPress={handleExport}>
-          <Download size={20} color="#FFF" />
+        <TouchableOpacity 
+          style={[styles.exportBtn, { backgroundColor: COLORS.tealPrimary }]} 
+          onPress={handleExport}
+          activeOpacity={0.8}
+        >
+          <Download size={18} color="#FFF" />
           <Text style={styles.exportText}>Export</Text>
         </TouchableOpacity>
       </View>
 
+      {/* Filter Tabs */}
       <View style={styles.filterSection}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.yearScroll}>
           {years.map(year => (
             <TouchableOpacity 
               key={year}
-              style={[styles.yearTab, selectedYear === year && styles.yearTabActive]}
+              style={[
+                styles.yearTab, 
+                selectedYear === year && [styles.yearTabActive, { backgroundColor: COLORS.tealPrimary, borderColor: COLORS.tealPrimary }]
+              ]}
               onPress={() => setSelectedYear(year)}
+              activeOpacity={0.7}
             >
               <Text style={[styles.yearTabText, selectedYear === year && styles.yearTabTextActive]}>
                 Lahir {year}
@@ -227,9 +247,10 @@ export default function ImunisasiScreen() {
         </View>
       </View>
 
+      {/* Content */}
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size="large" color={COLORS.tealPrimary} />
         </View>
       ) : (
         <FlatList
@@ -237,9 +258,10 @@ export default function ImunisasiScreen() {
           keyExtractor={item => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <AlertCircle size={48} color="#E2E8F0" />
+              <AlertCircle size={48} color="#CBD5E1" />
               <Text style={styles.emptyText}>Tidak ada data balita kelahiran {selectedYear}</Text>
             </View>
           }
@@ -261,92 +283,194 @@ export default function ImunisasiScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  container: { 
+    flex: 1, 
+    backgroundColor: COLORS.tealBg 
+  },
   header: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center', 
-    padding: 24,
-    backgroundColor: '#FFF'
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 16,
+    backgroundColor: '#FFFFFF',
+    elevation: 3,
+    shadowColor: '#00A896',
+    shadowOpacity: 0.04,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
   },
-  title: { fontSize: 24, fontWeight: '900', color: '#191C1D' },
-  subtitle: { fontSize: 14, color: '#64748B', marginTop: 2 },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  title: { 
+    fontSize: 20, 
+    fontWeight: '900', 
+    color: '#0F172A',
+    letterSpacing: -0.5,
+  },
+  subtitle: { 
+    fontSize: 12, 
+    color: '#64748B', 
+    marginTop: 3,
+    fontWeight: '600',
+  },
   exportBtn: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    backgroundColor: COLORS.primary, 
     paddingHorizontal: 16, 
     paddingVertical: 8, 
-    borderRadius: 12,
-    gap: 8
+    borderRadius: 14,
+    gap: 6
   },
-  exportText: { color: '#FFF', fontWeight: '700', fontSize: 13 },
-  
-  filterSection: { backgroundColor: '#FFF', paddingBottom: 16 },
-  yearScroll: { paddingHorizontal: 20, gap: 10, marginBottom: 16 },
+  exportText: { 
+    color: '#FFF', 
+    fontWeight: '800', 
+    fontSize: 13 
+  },
+  filterSection: { 
+    backgroundColor: '#FFFFFF', 
+    paddingBottom: 16,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    elevation: 2,
+    shadowColor: '#00A896',
+    shadowOpacity: 0.02,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  yearScroll: { 
+    paddingHorizontal: 20, 
+    gap: 8, 
+    marginVertical: 14 
+  },
   yearTab: { 
     paddingHorizontal: 16, 
     paddingVertical: 8, 
-    borderRadius: 20, 
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
+    borderRadius: 14, 
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
     borderColor: '#E2E8F0'
   },
-  yearTabActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  yearTabText: { fontSize: 13, fontWeight: '600', color: '#64748B' },
-  yearTabTextActive: { color: '#FFF' },
-  searchBar: { marginHorizontal: 20 },
-
-  listContent: { padding: 20, gap: 16 },
+  yearTabActive: {},
+  yearTabText: { 
+    fontSize: 13, 
+    fontWeight: '700', 
+    color: '#64748B' 
+  },
+  yearTabTextActive: { 
+    color: '#FFFFFF' 
+  },
+  searchBar: { 
+    marginHorizontal: 20 
+  },
+  listContent: { 
+    padding: 20, 
+    gap: 12,
+    paddingBottom: 100 
+  },
   card: { 
-    backgroundColor: '#FFF', 
+    backgroundColor: '#FFFFFF', 
     borderRadius: 24, 
-    padding: 20,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: '#00A896',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.02,
     shadowRadius: 8
   },
-  cardHeader: { flexDirection: 'row', alignItems: 'center' },
+  cardHeader: { 
+    flexDirection: 'row', 
+    alignItems: 'center' 
+  },
   babyIconContainer: { 
     width: 44, 
     height: 44, 
-    borderRadius: 12, 
-    backgroundColor: '#F0FDFA', 
+    borderRadius: 14, 
     justifyContent: 'center', 
     alignItems: 'center' 
   },
-  babyName: { fontSize: 16, fontWeight: '800', color: '#1E293B' },
-  babyInfo: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
+  babyName: { 
+    fontSize: 15, 
+    fontWeight: '800', 
+    color: '#0F172A' 
+  },
+  babyInfo: { 
+    fontSize: 12, 
+    color: '#94A3B8', 
+    marginTop: 4,
+    fontWeight: '600'
+  },
   waBtn: { 
-    width: 40, 
-    height: 40, 
-    borderRadius: 20, 
-    backgroundColor: '#F0FDF4', 
+    width: 36, 
+    height: 36, 
+    borderRadius: 18, 
+    backgroundColor: '#E6F4EA', 
     justifyContent: 'center', 
     alignItems: 'center' 
   },
-
-  progressSection: { marginTop: 16 },
-  progressHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  progressLabel: { fontSize: 12, fontWeight: '600', color: '#64748B' },
-  progressValue: { fontSize: 12, fontWeight: '800' },
-  progressBarBg: { height: 8, backgroundColor: '#F1F5F9', borderRadius: 4, overflow: 'hidden' },
-  progressBarFill: { height: '100%', backgroundColor: COLORS.primary, borderRadius: 4 },
-
+  progressSection: { 
+    marginTop: 14 
+  },
+  progressHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    marginBottom: 6 
+  },
+  progressLabel: { 
+    fontSize: 11, 
+    fontWeight: '700', 
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  progressValue: { 
+    fontSize: 12, 
+    fontWeight: '800' 
+  },
+  progressBarBg: { 
+    height: 8, 
+    backgroundColor: '#F1F5F9', 
+    borderRadius: 4, 
+    overflow: 'hidden' 
+  },
+  progressBarFill: { 
+    height: '100%', 
+    borderRadius: 4 
+  },
   cardFooter: { 
-    marginTop: 16, 
-    paddingTop: 16, 
-    borderTopWidth: 1, 
+    marginTop: 14, 
+    paddingTop: 14, 
+    borderTopWidth: 1.5, 
     borderTopColor: '#F1F5F9',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center'
   },
-  footerText: { fontSize: 12, color: '#94A3B8', fontWeight: '500' },
-
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyContainer: { alignItems: 'center', marginTop: 60, gap: 12 },
-  emptyText: { color: '#94A3B8', fontSize: 14, textAlign: 'center' }
+  footerText: { 
+    fontSize: 12, 
+    color: '#94A3B8', 
+    fontWeight: '600' 
+  },
+  center: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  emptyContainer: { 
+    alignItems: 'center', 
+    marginTop: 80, 
+    gap: 10 
+  },
+  emptyText: { 
+    color: '#94A3B8', 
+    fontSize: 13, 
+    textAlign: 'center',
+    fontWeight: '600',
+  }
 });

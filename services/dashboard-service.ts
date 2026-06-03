@@ -23,6 +23,7 @@ export interface DashboardStats {
   risikoTinggiBalita: number;
   lansiaHealthBreakdown: LansiaHealthBreakdown;
   posyanduInfo: Posyandu | null;
+  imunisasiCount?: number;
 }
 
 export class DashboardService {
@@ -90,6 +91,7 @@ export class DashboardService {
       { data: lansiaData },
       { data: balitaIdsWithVisit },
       { data: lansiaIdsWithVisit },
+      { count: imunisasiCount },
     ] = await Promise.all([
       runQuery(supabase.from('balitas').select('id', { count: 'exact', head: true }).eq('posyandu_id', posyanduId).gt('tanggal_lahir', limitDateString), 'totalBalita'),
       runQuery(supabase.from('lansias').select('id', { count: 'exact', head: true }).eq('posyandu_id', posyanduId), 'totalLansia'),
@@ -99,6 +101,7 @@ export class DashboardService {
       runQuery(supabase.from('pemeriksaan_lansias').select('tekanan_darah, gula_darah, kolesterol, asam_urat, lansia:lansias(jenis_kelamin)').in('lansia_id', safeLansiaIds).gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate), 'lansiaData'),
       runQuery(supabase.from('penimbangans').select('balita_id').in('balita_id', safeBalitaIds).gte('tanggal', startDate).lte('tanggal', endDate), 'balitaIdsWithVisit'),
       runQuery(supabase.from('pemeriksaan_lansias').select('lansia_id').in('lansia_id', safeLansiaIds).gte('tanggal_periksa', startDate).lte('tanggal_periksa', endDate), 'lansiaIdsWithVisit'),
+      runQuery(supabase.from('imunisasi').select('id', { count: 'exact', head: true }).in('balita_id', safeBalitaIds), 'imunisasiCount'),
     ]);
 
     // Aggregate nutrition stats
@@ -159,6 +162,7 @@ export class DashboardService {
     const lansiaVisitIds = new Set((lansiaIdsWithVisit || []).map((p: any) => p.lansia_id));
     const belumTimbangBalita = (totalBalita || 0) - balitaVisitIds.size;
     const belumPeriksaLansia = (totalLansia || 0) - lansiaVisitIds.size;
+    const belumPeriksaLansiaSafe = Math.max(0, belumPeriksaLansia);
 
     // Posyandu info
     let posyanduInfo: Posyandu | null = null;
@@ -181,10 +185,11 @@ export class DashboardService {
       balitaVisitsThisMonth: balitaVisits || 0,
       lansiaVisitsThisMonth: lansiaVisits || 0,
       belumTimbangBalita: Math.max(0, belumTimbangBalita),
-      belumPeriksaLansia: Math.max(0, belumPeriksaLansia),
+      belumPeriksaLansia: belumPeriksaLansiaSafe,
       risikoTinggiBalita,
       lansiaHealthBreakdown,
       posyanduInfo,
+      imunisasiCount: imunisasiCount || 0,
     };
   }
 

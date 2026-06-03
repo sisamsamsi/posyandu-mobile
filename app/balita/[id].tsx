@@ -7,7 +7,8 @@ import {
   TouchableOpacity, 
   ActivityIndicator,
   Alert,
-  Dimensions
+  Dimensions,
+  Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -22,10 +23,17 @@ import {
   TrendingUp,
   History,
   AlertCircle,
-  LayoutDashboard
+  LayoutDashboard,
+  Syringe,
+  ChevronRight,
+  MessageCircle,
+  MoreVertical
 } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useBalita } from '../../hooks/useBalita';
 import { usePenimbangan } from '../../hooks/usePenimbangan';
+import { ImunisasiService } from '../../services/imunisasi-service';
 import { Balita, WHOReferenceRow, RiskCalculationResult, Penimbangan } from '../../lib/types';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -38,7 +46,7 @@ import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { COLORS } from '../../lib/constants';
 
-type TabType = 'profil' | 'grafik' | 'riwayat' | 'risiko';
+type TabType = 'profil' | 'grafik' | 'riwayat' | 'imunisasi' | 'risiko';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -161,6 +169,93 @@ export default function BalitaDetail() {
   const [riskResult, setRiskResult] = useState<RiskCalculationResult | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Custom states for child profile photo
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoRefreshKey, setPhotoRefreshKey] = useState(0);
+
+  // State for KMS indicator selection
+  const [chartIndicator, setChartIndicator] = useState<'BB' | 'TB' | 'BB_TB'>('BB');
+
+  const loadLocalPhoto = async () => {
+    try {
+      const path = `${FileSystem.documentDirectory}balita_${id}.jpg`;
+      const info = await FileSystem.getInfoAsync(path);
+      if (info.exists) {
+        setPhotoUri(path);
+      } else {
+        setPhotoUri(null);
+      }
+    } catch (e) {
+      console.error('Error loading photo:', e);
+    }
+  };
+
+  const handleUpdatePhoto = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permissionResult.granted === false) {
+      Alert.alert('Izin Diperlukan', 'Aplikasi memerlukan akses ke galeri Anda untuk mengunggah foto.');
+      return;
+    }
+
+    Alert.alert(
+      'Pilih Sumber Foto',
+      'Silakan pilih kamera untuk mengambil foto langsung atau galeri untuk memilih foto yang sudah ada.',
+      [
+        {
+          text: 'Kamera',
+          onPress: async () => {
+            const cameraPerm = await ImagePicker.requestCameraPermissionsAsync();
+            if (cameraPerm.granted === false) {
+              Alert.alert('Izin Diperlukan', 'Aplikasi memerlukan akses ke kamera untuk mengambil foto.');
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.7,
+            });
+            if (!result.canceled && result.assets && result.assets[0].uri) {
+              await savePhoto(result.assets[0].uri);
+            }
+          }
+        },
+        {
+          text: 'Galeri',
+          onPress: async () => {
+            const result = await ImagePicker.launchImageLibraryAsync({
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.7,
+            });
+            if (!result.canceled && result.assets && result.assets[0].uri) {
+              await savePhoto(result.assets[0].uri);
+            }
+          }
+        },
+        {
+          text: 'Batal',
+          style: 'cancel'
+        }
+      ]
+    );
+  };
+
+  const savePhoto = async (tempUri: string) => {
+    try {
+      const destination = `${FileSystem.documentDirectory}balita_${id}.jpg`;
+      await FileSystem.copyAsync({
+        from: tempUri,
+        to: destination
+      });
+      setPhotoRefreshKey(prev => prev + 1);
+      await loadLocalPhoto();
+      Alert.alert('Sukses', 'Foto balita berhasil diperbarui!');
+    } catch (err) {
+      console.error('Error saving photo:', err);
+      Alert.alert('Error', 'Gagal menyimpan foto');
+    }
+  };
+
   const fetchAllData = async () => {
     if (typeof id !== 'string') return;
     
@@ -183,44 +278,44 @@ export default function BalitaDetail() {
         setWhoBBTB(bbtbStandards);
 
         // Calculate Risk if there is penimbangan data
-          const validPenimbangans = (data.penimbangans || []).filter(p => 
-            new Date(p.tanggal).getTime() <= new Date().getTime() && 
-            (p.berat_badan > 0 || p.tinggi_badan > 0)
-          );
-          const latest = [...validPenimbangans].sort((a,b) => 
-            new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
-          )[0];
-          
-          if (latest) {
-             const genderChar = data.jenis_kelamin === 'Laki-laki' ? 'L' : 'P';
-             const ageAtMeasurement = RiskPredictionService.calculateAgeMonths(data.tanggal_lahir, latest.tanggal);
-             
-             // Repair missing Z-Scores/Statuses locally for analysis accuracy
-             const repairedLatest = { ...latest };
-             
-             if (!repairedLatest.zscore_bb_u || !repairedLatest.status_bb_u) {
-               const res = ZScoreEngine.calculate(bbStandards, genderChar, ageAtMeasurement, latest.berat_badan, 'BB/U');
-               repairedLatest.zscore_bb_u = res.zscore;
-               repairedLatest.status_bb_u = res.status;
-             }
-             
-             if (!repairedLatest.zscore_tb_u || !repairedLatest.status_tb_u) {
-               const res = ZScoreEngine.calculate(tbStandards, genderChar, ageAtMeasurement, latest.tinggi_badan, 'TB/U');
-               repairedLatest.zscore_tb_u = res.zscore;
-               repairedLatest.status_tb_u = res.status;
-             }
-             
-             if (!repairedLatest.status_gizi_imt_u || !repairedLatest.zscore_imt_u) {
-               const bmi = latest.berat_badan / ((latest.tinggi_badan / 100) ** 2);
-               const res = ZScoreEngine.calculate(imtStandards, genderChar, ageAtMeasurement, bmi, 'IMT/U');
-               repairedLatest.zscore_imt_u = res.zscore;
-               repairedLatest.status_gizi_imt_u = res.status;
-             }
+        const validPenimbangans = (data.penimbangans || []).filter(p => 
+          new Date(p.tanggal).getTime() <= new Date().getTime() && 
+          (p.berat_badan > 0 || p.tinggi_badan > 0)
+        );
+        const latest = [...validPenimbangans].sort((a,b) => 
+          new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
+        )[0];
+        
+        if (latest) {
+           const genderChar = data.jenis_kelamin === 'Laki-laki' ? 'L' : 'P';
+           const ageAtMeasurement = RiskPredictionService.calculateAgeMonths(data.tanggal_lahir, latest.tanggal);
+           
+           // Repair missing Z-Scores/Statuses locally for analysis accuracy
+           const repairedLatest = { ...latest };
+           
+           if (!repairedLatest.zscore_bb_u || !repairedLatest.status_bb_u) {
+             const res = ZScoreEngine.calculate(bbStandards, genderChar, ageAtMeasurement, latest.berat_badan, 'BB/U');
+             repairedLatest.zscore_bb_u = res.zscore;
+             repairedLatest.status_bb_u = res.status;
+           }
+           
+           if (!repairedLatest.zscore_tb_u || !repairedLatest.status_tb_u) {
+             const res = ZScoreEngine.calculate(tbStandards, genderChar, ageAtMeasurement, latest.tinggi_badan, 'TB/U');
+             repairedLatest.zscore_tb_u = res.zscore;
+             repairedLatest.status_tb_u = res.status;
+           }
+           
+           if (!repairedLatest.status_gizi_imt_u || !repairedLatest.zscore_imt_u) {
+             const bmi = latest.berat_badan / ((latest.tinggi_badan / 100) ** 2);
+             const res = ZScoreEngine.calculate(imtStandards, genderChar, ageAtMeasurement, bmi, 'IMT/U');
+             repairedLatest.zscore_imt_u = res.zscore;
+             repairedLatest.status_gizi_imt_u = res.status;
+           }
 
-             const history = validPenimbangans.filter(p => p.id !== latest.id);
-             const risk = RiskPredictionService.calculate(data, repairedLatest, history);
-             setRiskResult(risk);
-          }
+           const history = validPenimbangans.filter(p => p.id !== latest.id);
+           const risk = RiskPredictionService.calculate(data, repairedLatest, history);
+           setRiskResult(risk);
+        }
       }
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -231,7 +326,30 @@ export default function BalitaDetail() {
 
   useEffect(() => {
     fetchAllData();
-  }, [id]);
+    loadLocalPhoto();
+  }, [id, photoRefreshKey]);
+
+  const handleMoreActions = () => {
+    Alert.alert(
+      'Pilihan Aksi',
+      'Pilih tindakan yang ingin Anda lakukan untuk warga ini.',
+      [
+        {
+          text: 'Edit Data Balita',
+          onPress: () => balita?.id && router.push(`/balita/${balita.id}/edit`),
+        },
+        {
+          text: 'Hapus Warga',
+          style: 'destructive',
+          onPress: handleDelete,
+        },
+        {
+          text: 'Batal',
+          style: 'cancel',
+        },
+      ]
+    );
+  };
 
   const handleDelete = () => {
     Alert.alert(
@@ -295,25 +413,71 @@ export default function BalitaDetail() {
     );
   }
 
+  const calculateAgeDetail = (birthDateString: string) => {
+    const birthDate = new Date(birthDateString);
+    const today = new Date();
+    let years = today.getFullYear() - birthDate.getFullYear();
+    let months = today.getMonth() - birthDate.getMonth();
+    if (months < 0 || (months === 0 && today.getDate() < birthDate.getDate())) {
+      years--;
+      months = 12 + months;
+    }
+    return `${years} th ${months} bln`;
+  };
+
+  const calculateAgeDaysDetail = (birthDateString: string) => {
+    const birthDate = new Date(birthDateString);
+    const today = new Date();
+    
+    let years = today.getFullYear() - birthDate.getFullYear();
+    let months = today.getMonth() - birthDate.getMonth();
+    let days = today.getDate() - birthDate.getDate();
+    
+    if (days < 0) {
+      const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+      days = prevMonth.getDate() + days;
+      months--;
+    }
+    
+    if (months < 0) {
+      years--;
+      months = 12 + months;
+    }
+    
+    const parts = [];
+    if (years > 0) parts.push(`${years} tahun`);
+    if (months > 0) parts.push(`${months} bulan`);
+    if (days > 0) parts.push(`${days} hari`);
+    
+    return parts.join(' ') || '0 hari';
+  };
+
   const renderTabContent = () => {
+    const validPenimbangans = (balita.penimbangans || []).filter(p => 
+      new Date(p.tanggal).getTime() <= new Date().getTime() && 
+      (p.berat_badan > 0 || p.tinggi_badan > 0)
+    );
+    const latestMeasurement = [...validPenimbangans].sort((a,b) => 
+      new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
+    )[0];
+
     switch (activeTab) {
       case 'profil':
         return (
           <View>
-            <Card style={styles.infoCard}>
-              <InfoRow icon={<User size={20} color={COLORS.tealPrimary} />} label="NIK" value={balita.nik} />
-              <InfoRow 
-                icon={<Calendar size={20} color={COLORS.tealPrimary} />} 
-                label="Tanggal Lahir" 
-                value={format(new Date(balita.tanggal_lahir), 'dd MMMM yyyy', { locale: idLocale })} 
-              />
-              <InfoRow icon={<User size={20} color={COLORS.tealPrimary} />} label="Orang Tua" value={balita.nama_ortu} />
-              <InfoRow 
-                icon={<MapPin size={20} color={COLORS.tealPrimary} />} 
-                label="Alamat" 
-                value={`${balita.alamat} (RT ${balita.rt})`} 
-                isLast 
-              />
+            <Card style={styles.bentoInfoCard}>
+              <Text style={styles.bentoInfoTitle}>Informasi Balita</Text>
+              
+              <TableRow label="Nama Lengkap" value={balita.nama} />
+              <TableRow label="NIK" value={balita.nik} />
+              <TableRow label="Jenis Kelamin" value={balita.jenis_kelamin} />
+              <TableRow label="Tanggal Lahir" value={format(new Date(balita.tanggal_lahir), 'dd MMMM yyyy', { locale: idLocale })} />
+              <TableRow label="Usia" value={calculateAgeDaysDetail(balita.tanggal_lahir)} />
+              <TableRow label="Posyandu" value={balita.posyandu?.nama_posyandu || '-'} />
+              <TableRow label="Alamat" value={`${balita.alamat} (RT ${balita.rt || 1})`} />
+              <TableRow label="Nama Ayah" value={balita.nama_ayah || '-'} />
+              <TableRow label="Nama Ibu" value={balita.nama_ortu || '-'} />
+              <TableRow label="No. HP Orang Tua" value={balita.no_hp_ortu || '-'} isLast />
             </Card>
 
             <View style={styles.statsGrid}>
@@ -326,60 +490,123 @@ export default function BalitaDetail() {
                 <Text style={styles.statValue}>{balita.tb_lahir || '-'} <Text style={styles.unit}>cm</Text></Text>
               </Card>
             </View>
-
-            {riskResult && (
-               <Card style={[
-                 styles.summaryCard, 
-                 { backgroundColor: riskResult.risk_color === 'red' ? '#FEF2F2' : COLORS.tealTonal }
-               ]}>
-                 <View style={styles.summaryHeader}>
-                   <TrendingUp size={20} color={COLORS.tealPrimary} />
-                   <Text style={styles.summaryTitle}>Kondisi Terkini</Text>
-                 </View>
-                 <Text style={[
-                   styles.summaryStatus,
-                   { color: riskResult.risk_color === 'red' ? '#991B1B' : '#115E59' }
-                 ]}>{riskResult.risk_level}</Text>
-                 <Text style={styles.summaryDesc}>Berdasarkan data penimbangan terakhir : {riskResult.date ? format(new Date(riskResult.date), 'dd MMM yyyy') : '-'}</Text>
-               </Card>
-            )}
           </View>
         );
 
-      case 'grafik':
+      case 'grafik': {
+        let activeStandards = whoBB;
+        let chartIndicatorKey: 'BB' | 'TB' | 'IMT' | 'BB_TB' = 'BB';
+        let chartTitle = 'Berat Badan menurut Umur (BB/U)';
+        if (chartIndicator === 'TB') {
+          activeStandards = whoTB;
+          chartIndicatorKey = 'TB';
+          chartTitle = 'Tinggi Badan menurut Umur (TB/U)';
+        } else if (chartIndicator === 'BB_TB') {
+          activeStandards = whoBBTB;
+          chartIndicatorKey = 'BB_TB';
+          chartTitle = 'Berat Badan menurut Tinggi Badan (BB/TB)';
+        }
+
         return (
           <View>
-             <GrowthChart 
-               standards={whoBB} 
-               data={balita.penimbangans || []} 
-               indicator="BB" 
-               title="Grafik Berat Badan / Umur" 
-               birthDate={balita.tanggal_lahir}
-               bbLahir={balita.bb_lahir}
-               tbLahir={balita.tb_lahir}
-             />
-             <View style={{ height: 20 }} />
-             <GrowthChart 
-               standards={whoTB} 
-               data={balita.penimbangans || []} 
-               indicator="TB" 
-               title="Grafik Tinggi Badan / Umur" 
-               birthDate={balita.tanggal_lahir}
-               bbLahir={balita.bb_lahir}
-               tbLahir={balita.tb_lahir}
-             />
-             <View style={{ height: 20 }} />
-             <GrowthChart 
-               standards={whoBBTB} 
-               data={balita.penimbangans || []} 
-               indicator="BB_TB" 
-               title="Grafik Berat Badan / Tinggi Badan" 
-               birthDate={balita.tanggal_lahir}
-               bbLahir={balita.bb_lahir}
-               tbLahir={balita.tb_lahir}
-             />
+            {/* Tombol Pil Horizontal Indikator */}
+            <View style={styles.chartSelectorRow}>
+              <TouchableOpacity 
+                style={[styles.chartSelectorTab, chartIndicator === 'BB' && styles.chartSelectorTabActive]}
+                onPress={() => setChartIndicator('BB')}
+              >
+                <Text style={[styles.chartSelectorTabText, chartIndicator === 'BB' && styles.chartSelectorTabTextActive]}>BB/U</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.chartSelectorTab, chartIndicator === 'TB' && styles.chartSelectorTabActive]}
+                onPress={() => setChartIndicator('TB')}
+              >
+                <Text style={[styles.chartSelectorTabText, chartIndicator === 'TB' && styles.chartSelectorTabTextActive]}>TB/U</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.chartSelectorTab, chartIndicator === 'BB_TB' && styles.chartSelectorTabActive]}
+                onPress={() => setChartIndicator('BB_TB')}
+              >
+                <Text style={[styles.chartSelectorTabText, chartIndicator === 'BB_TB' && styles.chartSelectorTabTextActive]}>BB/TB</Text>
+              </TouchableOpacity>
+            </View>
+
+            <GrowthChart 
+              standards={activeStandards} 
+              data={balita.penimbangans || []} 
+              indicator={chartIndicatorKey} 
+              title={chartTitle} 
+              birthDate={balita.tanggal_lahir}
+              bbLahir={balita.bb_lahir}
+              tbLahir={balita.tb_lahir}
+            />
+
+            {/* Tabel Riwayat Pengukuran */}
+            <View style={styles.tableCard}>
+              <Text style={styles.tableCardTitle}>Riwayat Pengukuran</Text>
+              {validPenimbangans.length > 0 ? (
+                [...validPenimbangans].sort((a,b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()).map((p, index) => {
+                  const isLatest = index === 0;
+                  let zscoreVal = '-';
+                  if (chartIndicator === 'BB') {
+                    zscoreVal = p.zscore_bb_u !== null ? `Z-score ${p.zscore_bb_u.toFixed(2)}` : '-';
+                  } else if (chartIndicator === 'TB') {
+                    zscoreVal = p.zscore_tb_u !== null ? `Z-score ${p.zscore_tb_u.toFixed(2)}` : '-';
+                  } else if (chartIndicator === 'BB_TB') {
+                    zscoreVal = p.zscore_bb_tb !== null ? `Z-score ${p.zscore_bb_tb.toFixed(2)}` : '-';
+                  }
+                  
+                  return (
+                    <View 
+                      key={p.id} 
+                      style={[
+                        styles.tableRow, 
+                        isLatest && { 
+                          backgroundColor: '#E6F4EA', 
+                          borderRadius: 12, 
+                          paddingHorizontal: 8,
+                          marginHorizontal: -8,
+                        }
+                      ]}
+                    >
+                      <Text style={[
+                        styles.tableCell, 
+                        { flex: 2.2, fontWeight: '700' },
+                        isLatest && { color: '#09A477' }
+                      ]}>
+                        {format(new Date(p.tanggal), 'd MMM yyyy', { locale: idLocale })}
+                      </Text>
+                      <Text style={[
+                        styles.tableCell, 
+                        { flex: 1.2, textAlign: 'center', fontWeight: '600' },
+                        isLatest && { color: '#09A477' }
+                      ]}>
+                        {p.berat_badan.toFixed(1)} kg
+                      </Text>
+                      <Text style={[
+                        styles.tableCell, 
+                        { flex: 1.2, textAlign: 'center', fontWeight: '600' },
+                        isLatest && { color: '#09A477' }
+                      ]}>
+                        {p.tinggi_badan.toFixed(1)} cm
+                      </Text>
+                      <Text style={[
+                        styles.tableCell, 
+                        { flex: 1.8, textAlign: 'right', fontWeight: '700', color: '#64748B' },
+                        isLatest && { color: '#09A477' }
+                      ]}>
+                        {zscoreVal}
+                      </Text>
+                    </View>
+                  );
+                })
+              ) : (
+                <Text style={styles.tableEmptyText}>Belum ada riwayat pengukuran</Text>
+              )}
+            </View>
           </View>
         );
+      }
 
       case 'riwayat': {
         const sortedPenimbangansAsc = [...(balita.penimbangans || [])].sort(
@@ -544,6 +771,71 @@ export default function BalitaDetail() {
         );
       }
 
+      case 'imunisasi': {
+        const imunisasi = balita.imunisasi;
+        const completeness = ImunisasiService.calculateCompleteness(imunisasi);
+        const vaccines = [
+          { key: 'hb0_date', label: 'HB0 (24 jam)' },
+          { key: 'bcg_date', label: 'BCG (<2 bln)' },
+          { key: 'penta_1_date', label: 'PENTA 1' },
+          { key: 'penta_2_date', label: 'PENTA 2' },
+          { key: 'penta_3_date', label: 'PENTA 3' },
+          { key: 'ipv_1_date', label: 'IPV 1' },
+          { key: 'ipv_2_date', label: 'IPV 2' },
+          { key: 'ipv_3_date', label: 'IPV 3' },
+          { key: 'pcv_1_date', label: 'PCV 1' },
+          { key: 'pcv_2_date', label: 'PCV 2' },
+          { key: 'pcv_3_date', label: 'PCV 3 (1 th)' },
+          { key: 'rv_1_date', label: 'ROTAVIRUS 1' },
+          { key: 'rv_2_date', label: 'ROTAVIRUS 2' },
+          { key: 'rv_3_date', label: 'ROTAVIRUS 3' },
+          { key: 'mr_date', label: 'MR (9 bln)' },
+          { key: 'je_date', label: 'JE (10 bln)' },
+          { key: 'booster_penta_date', label: 'BOOSTER PENTA (18 bln)' },
+          { key: 'booster_mr_date', label: 'BOOSTER MR (18 bln)' },
+        ];
+
+        return (
+          <View>
+            <Card style={styles.imunisasiCompletenessCard}>
+              <View style={styles.completenessHeader}>
+                <Text style={styles.completenessLabel}>Kelengkapan Imunisasi</Text>
+                <Text style={styles.completenessValue}>{completeness}%</Text>
+              </View>
+              <View style={styles.completenessBarBg}>
+                <View style={[styles.completenessBarFill, { width: `${completeness}%` }]} />
+              </View>
+            </Card>
+            
+            <Card style={styles.vaccineCard}>
+              <Text style={styles.vaccineCardTitle}>Daftar Vaksinasi Dasar</Text>
+              {vaccines.map((v) => {
+                const dateVal = imunisasi ? (imunisasi as any)[v.key] : null;
+                const isCompleted = !!dateVal;
+                return (
+                  <View key={v.key} style={styles.vaccineRow}>
+                    <View style={styles.vaccineLeft}>
+                      <View style={[
+                        styles.vaccineIconCircle, 
+                        { backgroundColor: isCompleted ? '#E6F4EA' : '#F1F5F9' }
+                      ]}>
+                        <Syringe size={14} color={isCompleted ? '#10B981' : '#94A3B8'} />
+                      </View>
+                      <Text style={[styles.vaccineLabelText, isCompleted && { fontWeight: '700', color: '#1E293B' }]}>
+                        {v.label}
+                      </Text>
+                    </View>
+                    <Text style={styles.vaccineDateText}>
+                      {isCompleted ? format(new Date(dateVal), 'dd/MM/yyyy') : 'Belum'}
+                    </Text>
+                  </View>
+                );
+              })}
+            </Card>
+          </View>
+        );
+      }
+
       case 'risiko':
         return riskResult ? (
           <RiskSummary result={riskResult} />
@@ -563,55 +855,191 @@ export default function BalitaDetail() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <ArrowLeft size={24} color="#1E293B" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Detail Balita</Text>
+        <Text style={styles.headerTitle}>
+          {activeTab === 'grafik' ? 'Grafik KMS' : 'Detail Balita'}
+        </Text>
         <View style={styles.headerActions}>
           <TouchableOpacity 
             onPress={() => router.push(`/balita/${balita.id}/edit`)} 
             style={styles.headerAction}
           >
-            <Edit size={20} color={COLORS.tealPrimary} />
+            <Edit size={20} color="#1E293B" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleDelete} style={styles.headerAction}>
-            <Trash2 size={20} color="#EF4444" />
+          <TouchableOpacity onPress={handleMoreActions} style={styles.headerAction}>
+            <MoreVertical size={20} color="#1E293B" />
           </TouchableOpacity>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Profile Card */}
-        <View style={styles.profileSection}>
-          <View style={styles.avatarContainer}>
-             <Baby size={48} color={COLORS.tealPrimary} />
-          </View>
-          <Text style={styles.balitaName}>{balita.nama}</Text>
-          <Text style={styles.balitaSubtitle}>{balita.jenis_kelamin} • {balita.posyandu?.nama_posyandu}</Text>
+        {/* Profile Card Container (Left-aligned) */}
+        <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
+          <Card style={styles.profileInfoCard}>
+            <View style={styles.profileInfoContainer}>
+              <TouchableOpacity onPress={handleUpdatePhoto} activeOpacity={0.7} style={styles.photoContainer}>
+                {photoUri ? (
+                  <Image 
+                    source={{ uri: `${photoUri}?k=${photoRefreshKey}` }} 
+                    style={styles.avatarImage} 
+                  />
+                ) : (
+                  <View style={styles.avatarCircleFallback}>
+                    <Text style={styles.avatarFallbackText}>
+                      {balita.nama.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.cameraIconBadge}>
+                  <Edit size={10} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
+
+              <View style={styles.profileTextInfo}>
+                <View style={styles.profileNameRow}>
+                  <Text style={styles.balitaName} numberOfLines={1}>{balita.nama}</Text>
+                  <View style={styles.aktifBadge}>
+                    <Text style={styles.aktifText}>Aktif</Text>
+                  </View>
+                </View>
+                <Text style={styles.balitaSubtitle}>
+                  {balita.jenis_kelamin} • {calculateAgeDetail(balita.tanggal_lahir)}
+                </Text>
+              </View>
+            </View>
+          </Card>
         </View>
 
-        {/* Tab Navigator */}
-        <View style={styles.tabBar}>
-          <TabItem 
-            active={activeTab === 'profil'} 
-            label="Profil" 
-            icon={<LayoutDashboard size={18} color={activeTab === 'profil' ? COLORS.tealPrimary : '#94A3B8'} />}
-            onPress={() => setActiveTab('profil')} 
-          />
+        {/* 3-Column Metrics Card Row */}
+        <View style={styles.metricsRow}>
+          {/* Card 1: BB Terakhir */}
+          <Card style={styles.metricItemCard}>
+            <Text style={styles.metricLabel}>BB Terakhir</Text>
+            {(() => {
+              const validPenimbangans = (balita.penimbangans || []).filter(p => 
+                new Date(p.tanggal).getTime() <= new Date().getTime() && p.berat_badan > 0
+              );
+              const latest = [...validPenimbangans].sort((a,b) => 
+                new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
+              )[0];
+              const displayVal = latest ? `${latest.berat_badan.toFixed(1)} kg` : '-';
+              const displayDate = latest ? format(new Date(latest.tanggal), 'd MMM yyyy', { locale: idLocale }) : 'Belum diukur';
+              return (
+                <>
+                  <Text style={styles.metricValue}>{displayVal}</Text>
+                  <Text style={styles.metricSubText}>{displayDate}</Text>
+                </>
+              );
+            })()}
+          </Card>
+          
+          {/* Card 2: TB Terakhir */}
+          <Card style={styles.metricItemCard}>
+            <Text style={styles.metricLabel}>TB Terakhir</Text>
+            {(() => {
+              const validPenimbangans = (balita.penimbangans || []).filter(p => 
+                new Date(p.tanggal).getTime() <= new Date().getTime() && p.tinggi_badan > 0
+              );
+              const latest = [...validPenimbangans].sort((a,b) => 
+                new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
+              )[0];
+              const displayVal = latest ? `${latest.tinggi_badan.toFixed(1)} cm` : '-';
+              const displayDate = latest ? format(new Date(latest.tanggal), 'd MMM yyyy', { locale: idLocale }) : 'Belum diukur';
+              return (
+                <>
+                  <Text style={styles.metricValue}>{displayVal}</Text>
+                  <Text style={styles.metricSubText}>{displayDate}</Text>
+                </>
+              );
+            })()}
+          </Card>
+          
+          {/* Card 3: IMT/U */}
+          <Card style={styles.metricItemCard}>
+            <Text style={styles.metricLabel}>IMT/U</Text>
+            {(() => {
+              const validPenimbangans = (balita.penimbangans || []).filter(p => 
+                new Date(p.tanggal).getTime() <= new Date().getTime() && p.status_gizi_imt_u
+              );
+              const latest = [...validPenimbangans].sort((a,b) => 
+                new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
+              )[0];
+              
+              const statusText = latest?.status_gizi_imt_u || 'Belum diukur';
+              const zScoreVal = latest && latest.zscore_imt_u !== null ? `Z-score ${latest.zscore_imt_u.toFixed(2)}` : 'Z-score -';
+              
+              // Get color for status badge
+              let bg = '#F1F5F9';
+              let text = '#64748B';
+              if (latest) {
+                const status = statusText.toLowerCase();
+                if (status.includes('normal') || status.includes('baik')) {
+                  bg = '#E6F4EA';
+                  text = '#137333';
+                } else if (status.includes('kurang') || status.includes('pendek') || status.includes('lebih')) {
+                  bg = '#FEF7E0';
+                  text = '#B06000';
+                } else if (status.includes('buruk') || status.includes('sangat') || status.includes('obesitas')) {
+                  bg = '#FCE8E6';
+                  text = '#C5221F';
+                }
+              }
+              
+              return (
+                <>
+                  <View style={{
+                    backgroundColor: bg,
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                    borderRadius: 8,
+                    marginTop: 6,
+                  }}>
+                    <Text style={{
+                      color: text,
+                      fontSize: 10,
+                      fontWeight: '800',
+                      textAlign: 'center',
+                    }} numberOfLines={1}>
+                      {statusText}
+                    </Text>
+                  </View>
+                  <Text style={styles.metricSubText}>{zScoreVal}</Text>
+                </>
+              );
+            })()}
+          </Card>
+        </View>
+
+        {/* Tab Navigator (Centered Icon / Text below) */}
+        <View style={styles.tabBarContainer}>
           <TabItem 
             active={activeTab === 'grafik'} 
-            label="Grafik" 
-            icon={<TrendingUp size={18} color={activeTab === 'grafik' ? COLORS.tealPrimary : '#94A3B8'} />}
+            label="KMS Grafik" 
+            icon={<TrendingUp size={20} color={activeTab === 'grafik' ? '#09A477' : '#94A3B8'} />}
             onPress={() => setActiveTab('grafik')} 
           />
           <TabItem 
             active={activeTab === 'riwayat'} 
             label="Riwayat" 
-            icon={<History size={18} color={activeTab === 'riwayat' ? COLORS.tealPrimary : '#94A3B8'} />}
+            icon={<History size={20} color={activeTab === 'riwayat' ? '#09A477' : '#94A3B8'} />}
             onPress={() => setActiveTab('riwayat')} 
           />
           <TabItem 
+            active={activeTab === 'imunisasi'} 
+            label="Imunisasi" 
+            icon={<Syringe size={20} color={activeTab === 'imunisasi' ? '#09A477' : '#94A3B8'} />}
+            onPress={() => setActiveTab('imunisasi')} 
+          />
+          <TabItem 
             active={activeTab === 'risiko'} 
-            label="Analisis" 
-            icon={<AlertCircle size={18} color={activeTab === 'risiko' ? COLORS.tealPrimary : '#94A3B8'} />}
+            label="Catatan" 
+            icon={<AlertCircle size={20} color={activeTab === 'risiko' ? '#09A477' : '#94A3B8'} />}
             onPress={() => setActiveTab('risiko')} 
+          />
+          <TabItem 
+            active={activeTab === 'profil'} 
+            label="Lainnya" 
+            icon={<User size={20} color={activeTab === 'profil' ? '#09A477' : '#94A3B8'} />}
+            onPress={() => setActiveTab('profil')} 
           />
         </View>
 
@@ -620,14 +1048,16 @@ export default function BalitaDetail() {
         </View>
       </ScrollView>
 
-      {/* Floating Action Button for Service Desk */}
-      <TouchableOpacity 
-        style={styles.fab}
-        onPress={() => router.push(`/service-desk/balita?id=${balita.id}`)}
-      >
-        <Edit size={24} color="#FFFFFF" />
-        <Text style={styles.fabText}>Input Data</Text>
-      </TouchableOpacity>
+      {/* Static Bottom Action Button */}
+      <View style={styles.bottomActionContainer}>
+        <TouchableOpacity 
+          style={styles.bottomActionButton}
+          onPress={() => router.push(`/service-desk/balita?id=${balita.id}`)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.bottomActionText}>+ Input Penimbangan</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -643,6 +1073,13 @@ const InfoRow = ({ icon, label, value, isLast }: { icon: React.ReactNode, label:
   </View>
 );
 
+const TableRow = ({ label, value, isLast }: { label: string; value: string | number; isLast?: boolean }) => (
+  <View style={[styles.tableRowContainer, isLast && { borderBottomWidth: 0 }]}>
+    <Text style={styles.tableRowLabel}>{label}</Text>
+    <Text style={styles.tableRowValue}>{value}</Text>
+  </View>
+);
+
 const TabItem = ({ active, label, icon, onPress }: { active: boolean, label: string, icon: React.ReactNode, onPress: () => void }) => (
   <TouchableOpacity 
     style={[styles.tabItem, active && styles.activeTabItem]} 
@@ -654,272 +1091,88 @@ const TabItem = ({ active, label, icon, onPress }: { active: boolean, label: str
 );
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.tealBg,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: COLORS.tealBg,
-  },
-  backButton: {
-    padding: 8,
-    borderRadius: 12,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1E293B',
-  },
-  headerActions: {
-    flexDirection: 'row',
-  },
-  headerAction: {
-    padding: 8,
-    marginLeft: 8,
-  },
-  scrollContent: {
-    paddingBottom: 100,
-  },
-  profileSection: {
-    alignItems: 'center',
-    paddingVertical: 24,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    marginHorizontal: 16,
-    marginTop: 8,
-  },
-  avatarContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: COLORS.tealTonal,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  balitaName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0F172A',
-    marginBottom: 4,
-  },
-  balitaSubtitle: {
-    fontSize: 12,
-    color: '#64748B',
-  },
-  tabBar: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    marginTop: 20,
-    justifyContent: 'space-between',
-  },
-  tabItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    gap: 6,
-  },
-  activeTabItem: {
-    backgroundColor: COLORS.tealTonal,
-  },
-  tabLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#94A3B8',
-  },
-  activeTabLabel: {
-    color: COLORS.tealPrimary,
-  },
-  tabContent: {
-    padding: 16,
-  },
-  infoCard: {
-    padding: 8,
-    marginBottom: 16,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-  },
-  infoIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: COLORS.tealTonal,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  infoLabel: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginBottom: 2,
-  },
-  infoValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#334155',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  statCard: {
-    flex: 1,
-    marginHorizontal: 4,
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: '#64748B',
-    marginBottom: 4,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.tealPrimary,
-  },
-  unit: {
-    fontSize: 11,
-    fontWeight: 'normal',
-    color: '#94A3B8',
-  },
-  summaryCard: {
-    padding: 16,
-  },
-  summaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  summaryTitle: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#64748B',
-    marginLeft: 8,
-  },
-  summaryStatus: {
-    fontSize: 16,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  summaryDesc: {
-    fontSize: 11,
-    color: '#64748B',
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#1E293B',
-    marginBottom: 12,
-  },
-  historyCard: {
-    marginBottom: 12,
-  },
-  historyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  historyDate: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#334155',
-  },
-  historyStats: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.tealBg,
-    borderRadius: 12,
-    padding: 10,
-  },
-  hStat: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  hLabel: {
-    fontSize: 10,
-    color: '#94A3B8',
-    marginBottom: 2,
-  },
-  hValue: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#1E293B',
-  },
-  historyAction: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: COLORS.tealTonal,
-    marginLeft: 4,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.tealBg,
-  },
-  loadingText: {
-    marginTop: 12,
-    color: '#64748B',
-    fontSize: 13,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 12,
-    marginBottom: 20,
-  },
-  retryButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    backgroundColor: COLORS.tealPrimary,
-    borderRadius: 12,
-  },
-  retryText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    marginTop: 100,
-  },
-  emptyText: {
-    marginTop: 12,
-    color: '#94A3B8',
-    fontSize: 13,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    backgroundColor: COLORS.tealPrimary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
-  },
-  fabText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    marginLeft: 8,
-    fontSize: 14,
-  },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: '#FFFFFF' },
+  backButton: { padding: 8, borderRadius: 12 },
+  headerTitle: { fontSize: 16, fontWeight: 'bold', color: '#1E293B' },
+  headerActions: { flexDirection: 'row' },
+  headerAction: { padding: 8, marginLeft: 8 },
+  scrollContent: { paddingBottom: 100 },
+  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#0F172A' },
+  profileInfoCard: { padding: 12, borderRadius: 24, borderWidth: 1, borderColor: '#F1F5F9', backgroundColor: '#FFFFFF', elevation: 2, shadowColor: '#000000', shadowOpacity: 0.03, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+  profileInfoContainer: { flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: '#FFFFFF' },
+  photoContainer: { position: 'relative' },
+  avatarImage: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#F1F5F9' },
+  avatarCircleFallback: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#E6F4EA', justifyContent: 'center', alignItems: 'center' },
+  avatarFallbackText: { fontSize: 20, fontWeight: '900', color: '#09A477', letterSpacing: -0.5 },
+  cameraIconBadge: { position: 'absolute', bottom: -2, right: -2, backgroundColor: '#09A477', width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, borderColor: '#FFFFFF' },
+  profileTextInfo: { flex: 1, justifyContent: 'center' },
+  profileNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  balitaName: { fontSize: 18, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 },
+  balitaSubtitle: { fontSize: 13, color: '#475569', fontWeight: '600', marginTop: 4 },
+  balitaDateBirth: { fontSize: 12, color: '#94A3B8', fontWeight: '500', marginTop: 2 },
+  aktifBadge: { backgroundColor: '#E6F4EA', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+  aktifText: { fontSize: 10, fontWeight: '800', color: '#09A477' },
+  metricsRow: { flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: 16, marginTop: 16, gap: 8 },
+  metricItemCard: { flex: 1, padding: 12, alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 20, borderWidth: 1, borderColor: '#F1F5F9', elevation: 2, shadowColor: '#000000', shadowOpacity: 0.03, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+  metricLabel: { fontSize: 10, fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase' },
+  metricValue: { fontSize: 16, fontWeight: '900', color: '#0F172A', marginTop: 6 },
+  metricSubText: { fontSize: 9, color: '#64748B', marginTop: 4, fontWeight: '600' },
+  metricStatusText: { fontSize: 9, fontWeight: '800', marginTop: 4 },
+  tabBarContainer: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#FFFFFF', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', marginTop: 8 },
+  tabItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  tabLabel: { fontSize: 10, fontWeight: '700', color: '#94A3B8', textAlign: 'center' },
+  activeTabLabel: { color: '#09A477' },
+  tabContent: { padding: 16 },
+  bentoInfoCard: { padding: 16, marginBottom: 16, borderRadius: 24, borderWidth: 1, borderColor: '#F1F5F9', elevation: 2, shadowColor: '#000000', shadowOpacity: 0.03, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+  bentoInfoTitle: { fontSize: 14, fontWeight: '900', color: '#1E293B', marginBottom: 12 },
+  tableRowContainer: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', alignItems: 'center' },
+  tableRowLabel: { width: '38%', fontSize: 13, color: '#64748B', fontWeight: '600' },
+  tableRowValue: { flex: 1, fontSize: 13, fontWeight: '700', color: '#1E293B' },
+  statsGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, gap: 12 },
+  statCard: { flex: 1, alignItems: 'center', paddingVertical: 16, borderRadius: 20 },
+  statLabel: { fontSize: 11, color: '#64748B', fontWeight: '700' },
+  statValue: { fontSize: 20, fontWeight: '900', color: '#09A477', marginTop: 4 },
+  unit: { fontSize: 12, fontWeight: 'normal', color: '#94A3B8' },
+  chartSelectorRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  chartSelectorTab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 12, backgroundColor: '#F1F5F9' },
+  chartSelectorTabActive: { backgroundColor: '#09A477' },
+  chartSelectorTabText: { fontSize: 13, fontWeight: '700', color: '#475569' },
+  chartSelectorTabTextActive: { color: '#FFFFFF' },
+  tableCard: { backgroundColor: '#FFFFFF', borderRadius: 24, padding: 16, marginTop: 16, borderWidth: 1, borderColor: '#F1F5F9', elevation: 2, shadowColor: '#64748B', shadowOpacity: 0.05, shadowRadius: 8 },
+  tableCardTitle: { fontSize: 14, fontWeight: '900', color: '#1E293B', marginBottom: 12 },
+  tableHeader: { flexDirection: 'row', borderBottomWidth: 1.5, borderBottomColor: '#F1F5F9', paddingBottom: 8, marginBottom: 8 },
+  tableHeaderCell: { fontSize: 11, fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase' },
+  tableRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#F8FAFC', paddingVertical: 10, alignItems: 'center' },
+  tableCell: { fontSize: 13, color: '#334155', fontWeight: '500' },
+  tableEmptyText: { textAlign: 'center', color: '#94A3B8', paddingVertical: 20, fontStyle: 'italic', fontSize: 13 },
+  imunisasiCompletenessCard: { padding: 16, borderRadius: 24, marginBottom: 16 },
+  completenessHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  completenessLabel: { fontSize: 13, fontWeight: '800', color: '#1E293B' },
+  completenessValue: { fontSize: 15, fontWeight: '900', color: '#09A477' },
+  completenessBarBg: { height: 10, backgroundColor: '#F1F5F9', borderRadius: 5, overflow: 'hidden' },
+  completenessBarFill: { height: '100%', backgroundColor: '#09A477', borderRadius: 5 },
+  vaccineCard: { padding: 16, borderRadius: 24, marginBottom: 16 },
+  vaccineCardTitle: { fontSize: 14, fontWeight: '900', color: '#1E293B', marginBottom: 16 },
+  vaccineRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F8FAFC' },
+  vaccineLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  vaccineIconCircle: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+  vaccineLabelText: { fontSize: 13, fontWeight: '600', color: '#64748B' },
+  vaccineDateText: { fontSize: 12, fontWeight: '700', color: '#94A3B8' },
+  bottomActionContainer: { padding: 16, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderColor: '#F1F5F9' },
+  bottomActionButton: { backgroundColor: '#09A477', borderRadius: 24, height: 52, justifyContent: 'center', alignItems: 'center', width: '100%', elevation: 4, shadowColor: '#09A477', shadowOpacity: 0.15, shadowRadius: 10, shadowOffset: { width: 0, height: 6 } },
+  bottomActionText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' },
+  loadingText: { marginTop: 12, color: '#64748B', fontSize: 13 },
+  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  errorText: { fontSize: 14, color: '#64748B', marginTop: 12, marginBottom: 20 },
+  retryButton: { paddingHorizontal: 24, paddingVertical: 12, backgroundColor: '#09A477', borderRadius: 12 },
+  retryText: { color: '#FFFFFF', fontWeight: 'bold' },
+  emptyContainer: { alignItems: 'center', marginTop: 60 },
+  emptyText: { marginTop: 12, color: '#94A3B8', fontSize: 13 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', padding: 12 },
+  infoIconContainer: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#E6F4EA', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  infoLabel: { fontSize: 10, color: '#94A3B8', fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 },
+  infoValue: { fontSize: 14, fontWeight: '600', color: '#1E293B' },
+  activeTabItem: {}
 });

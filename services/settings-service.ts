@@ -63,6 +63,7 @@ export class SettingsService {
    * - 628xxx → 628xxx (as is)
    */
   static normalizePhoneNumber(phone: string): string {
+    if (!phone) return '';
     let cleaned = phone.replace(/[\s\-\(\)\+]/g, '');
     if (cleaned.startsWith('08')) {
       cleaned = '62' + cleaned.substring(1);

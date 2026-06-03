@@ -22,6 +22,7 @@ import {
   Baby,
   ChevronRight,
   ClipboardCheck,
+  ClipboardList,
   Scale,
   Ruler,
   Brain,
@@ -48,6 +49,7 @@ interface QueueItem {
   balita: Balita;
   penimbangan: Penimbangan | null; // today's measurement if exists
   counselingDone: boolean;
+  penyuluhanId?: string;
 }
 
 export default function CounselingQueueScreen() {
@@ -55,6 +57,7 @@ export default function CounselingQueueScreen() {
   const { activePosyanduId } = useServiceStore();
   const [activeTab, setActiveTab] = useState<ActiveTab>('today');
   const [loading, setLoading] = useState(true);
+  const [doneCounselings, setDoneCounselings] = useState<Map<string, string>>(new Map());
   
   // Lists
   const [todayQueue, setTodayQueue] = useState<QueueItem[]>([]);
@@ -62,6 +65,17 @@ export default function CounselingQueueScreen() {
   const [allBalitas, setAllBalitas] = useState<Balita[]>([]);
   const [searchResults, setSearchResults] = useState<QueueItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .filter(Boolean)
+      .map(n => n[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase();
+  };
 
 
 
@@ -113,12 +127,18 @@ export default function CounselingQueueScreen() {
       // 3. Ambil penyuluhan bulan ini untuk mendeteksi status done
       const { data: counselingsData, error: counselingsErr } = await supabase
         .from('penyuluhans')
-        .select('balita_id')
+        .select('id, balita_id')
         .in('balita_id', balitaIds)
         .gte('tanggal', startOfMonthStr)
         .lte('tanggal', endOfMonthStr);
 
-      const doneBalitaIds = new Set((counselingsData || []).map(c => c.balita_id));
+      const doneMap = new Map<string, string>();
+      if (counselingsData) {
+        counselingsData.forEach(c => {
+          doneMap.set(c.balita_id, c.id);
+        });
+      }
+      setDoneCounselings(doneMap);
 
       // 4. Petakan Antrean Bulan Ini (Hanya balita yang sudah ditimbang bulan ini)
       // Jika anak ditimbang beberapa kali di bulan yang sama, ambil penimbangan terbaru
@@ -136,7 +156,8 @@ export default function CounselingQueueScreen() {
         return {
           balita,
           penimbangan: p,
-          counselingDone: doneBalitaIds.has(p.balita_id),
+          counselingDone: doneMap.has(p.balita_id),
+          penyuluhanId: doneMap.get(p.balita_id),
         };
       }).filter(item => item.balita !== undefined); // safe check
 
@@ -172,14 +193,20 @@ export default function CounselingQueueScreen() {
         return {
           balita: b,
           penimbangan: inQueue ? inQueue.penimbangan : null,
-          counselingDone: inQueue ? inQueue.counselingDone : false,
+          counselingDone: doneCounselings.has(b.id),
+          penyuluhanId: doneCounselings.get(b.id),
         };
       });
 
     setSearchResults(filtered);
-  }, [searchQuery, allBalitas, todayQueue]);
+  }, [searchQuery, allBalitas, todayQueue, doneCounselings]);
 
   const handleStartCounseling = (item: QueueItem) => {
+    if (item.counselingDone && item.penyuluhanId) {
+      router.push(`/counseling/summary?id=${item.penyuluhanId}`);
+      return;
+    }
+
     if (item.penimbangan) {
       // Jika sudah ditimbang hari ini, langsung ke sesi penyuluhan
       router.push({
@@ -220,12 +247,16 @@ export default function CounselingQueueScreen() {
   const renderQueueItem = ({ item }: { item: QueueItem }) => {
     const ageMonths = calculateAgeMonths(item.balita.tanggal_lahir, todayStr);
     const isWeighed = !!item.penimbangan;
+    const initials = getInitials(item.balita.nama);
+    const isLaki = item.balita.jenis_kelamin.toLowerCase().startsWith('l');
+    const avatarBg = isLaki ? '#F0FDFA' : '#FDF2F8';
+    const avatarColor = isLaki ? '#09A477' : '#DB2777';
 
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <View style={styles.avatar}>
-            <Baby size={24} color={COLORS.primaryDark} />
+          <View style={[styles.avatarContainer, { backgroundColor: avatarBg }]}>
+            <Text style={[styles.avatarText, { color: avatarColor }]}>{initials}</Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.name}>{item.balita.nama}</Text>
@@ -268,11 +299,11 @@ export default function CounselingQueueScreen() {
           style={[
             styles.actionButton,
             !isWeighed && { backgroundColor: '#F59E0B' },
-            item.counselingDone && { backgroundColor: '#E2E8F0' }
+            item.counselingDone && styles.actionButtonDone
           ]}
           onPress={() => handleStartCounseling(item)}
         >
-          <Text style={[styles.actionButtonText, item.counselingDone && { color: '#64748B' }]}>
+          <Text style={[styles.actionButtonText, item.counselingDone && { color: '#09A477' }]}>
             {item.counselingDone 
               ? 'Buka Riwayat Penyuluhan' 
               : isWeighed 
@@ -280,7 +311,7 @@ export default function CounselingQueueScreen() {
                 : 'Input Timbangan Cepat & Mulai'
             }
           </Text>
-          <ChevronRight size={18} color={item.counselingDone ? '#64748B' : '#FFF'} />
+          <ChevronRight size={18} color={item.counselingDone ? '#09A477' : '#FFF'} />
         </TouchableOpacity>
       </View>
     );
@@ -288,12 +319,16 @@ export default function CounselingQueueScreen() {
 
   const renderAbsentItem = ({ item }: { item: Balita }) => {
     const ageMonths = calculateAgeMonths(item.tanggal_lahir, todayStr);
+    const initials = getInitials(item.nama);
+    const isLaki = item.jenis_kelamin.toLowerCase().startsWith('l');
+    const avatarBg = isLaki ? '#F0FDFA' : '#FDF2F8';
+    const avatarColor = isLaki ? '#09A477' : '#DB2777';
     
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <View style={[styles.avatar, { backgroundColor: '#FFFBEB' }]}>
-            <Baby size={24} color="#F59E0B" />
+          <View style={[styles.avatarContainer, { backgroundColor: avatarBg }]}>
+            <Text style={[styles.avatarText, { color: avatarColor }]}>{initials}</Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.name}>{item.nama}</Text>
@@ -311,16 +346,16 @@ export default function CounselingQueueScreen() {
             style={styles.absentReminderBtn}
             onPress={() => handleSendWhatsAppReminder(item)}
           >
-            <Bell size={14} color="#FFF" />
-            <Text style={styles.absentBtnText}>Kirim Pengingat WA</Text>
+            <Bell size={14} color="#C2410C" />
+            <Text style={styles.absentReminderText}>Kirim Pengingat WA</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.absentInputBtn}
             onPress={() => handleStartSelfReport(item)}
           >
-            <Plus size={14} color="#FFF" />
-            <Text style={styles.absentBtnText}>Input Hasil Mandiri</Text>
+            <Plus size={14} color="#0F766E" />
+            <Text style={styles.absentInputText}>Input Hasil Mandiri</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -337,58 +372,69 @@ export default function CounselingQueueScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft size={24} color="#1E293B" />
-        </TouchableOpacity>
-        <View>
-          <Text style={styles.headerTitle}>Penyuluhan Gizi AI</Text>
-          <Text style={styles.headerSub}>Layanan Meja 4 & Meja 5 Terpadu</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <ArrowLeft size={24} color="#1E293B" />
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.headerTitle}>Penyuluhan Gizi AI</Text>
+            <Text style={styles.headerSub}>Layanan Meja 4 & Meja 5 Terpadu</Text>
+          </View>
         </View>
+        <TouchableOpacity onPress={() => router.push('/counseling/history')} style={styles.historyBtn}>
+          <ClipboardList size={22} color={COLORS.primary} />
+        </TouchableOpacity>
       </View>
 
       {/* Tabs */}
       <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'today' && styles.activeTab]}
-          onPress={() => {
-            setActiveTab('today');
-            setSearchQuery('');
-          }}
-        >
-          <Text style={[styles.tabText, activeTab === 'today' && styles.activeTabText]}>
-            Hadir & Antre ({todayQueue.length})
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'absent' && styles.activeTab]}
-          onPress={() => {
-            setActiveTab('absent');
-            setSearchQuery('');
-          }}
-        >
-          <Text style={[styles.tabText, activeTab === 'absent' && styles.activeTabText]}>
-            Belum Hadir ({absentQueue.length})
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'all' && styles.activeTab]}
-          onPress={() => setActiveTab('all')}
-        >
-          <Text style={[styles.tabText, activeTab === 'all' && styles.activeTabText]}>
-            Pencarian Bebas
-          </Text>
-        </TouchableOpacity>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
+          <TouchableOpacity
+            style={[styles.tabChip, activeTab === 'today' && styles.tabChipActive]}
+            onPress={() => {
+              setActiveTab('today');
+              setSearchQuery('');
+            }}
+          >
+            <Text style={[styles.tabChipText, activeTab === 'today' && styles.tabChipTextActive]}>
+              Hadir & Antre ({todayQueue.length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabChip, activeTab === 'absent' && styles.tabChipActive]}
+            onPress={() => {
+              setActiveTab('absent');
+              setSearchQuery('');
+            }}
+          >
+            <Text style={[styles.tabChipText, activeTab === 'absent' && styles.tabChipTextActive]}>
+              Belum Hadir ({absentQueue.length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabChip, activeTab === 'all' && styles.tabChipActive]}
+            onPress={() => setActiveTab('all')}
+          >
+            <Text style={[styles.tabChipText, activeTab === 'all' && styles.tabChipTextActive]}>
+              Pencarian Bebas
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
 
       {/* Search Input for Free Mode */}
       {activeTab === 'all' && (
-        <View style={styles.searchBar}>
-          <Search size={20} color="#94A3B8" />
+        <View style={[styles.searchBar, searchFocused && { borderColor: '#09A477' }]}>
+          <Search size={20} color={searchFocused ? '#09A477' : '#94A3B8'} />
           <TextInput
             style={styles.searchInput}
             placeholder="Masukkan Nama atau NIK Anak..."
             value={searchQuery}
             onChangeText={setSearchQuery}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
           />
         </View>
       )}
@@ -465,7 +511,7 @@ export default function CounselingQueueScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
@@ -473,7 +519,7 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#FFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#F1F5F9',
   },
   backBtn: {
     marginRight: 16,
@@ -490,40 +536,53 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontWeight: '500',
   },
+  historyBtn: {
+    padding: 8,
+    backgroundColor: '#F0FDFA',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
+  },
   tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#FFF',
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    paddingHorizontal: 8,
+    borderBottomColor: '#F1F5F9',
   },
-  tab: {
-    flex: 1,
-    paddingVertical: 16,
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+  tabScroll: {
+    paddingHorizontal: 16,
+    gap: 8,
   },
-  activeTab: {
-    borderBottomColor: COLORS.primary,
+  tabChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
-  tabText: {
-    fontSize: 14,
+  tabChipActive: {
+    backgroundColor: '#E6F4EA',
+    borderColor: '#CCFBF1',
+  },
+  tabChipText: {
+    fontSize: 13,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: '#64748B',
   },
-  activeTabText: {
-    color: COLORS.primary,
+  tabChipTextActive: {
+    color: '#09A477',
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
-    margin: 16,
+    backgroundColor: '#F8FAFC',
+    marginHorizontal: 16,
+    marginVertical: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 16,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
   },
   searchInput: {
@@ -548,15 +607,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   card: {
-    backgroundColor: '#FFF',
+    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     padding: 20,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#F1F5F9',
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.03,
     shadowRadius: 8,
   },
@@ -565,14 +624,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 14,
   },
-  avatar: {
+  avatarContainer: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: '#F0FDFA',
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+  },
+  avatarText: {
+    fontSize: 14,
+    fontWeight: '900',
   },
   name: {
     fontSize: 16,
@@ -649,6 +711,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 16,
     gap: 6,
+  },
+  actionButtonDone: {
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1.5,
+    borderColor: '#09A477',
   },
   actionButtonText: {
     color: '#FFF',
@@ -791,23 +858,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F59E0B',
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FFEDD5',
     paddingVertical: 12,
     borderRadius: 16,
     gap: 6,
+  },
+  absentReminderText: {
+    color: '#C2410C',
+    fontWeight: '800',
+    fontSize: 12,
   },
   absentInputBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0D9488',
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
     paddingVertical: 12,
     borderRadius: 16,
     gap: 6,
   },
-  absentBtnText: {
-    color: '#FFF',
+  absentInputText: {
+    color: '#0F766E',
     fontWeight: '800',
     fontSize: 12,
   },

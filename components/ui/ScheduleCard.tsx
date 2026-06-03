@@ -1,7 +1,7 @@
 // components/ui/ScheduleCard.tsx
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Clock, Calendar } from 'lucide-react-native';
+import { Calendar } from 'lucide-react-native';
 
 interface ScheduleCardProps {
   activeWorkspace: 'balita' | 'lansia';
@@ -9,49 +9,35 @@ interface ScheduleCardProps {
   jam: string | null;
   themeColor: string;
   themeTonal: string;
+  posyanduName: string;
 }
 
 /**
  * Hitung countdown dari hari ini ke tanggal posyandu terdekat
  */
-function getNextScheduleDate(tanggal: number): { date: Date; daysLeft: number } {
+function getNextScheduleDate(tanggal: number): { date: Date } {
   const now = new Date();
   const thisMonth = new Date(now.getFullYear(), now.getMonth(), tanggal);
 
   if (thisMonth > now) {
-    const daysLeft = Math.ceil((thisMonth.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    return { date: thisMonth, daysLeft };
+    return { date: thisMonth };
   }
 
   // Sudah lewat bulan ini, ambil bulan depan
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, tanggal);
-  const daysLeft = Math.ceil((nextMonth.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  return { date: nextMonth, daysLeft };
-}
-
-function getCountdownLabel(daysLeft: number): string {
-  if (daysLeft === 0) return 'Hari ini!';
-  if (daysLeft === 1) return 'Besok';
-  return `${daysLeft} hari lagi`;
-}
-
-function getCountdownColor(daysLeft: number, defaultColor: string): string {
-  if (daysLeft <= 1) return '#EF4444'; // Red for urgent
-  if (daysLeft <= 3) return '#F59E0B'; // Yellow/Orange
-  return defaultColor; // Theme primary color for relax schedules
+  return { date: nextMonth };
 }
 
 const MONTHS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-  'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
 ];
 
 export function ScheduleCard({
   activeWorkspace,
   tanggal,
   jam,
-  themeColor,
-  themeTonal,
+  posyanduName,
 }: ScheduleCardProps) {
   if (!tanggal) {
     return (
@@ -66,33 +52,23 @@ export function ScheduleCard({
     );
   }
 
-  const { date, daysLeft } = getNextScheduleDate(tanggal);
+  const { date } = getNextScheduleDate(tanggal);
   const monthLabel = MONTHS[date.getMonth()];
-  const labelText = activeWorkspace === 'balita' ? 'Balita' : 'Lansia';
-  const countdownCol = getCountdownColor(daysLeft, themeColor);
+  const formattedDate = `${date.getDate()} ${monthLabel} ${date.getFullYear()}`;
 
   return (
     <View style={styles.container}>
       <View style={styles.row}>
-        {/* Left: Icon & Details */}
         <View style={styles.leftCol}>
-          <View style={[styles.iconBox, { backgroundColor: themeTonal }]}>
-            <Calendar size={18} color={themeColor} />
+          <View style={styles.iconBox}>
+            <Calendar size={18} color="#2563EB" />
           </View>
           <View style={styles.textContainer}>
-            <Text style={styles.subLabel}>JADWAL POSYANDU {labelText.toUpperCase()}</Text>
+            <Text style={styles.posyanduNameText}>{posyanduName}</Text>
             <Text style={styles.dateText}>
-              Tgl {tanggal} {monthLabel} • {jam || '08:00'} WIB
+              {formattedDate} • {jam || '08.00'} WIB
             </Text>
           </View>
-        </View>
-
-        {/* Right: Countdown Badge */}
-        <View style={[styles.countdownBadge, { backgroundColor: `${countdownCol}12` }]}>
-          <Clock size={12} color={countdownCol} />
-          <Text style={[styles.countdownText, { color: countdownCol }]}>
-            {getCountdownLabel(daysLeft)}
-          </Text>
         </View>
       </View>
     </View>
@@ -102,20 +78,21 @@ export function ScheduleCard({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20, // Compact M3
-    padding: 14,
+    borderRadius: 24, // Matches bento layout
+    padding: 16,
     elevation: 2,
-    shadowColor: '#00A896', // Medical Teal
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.02,
-    shadowRadius: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 12,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
   },
   leftCol: {
     flexDirection: 'row',
@@ -124,38 +101,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#EFF6FF', // Light blue background
     justifyContent: 'center',
     alignItems: 'center',
   },
   textContainer: {
     flex: 1,
   },
-  subLabel: {
-    fontSize: 9,
+  posyanduNameText: {
+    fontSize: 14,
     fontWeight: '800',
-    color: '#64748B',
-    letterSpacing: 1.2,
+    color: '#0F172A',
     marginBottom: 2,
   },
   dateText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  countdownBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  countdownText: {
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '600',
   },
   emptyContainer: {
     flexDirection: 'row',
@@ -170,3 +135,4 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
+

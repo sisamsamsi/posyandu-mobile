@@ -55,6 +55,7 @@ export default function WhatsAppShareScreen() {
   // Preview modal state
   const [previewMessage, setPreviewMessage] = useState<string | null>(null);
   const [previewBalita, setPreviewBalita] = useState<Balita | null>(null);
+  const [searchFocused, setSearchFocused] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -218,31 +219,33 @@ export default function WhatsAppShareScreen() {
           style={[styles.v2Tab, activeTab === 'hasil' && styles.v2TabActive]}
           onPress={() => setActiveTab('hasil')}
         >
-          <MessageCircle size={16} color={activeTab === 'hasil' ? '#0D9488' : '#64748B'} />
+          <MessageCircle size={16} color={activeTab === 'hasil' ? '#09A477' : '#64748B'} />
           <Text style={[styles.v2TabText, activeTab === 'hasil' && styles.v2TabTextActive]}>
             Hasil Periksa
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.v2Tab, activeTab === 'pengingat' && styles.v2TabActive]}
+          style={[styles.v2Tab, activeTab === 'pengingat' && styles.v2TabActiveReminder]}
           onPress={() => setActiveTab('pengingat')}
         >
-          <Bell size={16} color={activeTab === 'pengingat' ? '#F59E0B' : '#64748B'} />
-          <Text style={[styles.v2TabText, activeTab === 'pengingat' && styles.v2TabTextActive]}>
+          <Bell size={16} color={activeTab === 'pengingat' ? '#D97706' : '#64748B'} />
+          <Text style={[styles.v2TabText, activeTab === 'pengingat' && styles.v2TabTextActiveReminder]}>
             Reminder ({balitasBelumTimbang.length})
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* Search */}
-      <View style={styles.v2SearchContainer}>
-        <Search size={18} color="#94A3B8" />
+      <View style={[styles.v2SearchContainer, searchFocused && { borderColor: '#09A477' }]}>
+        <Search size={18} color={searchFocused ? '#09A477' : '#94A3B8'} />
         <TextInput
           style={styles.v2SearchInput}
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="Cari nama balita atau orang tua..."
           placeholderTextColor="#CBD5E1"
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setSearchFocused(false)}
         />
       </View>
 
@@ -357,12 +360,16 @@ function BalitaHasilCard({
   onSend: () => void;
 }) {
   const tanggal = format(new Date(penimbangan.tanggal), 'd MMM yyyy', { locale: idLocale });
+  const isBoy = balita.jenis_kelamin === 'Laki-laki';
+  const avatarBg = isBoy ? '#E0F2FE' : '#FCE7F3';
+  const avatarText = isBoy ? '#0284C7' : '#DB2777';
+  const initials = balita.nama ? balita.nama.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() : 'B';
 
   return (
     <Card style={styles.v2BalitaCard}>
       <View style={styles.v2CardTop}>
-        <View style={styles.v2BalitaIconCircle}>
-          <Baby size={22} color="#0D9488" />
+        <View style={[styles.avatarSquircle, { backgroundColor: avatarBg }]}>
+          <Text style={[styles.avatarText, { color: avatarText }]}>{initials}</Text>
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.v2BalitaName}>{balita.nama}</Text>
@@ -393,7 +400,7 @@ function BalitaHasilCard({
         </View>
       </View>
       <TouchableOpacity style={styles.v2SendBtn} onPress={onSend}>
-        <MessageCircle size={18} color="#FFF" />
+        <MessageCircle size={18} color="#0D9488" />
         <Text style={styles.v2SendBtnText}>Share Ke WhatsApp</Text>
       </TouchableOpacity>
     </Card>
@@ -407,11 +414,16 @@ function BalitaPengingatCard({
   balita: Balita;
   onSend: () => void;
 }) {
+  const isBoy = balita.jenis_kelamin === 'Laki-laki';
+  const avatarBg = isBoy ? '#E0F2FE' : '#FCE7F3';
+  const avatarText = isBoy ? '#0284C7' : '#DB2777';
+  const initials = balita.nama ? balita.nama.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() : 'B';
+
   return (
     <Card style={styles.v2BalitaCard}>
       <View style={styles.v2CardTop}>
-        <View style={[styles.v2BalitaIconCircle, { backgroundColor: '#FFFBEB' }]}>
-          <Bell size={22} color="#F59E0B" />
+        <View style={[styles.avatarSquircle, { backgroundColor: avatarBg }]}>
+          <Text style={[styles.avatarText, { color: avatarText }]}>{initials}</Text>
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.v2BalitaName}>{balita.nama}</Text>
@@ -425,9 +437,9 @@ function BalitaPengingatCard({
           <Badge label="No HP" variant="warning" />
         )}
       </View>
-      <TouchableOpacity style={[styles.v2SendBtn, { backgroundColor: '#F59E0B' }]} onPress={onSend}>
-        <Bell size={18} color="#FFF" />
-        <Text style={styles.v2SendBtnText}>Kirim Pengingat WA</Text>
+      <TouchableOpacity style={styles.v2SendBtnReminder} onPress={onSend}>
+        <Bell size={18} color="#D97706" />
+        <Text style={styles.v2SendBtnTextReminder}>Kirim Pengingat WA</Text>
       </TouchableOpacity>
     </Card>
   );
@@ -447,7 +459,7 @@ function EmptyState({ icon, text }: { icon: React.ReactNode; text: string }) {
 // ============================================
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -703,23 +715,35 @@ const styles = StyleSheet.create({
     borderColor: '#F1F5F9',
   },
   v2TabActive: {
-    backgroundColor: '#F0FDFA',
-    borderColor: '#0D9488',
-    elevation: 2,
-    shadowColor: '#0D9488',
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    backgroundColor: '#E6F4EA',
+    borderColor: '#CCFBF1',
   },
-  v2TabText: { fontSize: 13, fontWeight: '700', color: '#94A3B8' },
-  v2TabTextActive: { color: '#0D9488', fontWeight: '900' },
+  v2TabTextActive: {
+    color: '#09A477',
+    fontWeight: '900',
+  },
+  v2TabActiveReminder: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+    borderWidth: 1,
+  },
+  v2TabTextActiveReminder: {
+    color: '#D97706',
+    fontWeight: '900',
+  },
+  v2TabText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
   v2SearchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
     marginHorizontal: 20,
     paddingHorizontal: 16,
     borderRadius: 18,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#F1F5F9',
     marginBottom: 16,
   },
@@ -735,6 +759,13 @@ const styles = StyleSheet.create({
     padding: 18,
     borderRadius: 24,
     marginBottom: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    elevation: 2,
+    shadowColor: '#94A3B8',
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
   },
   v2CardTop: {
     flexDirection: 'row',
@@ -794,18 +825,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#25D366',
-    paddingVertical: 14,
+    borderWidth: 1.5,
+    borderColor: '#0D9488',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
     borderRadius: 16,
     gap: 8,
-    elevation: 2,
-    shadowColor: '#25D366',
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
   },
   v2SendBtnText: {
-    color: '#FFF',
+    color: '#0D9488',
     fontWeight: '800',
     fontSize: 14,
+  },
+  v2SendBtnReminder: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#F59E0B',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
+    borderRadius: 16,
+    gap: 8,
+  },
+  v2SendBtnTextReminder: {
+    color: '#D97706',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  avatarSquircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    fontSize: 16,
+    fontWeight: '800',
   },
 });

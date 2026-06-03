@@ -46,7 +46,7 @@ export default function LaporanTabScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Card style={styles.promoCard}>
+        <Card style={[styles.promoCard, { backgroundColor: activeWorkspace === 'lansia' ? COLORS.indigoPrimary : COLORS.tealPrimary }]}>
            <FileDown size={32} color="#FFF" />
            <View style={{ flex: 1, marginLeft: 16 }}>
               <Text style={styles.promoTitle}>Ekspor Laporan PDF</Text>
@@ -85,12 +85,14 @@ export default function LaporanTabScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   header: {
-    padding: 20,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 16,
     backgroundColor: '#FFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#F1F5F9',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -98,16 +100,11 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 20, fontWeight: '800', color: '#1E293B' },
   content: { padding: 20 },
   promoCard: { 
-    backgroundColor: '#0D9488', 
     flexDirection: 'row', 
     alignItems: 'center', 
     padding: 20, 
     borderRadius: 24,
     marginBottom: 32,
-    elevation: 8,
-    shadowColor: '#0D9488',
-    shadowOpacity: 0.3,
-    shadowRadius: 12
   },
   promoTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
   promoDesc: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 4, lineHeight: 18 },

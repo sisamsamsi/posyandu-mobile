@@ -43,14 +43,20 @@ export const useBalita = () => {
         .select(`
           *,
           posyandu:posyandus(*),
-          penimbangans(*)
+          penimbangans(*),
+          imunisasi(*)
         `)
         .eq('id', id)
         .eq('posyandu_id', activePosyanduId || '')
         .single();
 
       if (error) throw error;
-      return data as Balita;
+      
+      const balita = data as any;
+      if (balita && Array.isArray(balita.imunisasi)) {
+        balita.imunisasi = balita.imunisasi.length > 0 ? balita.imunisasi[0] : null;
+      }
+      return balita as Balita;
     } catch (err: any) {
       setError(err.message);
       return null;

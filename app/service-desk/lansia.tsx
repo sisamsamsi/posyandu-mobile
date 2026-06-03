@@ -46,6 +46,7 @@ export default function LansiaServiceDesk() {
   
   // State
   const [searchQuery, setSearchQuery] = useState('');
+  const [allLansias, setAllLansias] = useState<Lansia[]>([]);
   const [searchResults, setSearchResults] = useState<Lansia[]>([]);
   const [selectedLansia, setSelectedLansia] = useState<Lansia | null>(null);
   
@@ -67,11 +68,29 @@ export default function LansiaServiceDesk() {
   const { getLansias, loading } = useLansia();
   const { addToHistory } = useServiceStore();
 
-  const handleSearch = async () => {
-    if (searchQuery.length < 2) return;
-    const results = await getLansias(searchQuery);
-    setSearchResults(results);
-  };
+  // Load all Lansias on mount for real-time local search
+  React.useEffect(() => {
+    const fetchAllData = async () => {
+      const data = await getLansias();
+      setAllLansias(data);
+      setSearchResults(data);
+    };
+    fetchAllData();
+  }, []);
+
+  // Filter search results in real-time
+  React.useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults(allLansias);
+    } else {
+      const lower = searchQuery.toLowerCase();
+      const filtered = allLansias.filter(l => 
+        l.nama.toLowerCase().includes(lower) || 
+        l.nik.includes(lower)
+      );
+      setSearchResults(filtered);
+    }
+  }, [searchQuery, allLansias]);
 
   const onSelectLansia = (lansia: Lansia) => {
     setSelectedLansia(lansia);
@@ -139,7 +158,6 @@ export default function LansiaServiceDesk() {
                 placeholder="Nama atau NIK Lansia..."
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                onSubmitEditing={handleSearch}
               />
             </View>
             <FlatList 
@@ -419,15 +437,17 @@ export default function LansiaServiceDesk() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.indigoBg,
+    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: COLORS.indigoBg,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   headerTitle: {
     fontSize: 16,
@@ -437,6 +457,9 @@ const styles = StyleSheet.create({
   stepContainer: {
     flex: 1,
     padding: 16,
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
   },
   stepTitle: {
     fontSize: 18,
@@ -447,33 +470,37 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
+    backgroundColor: '#F8FAFC',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     marginBottom: 16,
   },
   searchInput: {
     flex: 1,
     marginLeft: 12,
-    fontSize: 15,
+    fontSize: 14,
   },
   resultItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFF',
     padding: 12,
-    borderRadius: 16,
+    borderRadius: 14,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   resultAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 10,
     backgroundColor: COLORS.indigoTonal,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 12,
   },
   resultInfo: {
     flex: 1,
@@ -491,16 +518,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.indigoTonal,
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 20,
+    padding: 12,
+    borderRadius: 14,
+    marginBottom: 16,
   },
   selectedHeaderText: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 12,
   },
   selectedName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#312E81',
   },
@@ -511,7 +538,7 @@ const styles = StyleSheet.create({
   changeLink: {
     color: COLORS.indigoPrimary,
     fontWeight: 'bold',
-    fontSize: 13,
+    fontSize: 12,
   },
   sectionLabel: {
     fontSize: 13,
@@ -521,19 +548,21 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   textArea: {
-    backgroundColor: '#FFF',
-    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
     padding: 12,
-    fontSize: 15,
+    fontSize: 14,
     color: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   row: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   form: {
-    gap: 12,
-    marginBottom: 24,
+    gap: 8,
+    marginBottom: 20,
   },
   fieldContainer: {
     marginBottom: 4,
@@ -547,26 +576,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#475569',
     marginBottom: 6,
-    marginLeft: 4,
+    marginLeft: 2,
   },
   inputGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   input: {
     flex: 1,
-    marginLeft: 12,
-    fontSize: 15,
+    marginLeft: 10,
+    fontSize: 14,
     color: '#1E293B',
   },
   primaryButton: {
     backgroundColor: COLORS.indigoPrimary,
     paddingVertical: 14,
-    borderRadius: 16,
+    borderRadius: 14,
     alignItems: 'center',
     marginTop: 12,
     marginBottom: 12,
@@ -578,7 +610,7 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     paddingVertical: 14,
-    borderRadius: 16,
+    borderRadius: 14,
     alignItems: 'center',
     backgroundColor: COLORS.indigoTonal,
   },
@@ -588,7 +620,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   confirmCard: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   confirmLabel: {
     fontSize: 11,
@@ -596,13 +628,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   confirmValue: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#1E293B',
   },
   divider: {
     height: 1,
-    backgroundColor: COLORS.indigoBg,
+    backgroundColor: '#F1F5F9',
     marginVertical: 12,
   },
   center: {
@@ -620,7 +652,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   emptyText: {
     textAlign: 'center',
@@ -633,9 +665,11 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#FFF',
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   resultCardHeader: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 'bold',
     color: '#64748B',
     marginBottom: 12,
@@ -648,25 +682,25 @@ const styles = StyleSheet.create({
   },
   resultBox: {
     flex: 1,
-    backgroundColor: COLORS.indigoBg,
-    padding: 12,
-    borderRadius: 16,
+    backgroundColor: COLORS.indigoTonal,
+    padding: 10,
+    borderRadius: 12,
     alignItems: 'center',
   },
   boxLabel: {
     fontSize: 9,
-    color: '#64748B',
+    color: '#4F46E5',
     fontWeight: '700',
     marginBottom: 4,
   },
   boxValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '900',
     color: '#1E293B',
   },
   boxUnit: {
     fontSize: 9,
-    color: '#94A3B8',
+    color: '#64748B',
     marginTop: 2,
   },
   warningBox: {

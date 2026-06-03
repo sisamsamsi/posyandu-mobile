@@ -54,6 +54,7 @@ export default function BalitaServiceDesk() {
   
   // State
   const [searchQuery, setSearchQuery] = useState('');
+  const [allBalitas, setAllBalitas] = useState<Balita[]>([]);
   const [searchResults, setSearchResults] = useState<Balita[]>([]);
   const [selectedBalita, setSelectedBalita] = useState<Balita | null>(null);
   
@@ -64,6 +65,12 @@ export default function BalitaServiceDesk() {
   const [lica, setLica] = useState('');
   const [tanggal, setTanggal] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // Live Z-Score States
+  const [standards, setStandards] = useState<{ bb: any[]; tb: any[]; imt: any[]; bbtb: any[] } | null>(null);
+  const [loadingStandards, setLoadingStandards] = useState(false);
+  const [liveResult, setLiveResult] = useState<any>(null);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const { getBalitas, loading } = useBalita();
   const { updatePenimbangan } = usePenimbangan();
@@ -77,9 +84,33 @@ export default function BalitaServiceDesk() {
 
   useEffect(() => {
     if (editId && typeof editId === 'string') {
-      fetchEditData(editId);
+       fetchEditData(editId);
     }
   }, [editId]);
+
+  // Fetch all Balitas on mount for real-time local search
+  useEffect(() => {
+    const fetchAllData = async () => {
+      const data = await getBalitas();
+      setAllBalitas(data);
+      setSearchResults(data);
+    };
+    fetchAllData();
+  }, []);
+
+  // Filter search results in real-time as searchQuery or allBalitas change
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults(allBalitas);
+    } else {
+      const lower = searchQuery.toLowerCase();
+      const filtered = allBalitas.filter(b => 
+        b.nama.toLowerCase().includes(lower) || 
+        b.nik.includes(lower)
+      );
+      setSearchResults(filtered);
+    }
+  }, [searchQuery, allBalitas]);
 
   const fetchEditData = async (eId: string) => {
     const { data } = await supabase.from('penimbangans').select('*').eq('id', eId).single();
@@ -87,7 +118,9 @@ export default function BalitaServiceDesk() {
       setBerat(data.berat_badan.toString());
       setTinggi(data.tinggi_badan.toString());
       setLica(data.lingkar_kepala?.toString() || '');
+      setLila(data.lingkar_lengan?.toString() || '');
       setTanggal(data.tanggal);
+      autoSelectBalita(data.balita_id);
     }
   };
 
@@ -99,69 +132,100 @@ export default function BalitaServiceDesk() {
     }
   };
 
-  const handleSearch = async () => {
-    if (searchQuery.length < 2) return;
-    const results = await getBalitas(searchQuery);
-    setSearchResults(results);
-  };
-
   const onSelectBalita = (balita: Balita) => {
     setSelectedBalita(balita);
     setStep('input');
   };
 
-  const validateForm = () => {
-    if (!berat || !tinggi) {
-      Alert.alert('Error', 'Berat dan Tinggi badan harus diisi');
-      return false;
+  // Load standards whenever selectedBalita changes
+  useEffect(() => {
+    if (selectedBalita) {
+      const fetchStandardsForBalita = async () => {
+        try {
+          setLoadingStandards(true);
+          const [bbStd, tbStd, imtStd, bbtbStd] = await Promise.all([
+            whoService.getStandards('bb_u', selectedBalita.jenis_kelamin),
+            whoService.getStandards('tb_u', selectedBalita.jenis_kelamin),
+            whoService.getStandards('imt_u', selectedBalita.jenis_kelamin),
+            whoService.getStandards('bb_tb', selectedBalita.jenis_kelamin),
+          ]);
+          setStandards({ bb: bbStd, tb: tbStd, imt: imtStd, bbtb: bbtbStd });
+        } catch (error) {
+          console.error("Failed to load WHO standards:", error);
+        } finally {
+          setLoadingStandards(false);
+        }
+      };
+      fetchStandardsForBalita();
+    } else {
+      setStandards(null);
     }
-    return true;
-  };
+  }, [selectedBalita]);
 
-  const handleSave = async () => {
-    if (!selectedBalita) return;
+  // Recalculate Z-scores on the fly
+  useEffect(() => {
+    if (!selectedBalita || !standards || !berat || !tinggi) {
+      setLiveResult(null);
+      return;
+    }
+
+    const cleanedBerat = berat.replace(',', '.');
+    const cleanedTinggi = tinggi.replace(',', '.');
+    const weightVal = parseFloat(cleanedBerat);
+    const heightVal = parseFloat(cleanedTinggi);
+
+    if (isNaN(weightVal) || weightVal <= 0 || isNaN(heightVal) || heightVal <= 0) {
+      setLiveResult(null);
+      return;
+    }
+
+    const ageMonths = calculateAgeMonths(selectedBalita.tanggal_lahir, tanggal);
     
-    setStep('confirm');
-  };
+    // Automatically assume standard measurement:
+    // - Recumbent length for <24 months
+    // - Standing height for >=24 months
+    // Therefore, adjustedHeight equals heightVal without correction.
+    const adjustedHeight = heightVal;
+    const gender = selectedBalita.jenis_kelamin === 'Laki-laki' ? 'L' : 'P';
+
+    const bbResult = ZScoreEngine.calculate(standards.bb, gender, ageMonths, weightVal, 'BB/U');
+    const tbResult = ZScoreEngine.calculate(standards.tb, gender, ageMonths, adjustedHeight, 'TB/U');
+    const bmiVal = weightVal / ((adjustedHeight / 100) ** 2);
+    const imtResult = ZScoreEngine.calculate(standards.imt, gender, ageMonths, bmiVal, 'IMT/U');
+    const bbtbResult = ZScoreEngine.calculate(standards.bbtb, gender, adjustedHeight, weightVal, 'BB/TB', ageMonths);
+
+    setLiveResult({
+      bb_u: bbResult,
+      tb_u: tbResult,
+      imt_u: imtResult,
+      bb_tb: bbtbResult,
+      bmi: bmiVal,
+      adjustedHeight,
+      weightVal,
+      heightVal
+    });
+  }, [berat, tinggi, tanggal, standards, selectedBalita]);
 
   const [lastSavedStatus, setLastSavedStatus] = useState('');
   const [calculatedResult, setCalculatedResult] = useState<any>(null);
   const [lastSavedRecord, setLastSavedRecord] = useState<any>(null);
 
-  const confirmSave = async () => {
-    if (!selectedBalita) return;
+  const handleSave = async () => {
+    if (!selectedBalita || !liveResult) {
+      Alert.alert('Error', 'Data berat dan tinggi badan belum valid.');
+      return;
+    }
     
-    // Auto-correct commas to dots
-    const cleanedBerat = berat.replace(',', '.');
-    const cleanedTinggi = tinggi.replace(',', '.');
-
-    if (!cleanedBerat || !cleanedTinggi) {
-      Alert.alert('Error', 'Berat dan Tinggi badan harus diisi untuk analisis Z-Score.');
-      return;
-    }
-
-    const weightVal = parseFloat(cleanedBerat);
-    const heightVal = parseFloat(cleanedTinggi);
-
-    if (isNaN(weightVal) || weightVal <= 0) {
-      Alert.alert('Error', 'Berat badan harus diisi dengan angka positif.');
-      return;
-    }
-    if (isNaN(heightVal) || heightVal <= 0) {
-      Alert.alert('Error', 'Tinggi badan harus diisi dengan angka positif.');
-      return;
-    }
-
     // Check for extreme outlier values (typos)
-    const isExtremeHeight = heightVal < 35 || heightVal > 130;
-    const isExtremeWeight = weightVal < 1.5 || weightVal > 30;
+    const isExtremeHeight = liveResult.heightVal < 35 || liveResult.heightVal > 130;
+    const isExtremeWeight = liveResult.weightVal < 1.5 || liveResult.weightVal > 30;
 
     if (isExtremeHeight || isExtremeWeight) {
       Alert.alert(
         '⚠️ Peringatan Nilai Ekstrem',
         `Nilai yang Anda masukkan terdeteksi di luar batas wajar:\n` +
-        (isExtremeWeight ? `• Berat Badan: ${weightVal} kg\n` : '') +
-        (isExtremeHeight ? `• Tinggi Badan: ${heightVal} cm\n` : '') +
+        (isExtremeWeight ? `• Berat Badan: ${liveResult.weightVal} kg\n` : '') +
+        (isExtremeHeight ? `• Tinggi Badan: ${liveResult.heightVal} cm\n` : '') +
         `Apakah Anda yakin data ini sudah benar? Silakan cek kembali untuk menghindari kesalahan ketik (typo).`,
         [
           {
@@ -170,52 +234,44 @@ export default function BalitaServiceDesk() {
           },
           {
             text: 'Ya, Sudah Benar',
-            onPress: () => proceedConfirmSave(weightVal, heightVal)
+            onPress: () => executeSave()
           }
         ]
       );
     } else {
-      proceedConfirmSave(weightVal, heightVal);
+      executeSave();
     }
   };
 
-  const proceedConfirmSave = async (weightVal: number, heightVal: number) => {
-    try {
-      const ageMonths = calculateAgeMonths(selectedBalita!.tanggal_lahir, tanggal);
-      
-      const [bbStd, tbStd, imtStd, bbtbStd] = await Promise.all([
-        whoService.getStandards('bb_u', selectedBalita!.jenis_kelamin),
-        whoService.getStandards('tb_u', selectedBalita!.jenis_kelamin),
-        whoService.getStandards('imt_u', selectedBalita!.jenis_kelamin),
-        whoService.getStandards('bb_tb', selectedBalita!.jenis_kelamin),
-      ]);
+  const executeSave = async () => {
+    if (!selectedBalita || !liveResult) return;
 
-      const gender = selectedBalita!.jenis_kelamin === 'Laki-laki' ? 'L' : 'P';
-      const bbResult = ZScoreEngine.calculate(bbStd, gender, ageMonths, weightVal, 'BB/U');
-      const tbResult = ZScoreEngine.calculate(tbStd, gender, ageMonths, heightVal, 'TB/U');
-      const bbtbResult = ZScoreEngine.calculate(bbtbStd, gender, heightVal, weightVal, 'BB/TB', ageMonths);
-      
-      setLastSavedStatus(bbResult.status);
+    try {
+      setLastSavedStatus(liveResult.bb_u.status);
       const resultData = {
-        bb_u: bbResult,
-        tb_u: tbResult,
-        bb_tb: bbtbResult
+        bb_u: liveResult.bb_u,
+        tb_u: liveResult.tb_u,
+        imt_u: liveResult.imt_u,
+        bb_tb: liveResult.bb_tb
       };
       setCalculatedResult(resultData);
 
       const payload = {
-        balita_id: selectedBalita!.id,
+        balita_id: selectedBalita.id,
         tanggal: tanggal,
-        berat_badan: weightVal,
-        tinggi_badan: heightVal,
+        berat_badan: liveResult.weightVal,
+        tinggi_badan: liveResult.heightVal,
         lingkar_kepala: parseFloat(lica) || null,
         lingkar_lengan: parseFloat(lila) || null,
-        zscore_bb_u: bbResult.zscore,
-        status_bb_u: bbResult.status,
-        zscore_tb_u: tbResult.zscore,
-        status_tb_u: tbResult.status,
-        zscore_bb_tb: bbtbResult.zscore,
-        status_bb_tb: bbtbResult.status,
+        bmi: liveResult.bmi,
+        zscore_bb_u: liveResult.bb_u.zscore,
+        status_bb_u: liveResult.bb_u.status,
+        zscore_tb_u: liveResult.tb_u.zscore,
+        status_tb_u: liveResult.tb_u.status,
+        zscore_imt_u: liveResult.imt_u.zscore,
+        status_gizi_imt_u: liveResult.imt_u.status,
+        zscore_bb_tb: liveResult.bb_tb.zscore,
+        status_bb_tb: liveResult.bb_tb.status,
       };
 
       let res;
@@ -231,8 +287,8 @@ export default function BalitaServiceDesk() {
       setLastSavedRecord(editId ? { id: editId, ...payload } : res.data);
 
       addToHistory({
-        id: selectedBalita!.id,
-        name: selectedBalita!.nama,
+        id: selectedBalita.id,
+        name: selectedBalita.nama,
         type: 'balita'
       });
 
@@ -241,6 +297,7 @@ export default function BalitaServiceDesk() {
       Alert.alert('Error', err.message);
     }
   };
+
   const onDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(Platform.OS === 'ios');
     if (selectedDate) {
@@ -251,7 +308,6 @@ export default function BalitaServiceDesk() {
   const handleShareWA = async () => {
     if (!selectedBalita || !lastSavedRecord) return;
     
-    // Use WhatsApp Service for consistent formatting
     const message = WhatsAppService.generateHasilPenimbangan(
        selectedBalita,
        lastSavedRecord,
@@ -282,7 +338,7 @@ export default function BalitaServiceDesk() {
                 placeholder="Masukkan Nama atau NIK..."
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                onSubmitEditing={handleSearch}
+                onSubmitEditing={() => {}}
               />
             </View>
             <FlatList 
@@ -291,11 +347,13 @@ export default function BalitaServiceDesk() {
               renderItem={({ item }) => (
                 <TouchableOpacity style={styles.resultItem} onPress={() => onSelectBalita(item)}>
                   <View style={styles.resultAvatar}>
-                    <Baby size={24} color={COLORS.tealPrimary} />
+                    <Text style={styles.resultAvatarText}>
+                      {item.nama ? item.nama.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() : 'B'}
+                    </Text>
                   </View>
                   <View style={styles.resultInfo}>
                     <Text style={styles.resultName}>{item.nama}</Text>
-                    <Text style={styles.resultNik}>{item.nik}</Text>
+                    <Text style={styles.resultNik}>NIK: {item.nik}</Text>
                   </View>
                   <ChevronRight size={20} color="#CBD5E1" />
                 </TouchableOpacity>
@@ -307,72 +365,98 @@ export default function BalitaServiceDesk() {
           </View>
         );
 
-      case 'input':
+      case 'input': {
+        const ageMonths = selectedBalita ? calculateAgeMonths(selectedBalita.tanggal_lahir, tanggal) : 0;
+        const formattedAge = selectedBalita ? `${Math.floor(ageMonths / 12)} th ${ageMonths % 12} bln` : '';
+
         return (
-          <ScrollView style={styles.stepContainer}>
-            <View style={styles.selectedHeader}>
-               <Baby size={32} color={COLORS.tealPrimary} />
-               <View style={styles.selectedHeaderText}>
-                  <Text style={styles.selectedName}>{selectedBalita?.nama}</Text>
-                  <Text style={styles.selectedSub}>{selectedBalita?.nik}</Text>
-               </View>
-               <TouchableOpacity onPress={() => setStep('search')}><Text style={styles.changeLink}>Ganti</Text></TouchableOpacity>
+          <ScrollView style={styles.stepContainer} showsVerticalScrollIndicator={false}>
+            {/* Premium Profil Ringkas Balita */}
+            <View style={styles.premiumProfileCard}>
+              <View style={styles.profileAvatarLarge}>
+                <Text style={styles.profileAvatarLargeText}>
+                  {selectedBalita?.nama ? selectedBalita.nama.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() : 'B'}
+                </Text>
+              </View>
+              <View style={styles.profileDetails}>
+                <Text style={styles.profileNameLarge}>{selectedBalita?.nama}</Text>
+                <Text style={styles.profileNikText}>NIK: {selectedBalita?.nik}</Text>
+                <View style={styles.profileBadgesRow}>
+                  <View style={styles.profileBadgeMint}>
+                    <Text style={styles.profileBadgeMintText}>{selectedBalita?.jenis_kelamin}</Text>
+                  </View>
+                  <View style={styles.profileBadgeMint}>
+                    <Text style={styles.profileBadgeMintText}>{formattedAge}</Text>
+                  </View>
+                </View>
+              </View>
+              <TouchableOpacity style={styles.changeBalitaBtn} onPress={() => setStep('search')}>
+                <Text style={styles.changeBalitaBtnText}>Ganti</Text>
+              </TouchableOpacity>
             </View>
 
             <Text style={styles.sectionLabel}>Data Penimbangan & Pengukuran</Text>
             <View style={styles.form}>
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>Berat Badan (kg)</Text>
-                <View style={styles.inputGroup}>
-                  <Scale size={18} color={COLORS.tealPrimary} />
+                <View style={[styles.inputGroup, focusedField === 'berat' && styles.inputGroupFocused]}>
+                  <Scale size={18} color={focusedField === 'berat' ? '#09A477' : '#94A3B8'} />
                   <TextInput 
-                    style={styles.input} 
-                    placeholder="Contoh: 8.50" 
-                    keyboardType="decimal-pad"
-                    value={berat}
-                    onChangeText={setBerat}
+                     style={styles.input} 
+                     placeholder="Contoh: 8.50" 
+                     keyboardType="decimal-pad"
+                     value={berat}
+                     onChangeText={setBerat}
+                     onFocus={() => setFocusedField('berat')}
+                     onBlur={() => setFocusedField(null)}
                   />
                 </View>
               </View>
 
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>Tinggi / Panjang Badan (cm)</Text>
-                <View style={styles.inputGroup}>
-                  <Ruler size={18} color={COLORS.tealPrimary} />
+                <View style={[styles.inputGroup, focusedField === 'tinggi' && styles.inputGroupFocused]}>
+                  <Ruler size={18} color={focusedField === 'tinggi' ? '#09A477' : '#94A3B8'} />
                   <TextInput 
-                    style={styles.input} 
-                    placeholder="Contoh: 75.25" 
-                    keyboardType="decimal-pad"
-                    value={tinggi}
-                    onChangeText={setTinggi}
+                     style={styles.input} 
+                     placeholder="Contoh: 75.25" 
+                     keyboardType="decimal-pad"
+                     value={tinggi}
+                     onChangeText={setTinggi}
+                     onFocus={() => setFocusedField('tinggi')}
+                     onBlur={() => setFocusedField(null)}
                   />
                 </View>
               </View>
 
               <View style={styles.fieldContainer}>
-                <Text style={styles.fieldLabel}>Lingkar Kepala (cm)</Text>
-                <View style={styles.inputGroup}>
-                  <Brain size={18} color={COLORS.tealPrimary} />
+                <Text style={styles.fieldLabel}>Lingkar Kepala (cm) (Opsional)</Text>
+                <View style={[styles.inputGroup, focusedField === 'lica' && styles.inputGroupFocused]}>
+                  <Brain size={18} color={focusedField === 'lica' ? '#09A477' : '#94A3B8'} />
                   <TextInput 
                     style={styles.input} 
                     placeholder="Contoh: 35.00" 
                     keyboardType="decimal-pad"
                     value={lica}
                     onChangeText={setLica}
+                    onFocus={() => setFocusedField('lica')}
+                    onBlur={() => setFocusedField(null)}
                   />
                 </View>
               </View>
 
               <View style={styles.fieldContainer}>
-                <Text style={styles.fieldLabel}>LiLA (Lingkar Lengan Atas) (cm)</Text>
-                <View style={styles.inputGroup}>
-                  <Activity size={18} color={COLORS.tealPrimary} />
+                <Text style={styles.fieldLabel}>LiLA (Lingkar Lengan Atas) (cm) (Opsional)</Text>
+                <View style={[styles.inputGroup, focusedField === 'lila' && styles.inputGroupFocused]}>
+                  <Activity size={18} color={focusedField === 'lila' ? '#09A477' : '#94A3B8'} />
                   <TextInput 
                     style={styles.input} 
                     placeholder="Contoh: 12.55" 
                     keyboardType="decimal-pad"
                     value={lila}
                     onChangeText={setLila}
+                    onFocus={() => setFocusedField('lila')}
+                    onBlur={() => setFocusedField(null)}
                   />
                 </View>
               </View>
@@ -399,44 +483,62 @@ export default function BalitaServiceDesk() {
               </View>
             </View>
 
-            <TouchableOpacity style={styles.primaryButton} onPress={handleSave}>
-              <Text style={styles.primaryButtonText}>Selesai & Analisis</Text>
+            {/* Live Calculation Results Panel */}
+            {loadingStandards && (
+              <View style={styles.loadingStandardsBox}>
+                <ActivityIndicator size="small" color="#09A477" />
+                <Text style={styles.loadingStandardsText}>Memuat referensi WHO...</Text>
+              </View>
+            )}
+
+            {liveResult && (
+              <View style={styles.liveCalculationBox}>
+                <Text style={styles.liveCalculationTitle}>Hasil Perhitungan Instan</Text>
+                <View style={styles.liveGrid}>
+                  <ResultCardV2 
+                    label="BB/U" 
+                    status={liveResult.bb_u.status} 
+                    zscore={liveResult.bb_u.zscore} 
+                    indicator="berat"
+                  />
+                  <ResultCardV2 
+                    label="TB/U" 
+                    status={liveResult.tb_u.status} 
+                    zscore={liveResult.tb_u.zscore} 
+                    indicator="tinggi"
+                  />
+                  <ResultCardV2 
+                    label="IMT/U" 
+                    status={liveResult.imt_u.status} 
+                    zscore={liveResult.imt_u.zscore} 
+                    indicator="proportional"
+                  />
+                </View>
+                <Text style={styles.disclaimerText}>
+                  * Perhitungan berdasarkan standar pertumbuhan WHO Anthro 2005. Status gizi bersifat indikatif untuk kader kesehatan.
+                </Text>
+              </View>
+            )}
+
+            <TouchableOpacity 
+              style={[styles.primaryButton, (!liveResult || loadingStandards) && styles.primaryButtonDisabled]} 
+              onPress={handleSave}
+              disabled={!liveResult || loadingStandards}
+            >
+              <Text style={styles.primaryButtonText}>Simpan Data</Text>
             </TouchableOpacity>
+            <View style={{ height: 40 }} />
           </ScrollView>
         );
+      }
 
       case 'confirm':
-        return (
-          <View style={styles.stepContainer}>
-            <Text style={styles.stepTitle}>Konfirmasi Simpan</Text>
-            <Card style={styles.confirmCard}>
-               <Text style={styles.confirmLabel}>Balita</Text>
-               <Text style={styles.confirmValue}>{selectedBalita?.nama}</Text>
-               <View style={styles.divider} />
-               <View style={styles.confirmRow}>
-                  <View>
-                    <Text style={styles.confirmLabel}>BB</Text>
-                    <Text style={styles.confirmValue}>{berat} kg</Text>
-                  </View>
-                  <View>
-                    <Text style={styles.confirmLabel}>TB</Text>
-                    <Text style={styles.confirmValue}>{tinggi} cm</Text>
-                  </View>
-               </View>
-            </Card>
-            <TouchableOpacity style={styles.primaryButton} onPress={confirmSave}>
-              <Text style={styles.primaryButtonText}>Ya, Simpan Data</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryButton} onPress={() => setStep('input')}>
-              <Text style={styles.secondaryButtonText}>Kembali Edit</Text>
-            </TouchableOpacity>
-          </View>
-        );
+        return null;
 
       case 'success':
         return (
           <View style={[styles.stepContainer, styles.center]}>
-            <CheckCircle2 size={64} color="#22C55E" />
+            <CheckCircle2 size={64} color="#09A477" />
             <Text style={styles.successTitle}>Data Berhasil {editId ? 'Diperbarui' : 'Disimpan'}!</Text>
             <Text style={styles.successDesc}>Penimbangan untuk {selectedBalita?.nama} telah dicatat.</Text>
             
@@ -457,9 +559,9 @@ export default function BalitaServiceDesk() {
                     indicator="tinggi"
                   />
                   <ResultCardV2 
-                    label="BB/TB" 
-                    status={calculatedResult.bb_tb.status} 
-                    zscore={calculatedResult.bb_tb.zscore} 
+                    label="IMT/U" 
+                    status={calculatedResult.imt_u.status} 
+                    zscore={calculatedResult.imt_u.zscore} 
                     indicator="proportional"
                   />
                 </View>
@@ -482,17 +584,15 @@ export default function BalitaServiceDesk() {
             </TouchableOpacity>
 
             <TouchableOpacity 
-              style={[styles.primaryButton, { width: '100%' }]} 
+              style={[styles.secondaryButton, { width: '100%', borderWidth: 0 }]} 
               onPress={() => router.replace('/(tabs)/service-desk')}
             >
-              <Text style={styles.primaryButtonText}>Selesai</Text>
+              <Text style={styles.secondaryButtonText}>Selesai</Text>
             </TouchableOpacity>
           </View>
         );
     }
   };
-
-
 
   return (
     <SafeAreaView style={styles.container}>
@@ -522,20 +622,22 @@ export default function BalitaServiceDesk() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.tealBg,
+    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: COLORS.tealBg,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   headerTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: '#0F172A',
   },
   stepContainer: {
     flex: 1,
@@ -544,39 +646,50 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: '#0F172A',
     marginBottom: 16,
+    letterSpacing: -0.5,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
+    backgroundColor: '#F8FAFC',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     marginBottom: 16,
   },
   searchInput: {
     flex: 1,
     marginLeft: 12,
-    fontSize: 15,
+    fontSize: 14,
+    color: '#0F172A',
   },
   resultItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
+    backgroundColor: '#FFFFFF',
     padding: 12,
-    borderRadius: 16,
+    borderRadius: 14,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   resultAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.tealTonal,
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#E6F4EA',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 12,
+  },
+  resultAvatarText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#09A477',
   },
   resultInfo: {
     flex: 1,
@@ -584,98 +697,190 @@ const styles = StyleSheet.create({
   resultName: {
     fontSize: 15,
     fontWeight: 'bold',
-    color: '#334155',
+    color: '#0F172A',
   },
   resultNik: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: '#64748B',
+    marginTop: 2,
   },
-  selectedHeader: {
+  premiumProfileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.tealTonal,
-    padding: 16,
+    backgroundColor: '#F8FAFC',
+    padding: 12,
     borderRadius: 16,
-    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 16,
   },
-  selectedHeaderText: {
-    flex: 1,
-    marginLeft: 16,
+  profileAvatarLarge: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#E6F4EA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
-  selectedName: {
+  profileAvatarLargeText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#134E4A',
+    color: '#09A477',
   },
-  selectedSub: {
-    fontSize: 11,
-    color: '#5EAD9D',
+  profileDetails: {
+    flex: 1,
   },
-  changeLink: {
-    color: COLORS.tealPrimary,
+  profileNameLarge: {
+    fontSize: 15,
     fontWeight: 'bold',
-    fontSize: 13,
+    color: '#0F172A',
+  },
+  profileNikText: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  profileBadgesRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 4,
+  },
+  profileBadgeMint: {
+    backgroundColor: '#F0FDFA',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 0.5,
+    borderColor: '#CCFBF1',
+  },
+  profileBadgeMintText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#09A477',
+  },
+  changeBalitaBtn: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  changeBalitaBtnText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#64748B',
   },
   sectionLabel: {
     fontSize: 13,
     fontWeight: 'bold',
     color: '#64748B',
     marginBottom: 12,
-    marginTop: 4,
+    letterSpacing: 0.3,
   },
   form: {
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   fieldContainer: {
     marginBottom: 4,
   },
   fieldLabel: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#475569',
     marginBottom: 6,
-    marginLeft: 4,
+    marginLeft: 2,
   },
   inputGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  inputGroupFocused: {
+    borderColor: '#09A477',
   },
   input: {
     flex: 1,
-    marginLeft: 12,
-    fontSize: 15,
-    color: '#1E293B',
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#0F172A',
+  },
+  loadingStandardsBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F0FDFA',
+    padding: 12,
+    borderRadius: 16,
+    marginBottom: 16,
+    gap: 8,
+  },
+  loadingStandardsText: {
+    fontSize: 12,
+    color: '#0F766E',
+    fontWeight: '500',
+  },
+  liveCalculationBox: {
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
+    marginBottom: 20,
+  },
+  liveCalculationTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    marginBottom: 12,
+  },
+  liveGrid: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  disclaimerText: {
+    fontSize: 10,
+    color: '#64748B',
+    lineHeight: 15,
+    fontStyle: 'italic',
   },
   primaryButton: {
-    backgroundColor: COLORS.tealPrimary,
+    backgroundColor: '#09A477',
     paddingVertical: 14,
-    borderRadius: 16,
+    borderRadius: 14,
     alignItems: 'center',
     marginBottom: 12,
   },
+  primaryButtonDisabled: {
+    backgroundColor: '#94A3B8',
+  },
   primaryButtonText: {
-    color: '#FFF',
+    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: 'bold',
   },
   secondaryButton: {
     paddingVertical: 14,
-    borderRadius: 16,
+    borderRadius: 14,
     alignItems: 'center',
-    backgroundColor: COLORS.tealTonal,
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
   },
   secondaryButtonText: {
-    color: COLORS.tealPrimary,
+    color: '#09A477',
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
   confirmCard: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   confirmLabel: {
     fontSize: 11,
@@ -683,9 +888,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   confirmValue: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: '#0F172A',
   },
   confirmRow: {
     flexDirection: 'row',
@@ -694,7 +899,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: COLORS.tealBg,
+    backgroundColor: '#F1F5F9',
     marginVertical: 12,
   },
   center: {
@@ -704,54 +909,28 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1E293B',
-    marginTop: 16,
+    color: '#0F172A',
+    marginTop: 20,
     marginBottom: 8,
+    letterSpacing: -0.5,
   },
   successDesc: {
     fontSize: 13,
     color: '#64748B',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   emptyText: {
     textAlign: 'center',
     marginTop: 40,
     color: '#94A3B8',
   },
-  resultCard: {
-    width: '100%',
-    padding: 16,
-    marginBottom: 20,
-    backgroundColor: COLORS.tealTonal,
-  },
   cardResultTitle: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#134E4A',
-    marginBottom: 8,
+    color: '#0F172A',
+    marginBottom: 12,
   },
-  resultRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  resultLabel: {
-    fontSize: 10,
-    color: '#5EAD9D',
-    marginBottom: 4,
-  },
-  resultStatus: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#134E4A',
-    textAlign: 'center',
-  },
-  resultZ: {
-    fontSize: 10,
-    color: '#2DD4BF',
-    marginTop: 2,
-  },
-  // V2 SUCCESS STYLES
   v2ResultContainer: {
     width: '100%',
     marginBottom: 20,
@@ -759,15 +938,16 @@ const styles = StyleSheet.create({
   v2ResultGrid: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   v2Item: {
     flex: 1,
     padding: 10,
-    borderRadius: 16,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 100,
+    minHeight: 96,
+    borderWidth: 1,
   },
   v2Label: {
     fontSize: 9,
@@ -777,8 +957,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   v2Status: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: 'bold',
     textAlign: 'center',
     lineHeight: 14,
     marginVertical: 4,
@@ -788,7 +968,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     marginTop: 4,
-    backgroundColor: 'rgba(255,255,255,0.5)',
+    backgroundColor: 'rgba(255,255,255,0.6)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -802,13 +982,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   feedbackBox: {
-    backgroundColor: COLORS.tealTonal,
-    padding: 12,
+    backgroundColor: '#F0FDFA',
+    padding: 14,
     borderRadius: 16,
+    borderWidth: 0.5,
+    borderColor: '#CCFBF1',
   },
   feedbackText: {
     fontSize: 12,
-    color: '#134E4A',
+    color: '#0F766E',
     lineHeight: 18,
     textAlign: 'center',
     fontWeight: '500',
@@ -820,9 +1002,9 @@ const ResultCardV2 = ({ label, status, zscore, indicator }: { label: string, sta
   const isWarning = status.includes('Batas') || status.includes('Resiko') || status.includes('Kurang');
   
   const getColors = () => {
-    if (isNormal) return { bg: '#F0FDFA', border: '#CCFBF1', text: '#134E4A', z: '#2DD4BF' };
-    if (isWarning) return { bg: '#FFFBEB', border: '#FEF3C7', text: '#92400E', z: '#F59E0B' };
-    return { bg: '#FEF2F2', border: '#FEE2E2', text: '#991B1B', z: '#EF4444' };
+    if (isNormal) return { bg: '#F0FDFA', border: '#CCFBF1', text: '#0F766E', z: '#09A477' };
+    if (isWarning) return { bg: '#FFFBEB', border: '#FEF3C7', text: '#B45309', z: '#F59E0B' };
+    return { bg: '#FEF2F2', border: '#FEE2E2', text: '#B91C1C', z: '#EF4444' };
   };
 
   const colors = getColors();
@@ -838,3 +1020,4 @@ const ResultCardV2 = ({ label, status, zscore, indicator }: { label: string, sta
     </View>
   );
 };
+

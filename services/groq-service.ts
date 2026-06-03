@@ -89,13 +89,22 @@ export class GroqService {
     let focusArea = '';
     let instructions = '';
 
+    const isStunting = metrics.status_tb_u?.includes('Pendek') || false;
+    const isWasting = metrics.status_bb_tb?.includes('Kurus') || metrics.status_bb_tb?.includes('Wasted') || metrics.status_bb_tb?.includes('Buruk') || false;
+    const isUnderweight = metrics.status_bb_u?.includes('Kurang') || false;
+
     if (step === 1) {
       focusArea = 'GIZI, MPASI, DAN PROTEIN HEWANI (Asupan Nutrisi)';
       instructions = `Fokus pada asupan gizi anak sesuai usianya (${ageMonths} bulan). Tanyakan MPASI atau ASI secara mendalam.
 Aturan Kritis:
 - Pertanyaan harus spesifik menggali jenis protein hewani yang dikonsumsi (telur, ikan, daging, ayam, hati ayam), frekuensi makan, porsi makan dalam takaran sendok makan, dan tekstur makanan (apakah lumat, cincang kasar, atau padat).
 - DILARANG mengajukan pertanyaan naratif atau generalis yang memicu jawaban ya/tidak, seperti 'apakah anak sudah MPASI?' atau 'apakah asupannya sudah baik?'.
-- Panduan Kader ('guidance') harus berisi petunjuk taktis bagi kader tentang poin-poin yang harus ditanyakan secara bertahap kepada orang tua agar kader tidak hanya pasif menerima jawaban 'sudah' atau 'belum'.`;
+- Panduan Kader ('guidance') harus berisi petunjuk taktis bagi kader tentang poin-poin yang harus ditanyakan secara bertahap kepada orang tua agar kader tidak hanya pasif menerima jawaban 'sudah' atau 'belum'.
+Adaptasi KMS (Status Gizi Aktual):
+${isStunting ? `- ANAK MENGALAMI STUNTING (PENDEK): Prioritaskan pertanyaan tentang asupan protein hewani harian dan mikronutrien (seng, zat besi) penting untuk mengejar tinggi badan anak.` : ''}
+${isWasting ? `- ANAK MENGALAMI WASTING (KURUS): Prioritaskan kepadatan kalori MPASI, porsi makan, penambahan lemak sehat (minyak, santan, mentega), nafsu makan, dan asupan energi.` : ''}
+${isUnderweight && !isWasting ? `- ANAK UNDERWEIGHT (BERAT KURANG): Fokus pada pemenuhan kalori total harian, frekuensi makan, porsi makan utama, dan selingan.` : ''}
+${!isStunting && !isWasting && !isUnderweight ? `- ANAK NORMAL: Fokus pada pemeliharaan gizi seimbang, keragaman bahan pangan, dan pencegahan masalah gizi.` : ''}`;
     } else if (step === 2) {
       focusArea = 'RIWAYAT KESEHATAN, IMUNISASI, DAN PENYAKIT INFEKSI';
       instructions = `Fokus pada riwayat kesehatan dan infeksi anak dalam 2 minggu terakhir.
@@ -103,7 +112,12 @@ Aturan Kritis:
 - Tanyakan apakah anak sempat demam, batuk-pilek, diare, atau infeksi lain baru-baru ini.
 - Hubungkan dengan jawaban pertama jika relevan (Jawaban Gizi Langkah 1: "${previousQA[0]?.answer}").
 - Tanyakan bagaimana nafsu makan anak saat atau setelah sakit tersebut.
-- Panduan Kader ('guidance') harus menginstruksikan kader untuk menggali durasi sakit, rujukan dokter/puskesmas, serta kelengkapan imunisasi dasar dan pemberian Vitamin A.`;
+- Tanyakan kelengkapan imunisasi dasar/booster sesuai usia anak dan pemberian Vitamin A (kapsul merah/biru).
+- DILARANG mengajukan pertanyaan gejala bahaya darurat medis klinis (red flags) yang menakutkan karena anak diasumsikan dalam kondisi sehat saat datang ke posyandu.
+Adaptasi KMS (Status Gizi Aktual):
+${isStunting ? `- ANAK MENGALAMI STUNTING: Tanyakan penyakit infeksi berulang/kronis dalam 2-4 minggu terakhir (misal diare, ISPA, TBC) karena penyakit berulang sangat menghambat pertumbuhan tulang/tinggi badan.` : ''}
+${isWasting ? `- ANAK MENGALAMI WASTING: Tanyakan penyakit infeksi akut baru-baru ini (misal diare, flu berat) yang menurunkan nafsu makan dan menurunkan berat badan secara drastis.` : ''}
+${!isStunting && !isWasting ? `- ANAK NORMAL: Tanyakan status imunisasi dasar dan booster lengkap sesuai jadwal usianya.` : ''}`;
     } else {
       focusArea = 'POLA PENGASUHAN, MAKAN AKTIF (FEEDING RULES), DAN SANITASI LINGKUNGAN';
       instructions = `Fokus pada pola asuh makan anak dan kebersihan lingkungan sekitar.
@@ -111,7 +125,10 @@ Aturan Kritis:
 - Tanyakan siapa yang menyuapi anak sehari-hari, bagaimana perilaku anak saat makan (apakah rewel, dilepeh, harus dipaksa, atau makan sambil menonton HP/jalan-jalan).
 - Tanyakan akses air bersih untuk memasak dan kebiasaan cuci tangan pakai sabun sebelum mengolah makanan anak.
 - Hubungkan secara cerdas dengan jawaban sebelumnya (Langkah 1: "${previousQA[0]?.answer}", Langkah 2: "${previousQA[1]?.answer}").
-- Panduan Kader ('guidance') harus menginstruksikan kader untuk meneliti kebiasaan mencuci tangan pakai sabun, perilaku feeding rules yang benar, dan kualitas air minum di rumah.`;
+Adaptasi KMS (Status Gizi Aktual):
+${isStunting ? `- ANAK MENGALAMI STUNTING: Prioritaskan sanitasi lingkungan rumah, kebersihan sumber air minum (apakah direbus mendidih), kebersihan jamban, dan kebiasaan mencuci tangan pakai sabun (CTPS) sebelum menyiapkan makanan untuk mencegah enteropati lingkungan.` : ''}
+${isWasting || isUnderweight ? `- ANAK WASTING/UNDERWEIGHT: Prioritaskan penerapan Feeding Rules (makan aktif/responsif, batas waktu makan 30 menit, tidak memaksakan anak makan, membatasi susu/dot berlebih di sela jam makan utama agar anak merasa lapar).` : ''}
+${!isStunting && !isWasting && !isUnderweight ? `- ANAK NORMAL: Fokus pada stimulasi motorik kasar/halus atau stimulasi bahasa sesuai usia anak (milestones) dan pengasuhan responsif.` : ''}`;
     }
 
     const systemPrompt = `Anda adalah Ahli Gizi dan Tumbuh Kembang Posyandu (Kemenkes RI) yang sangat ramah, hangat, dan profesional.
@@ -125,6 +142,7 @@ ATURAN KRITIS PENULISAN:
 2. FOKUS SOSIAL-EKONOMI MIKRO YANG ETIS: Tanyakan aspek sosial-ekonomi mikro yang mempengaruhi asupan anak secara sopan (ketersediaan lauk murah di pasar lokal, pengasuh utama).
 3. PERTANYAAN DETIL & SPESIFIK: Jangan membuat pertanyaan naratif atau generalis yang bisa dijawab ya/tidak. Berikan contoh bahan makanan konkret atau gejala konkret.
 4. PANDUAN KADER (GUIDANCE): Wajib menuliskan instruksi yang sangat taktis bagi kader untuk menggali lebih dalam, mendeteksi jawaban menghindar, dan memberikan instruksi konkret apa saja yang harus kader tanyakan. Jangan membuat panduan yang bersifat terlalu umum.
+5. INTEGRASI MEMORI LONGITUDINAL (BULAN LALU): Jika dalam data profil terdapat "MEMORI PENYULUHAN BULAN LALU", periksa data pertanyaan, jawaban, dan rekomendasi bulan lalu. Anda WAJIB memformulasikan pertanyaan Langkah ${step} yang secara cerdas menindaklanjuti progres dari masalah/isu bulan lalu tersebut untuk melihat perkembangannya.
 
 Anda HARUS mengembalikan respon dalam format JSON objek dengan format sebagai berikut:
 {
@@ -151,7 +169,7 @@ Rekomendasi Sebelumnya: ${previousSession.rekomendasi}`
 
 ${previousQA.length > 0 ? `### JAWABAN PERTANYAAN SEBELUMNYA DI SESI INI:\n${previousQA.map((qa, i) => `Langkah ${i+1} - Tanya: "${qa.question}"\nJawaban: "${qa.answer}"`).join('\n')}` : ''}
 
-Buatkan 1 objek JSON berisi "question" dan "guidance" yang paling relevan untuk Langkah ${step}.`;
+Buatkan 1 objek JSON berisi "question" and "guidance" yang paling relevan untuk Langkah ${step}.`;
 
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -204,11 +222,14 @@ Tugas Anda adalah merumuskan ringkasan saran/rekomendasi gizi, MPASI praktis, da
 
 Panduan Penulisan Rekomendasi:
 1. BAHASA: Gunakan bahasa Indonesia yang hangat, membangkitkan semangat, berempati tinggi, dan bebas dari istilah medis yang terlalu rumit. Berikan dukungan moral kepada orang tua anak.
-2. PRAKTIS & EKONOMIS: Tawarkan rekomendasi pangan protein lokal terjangkau (misal: telur rebus harian, tempe kukus lumat, hati ayam, tahu) sesuai dengan kemampuan dan akses pasar lokal mereka.
-3. KESEHATAN & RUJUKAN: 
-   - Jika status gizi BB/U, TB/U, atau BB/TB masuk dalam kategori risiko tinggi ("Gizi Kurang", "Gizi Buruk", "Sangat Pendek"), berikan saran rujukan ke Puskesmas secara halus dan sopan tanpa membuat orang tua panik.
+2. PRAKTIS & EKONOMIS: Tawarkan rekomendasi pangan protein lokal terjangkau (misal: telur rebus/dadar, ikan kembung/lele, hati ayam, tempe, tahu) sesuai dengan kemampuan dan akses pasar lokal mereka.
+3. ADAPTIF KMS (Z-SCORE):
+   - Jika anak mengalami STUNTING (TB/U Pendek/Sangat Pendek): Prioritaskan asupan protein hewani harian dan higienitas air minum/sanitasi rumah untuk mengejar tinggi badannya.
+   - Jika anak mengalami WASTING (BB/TB Kurus/Sangat Kurus) atau UNDERWEIGHT: Prioritaskan penambahan kalori dan lemak sehat (minyak/santan/mentega), aturan jadwal feeding rules yang tertata, serta asupan nutrisi porsi kecil tapi sering.
+   - Jika anak NORMAL: Apresiasi keberhasilan orang tua, sarankan pertahankan pola makan gizi seimbang, dan berikan stimulasi perkembangan sesuai usia.
 4. INTEGRASI CATATAN KADER: Jika kader menyertakan catatan lapangan (seperti kondisi fisik lemas, rambut kusam, atau situasi sosial-ekonomi mikro), Anda WAJIB menganalisis data observasi tersebut dan menyematkan rekomendasi klinis/asuhan tambahan yang relevan di dalam poin saran Anda.
-5. STRUKTUR: Buatlah saran dalam bentuk 3-4 poin ringkas, padat, dan sangat mudah diingat oleh orang tua. Batasi panjang tulisan maksimal 150-200 kata agar nyaman dibaca di layar HP dan saat dikirim via WhatsApp.`;
+5. TANPA DARURAT RED FLAGS: Hindari rujukan klinis darurat rumah sakit yang menakutkan, cukup sarankan konsultasi/rujukan persuasif ke Puskesmas/Bidan Desa jika status gizi balita berada di kategori kurang/sangat kurang/pendek dan tidak membaik bulan depan.
+6. STRUKTUR: Buatlah saran dalam bentuk 3-4 poin ringkas, padat, dan sangat mudah diingat oleh orang tua. Batasi panjang tulisan maksimal 120-150 kata agar nyaman dibaca di layar HP dan saat dikirim via WhatsApp maupun dicetak di laporan PDF.`;
 
     const userPrompt = `### PROFIL BALITA:
 - Nama: ${balita.nama}

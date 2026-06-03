@@ -273,15 +273,17 @@ export default function ReportsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 20,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 16,
     backgroundColor: '#FFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#F1F5F9',
   },
   headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#1E293B' },
   content: { padding: 20 },
@@ -299,7 +301,7 @@ const styles = StyleSheet.create({
   monthGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   monthBtn: { width: '31%', paddingVertical: 10, alignItems: 'center', borderRadius: 10, backgroundColor: '#F8FAFC', marginBottom: 10, borderWidth: 1, borderColor: '#F1F5F9' },
   monthBtnText: { fontSize: 12, color: '#64748B', fontWeight: '600' },
-  generateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 16, elevation: 4, shadowOpacity: 0.2, shadowRadius: 10 },
+  generateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 16 },
   disabledBtn: { opacity: 0.6 },
   generateBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 16, marginLeft: 10 },
   infoSection: { marginTop: 32 },
@@ -317,6 +319,8 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 24,
     marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   v2CardLabel: {
     fontSize: 10,
@@ -388,9 +392,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 18,
     borderRadius: 20,
-    elevation: 4,
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
   },
   v2GenerateBtnText: {
     color: '#FFF',
