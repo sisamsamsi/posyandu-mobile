@@ -38,13 +38,16 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
     return Math.max(max, age);
   }, 0);
 
+  const maxHeightRecorded = validData.reduce((max, p) => {
+    return Math.max(max, p.tinggi_badan);
+  }, 0);
+
   // Set display limit: stop exactly at the last visit to avoid flatlining into the future
-  const displayLimit = indicator === 'BB_TB' 
-    ? 120 
-    : Math.min(Math.max(maxMonthRecorded, 12), 30); // Show up to 30 months as in the reference mockup
+  const displayLimit = Math.min(Math.max(maxMonthRecorded, 12), 30); // Show up to 30 months as in the reference mockup
+  const displayLimitHeight = Math.min(Math.max(Math.ceil(maxHeightRecorded), 85), 120);
 
   const filteredStandards = indicator === 'BB_TB'
-    ? standards.filter(s => s.measurement >= 45 && s.measurement <= 120)
+    ? standards.filter(s => s.measurement >= 45 && s.measurement <= displayLimitHeight)
     : standards.filter(s => s.measurement <= displayLimit);
 
   // Labels for X-axis (sampled for spacing - e.g. every 6 months)
