@@ -944,11 +944,16 @@ export default function BalitaDetail() {
                 new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
               )[0];
               const displayVal = latest ? `${latest.tinggi_badan.toFixed(1)} cm` : '-';
-              const displayDate = latest ? format(new Date(latest.tanggal), 'd MMM yyyy', { locale: idLocale }) : 'Belum diukur';
+              const ageMonths = latest ? calculateAgeMonths(balita.tanggal_lahir, latest.tanggal) : 0;
+              const displayAge = latest ? (
+                ageMonths >= 12 
+                  ? `${Math.floor(ageMonths / 12)} th ${ageMonths % 12} bln`
+                  : `${ageMonths} bln`
+              ) : 'Belum diukur';
               return (
                 <>
                   <Text style={styles.metricValue}>{displayVal}</Text>
-                  <Text style={styles.metricSubText}>{displayDate}</Text>
+                  <Text style={styles.metricSubText}>{displayAge}</Text>
                 </>
               );
             })()}

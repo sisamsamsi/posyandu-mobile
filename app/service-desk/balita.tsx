@@ -472,7 +472,7 @@ export default function BalitaServiceDesk() {
                 <Pressable onPress={() => setShowDatePicker(true)}>
                   <View style={styles.inputGroup}>
                     <Calendar size={18} color="#64748B" />
-                    <Text style={[styles.input, { textAlignVertical: 'center', paddingTop: 14 }]}>
+                    <Text style={[styles.input, { textAlignVertical: 'center' }]}>
                       {format(new Date(tanggal), 'dd MMMM yyyy')}
                     </Text>
                   </View>
@@ -514,9 +514,9 @@ export default function BalitaServiceDesk() {
                     indicator="tinggi"
                   />
                   <ResultCardV2 
-                    label="IMT/U" 
-                    status={liveResult.imt_u.status} 
-                    zscore={liveResult.imt_u.zscore} 
+                    label="BB/TB" 
+                    status={liveResult.bb_tb.status} 
+                    zscore={liveResult.bb_tb.zscore} 
                     indicator="proportional"
                   />
                 </View>
@@ -565,9 +565,9 @@ export default function BalitaServiceDesk() {
                     indicator="tinggi"
                   />
                   <ResultCardV2 
-                    label="IMT/U" 
-                    status={calculatedResult.imt_u.status} 
-                    zscore={calculatedResult.imt_u.zscore} 
+                    label="BB/TB" 
+                    status={calculatedResult.bb_tb.status} 
+                    zscore={calculatedResult.bb_tb.zscore} 
                     indicator="proportional"
                   />
                 </View>
@@ -590,8 +590,24 @@ export default function BalitaServiceDesk() {
             </TouchableOpacity>
 
             <TouchableOpacity 
-              style={[styles.secondaryButton, { width: '100%', borderWidth: 0 }]} 
-              onPress={() => router.replace('/(tabs)/service-desk')}
+              style={[styles.primaryButton, { width: '100%', backgroundColor: '#09A477', marginTop: 8 }]} 
+              onPress={() => {
+                setBerat('');
+                setTinggi('');
+                setLila('');
+                setLica('');
+                setSearchQuery('');
+                setSelectedBalita(null);
+                setLiveResult(null);
+                setStep('search');
+              }}
+            >
+              <Text style={styles.primaryButtonText}>Balita Selanjutnya</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.secondaryButton, { width: '100%', borderWidth: 0, marginTop: 8 }]} 
+              onPress={() => router.replace('/(tabs)')}
             >
               <Text style={styles.secondaryButtonText}>Selesai</Text>
             </TouchableOpacity>
@@ -802,8 +818,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    height: 44,
+    height: 52,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -816,6 +831,8 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     fontSize: 14,
     color: '#0F172A',
+    height: '100%',
+    paddingVertical: 0,
   },
   loadingStandardsBox: {
     flexDirection: 'row',

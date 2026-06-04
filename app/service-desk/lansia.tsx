@@ -275,7 +275,7 @@ export default function LansiaServiceDesk() {
                 <Pressable onPress={() => setShowDatePicker(true)}>
                   <View style={styles.inputGroup}>
                     <Calendar size={18} color="#64748B" />
-                    <Text style={[styles.input, { textAlignVertical: 'center', paddingTop: 14 }]}>
+                    <Text style={[styles.input, { textAlignVertical: 'center' }]}>
                       {format(new Date(tanggal), 'dd MMMM yyyy')}
                     </Text>
                   </View>
@@ -391,7 +391,7 @@ export default function LansiaServiceDesk() {
 
             <TouchableOpacity 
               style={[styles.primaryButton, { width: '100%', marginTop: 20 }]} 
-              onPress={() => router.replace('/(tabs)/service-desk')}
+              onPress={() => router.replace('/(tabs)')}
             >
               <Text style={styles.primaryButtonText}>Kembali ke Menu Utama</Text>
             </TouchableOpacity>
@@ -583,8 +583,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    height: 44,
+    height: 52,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -594,6 +593,8 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     fontSize: 14,
     color: '#1E293B',
+    height: '100%',
+    paddingVertical: 0,
   },
   primaryButton: {
     backgroundColor: COLORS.indigoPrimary,
