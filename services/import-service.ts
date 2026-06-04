@@ -140,16 +140,33 @@ export class ImportService {
           continue;
         }
 
-        // 3. Prepare payload
-        const payload: any = { 
-            ...item, 
-            posyandu_id: posyanduId,
-            nik: String(item.nik)
+        // 3. Prepare payload with explicit column whitelisting to prevent database injection
+        const payload: any = {
+          posyandu_id: posyanduId,
+          nik: String(item.nik).trim(),
+          nama: String(item.nama || '').trim(),
+          tanggal_lahir: item.tanggal_lahir,
+          jenis_kelamin: item.jenis_kelamin === 'Laki-laki' || item.jenis_kelamin === 'L' ? 'Laki-laki' : 'Perempuan',
+          alamat: item.alamat ? String(item.alamat).trim() : null,
+          rt: item.rt ? parseInt(item.rt, 10) || null : null,
         };
         
-        // Handle special fields
-        if (type === 'lansia' && item.penyakit_bawaan) {
+        if (type === 'balita') {
+          payload.nama_ortu = item.nama_ortu ? String(item.nama_ortu).trim() : '';
+          payload.tempat_lahir = item.tempat_lahir ? String(item.tempat_lahir).trim() : null;
+          payload.nama_ayah = item.nama_ayah ? String(item.nama_ayah).trim() : null;
+          payload.nama_ibu = item.nama_ibu ? String(item.nama_ibu).trim() : null;
+          payload.bb_lahir = item.bb_lahir ? parseFloat(item.bb_lahir) || null : null;
+          payload.tb_lahir = item.tb_lahir ? parseFloat(item.tb_lahir) || null : null;
+          payload.no_hp_ortu = item.no_hp_ortu ? String(item.no_hp_ortu).trim() : null;
+          payload.anak_ke = item.anak_ke ? parseInt(item.anak_ke, 10) || null : null;
+        } else {
+          // Lansia specific fields
+          if (item.penyakit_bawaan) {
             payload.penyakit_bawaan = String(item.penyakit_bawaan).split(',').map(s => s.trim()).filter(s => s !== '');
+          } else {
+            payload.penyakit_bawaan = [];
+          }
         }
 
         const { error } = await supabase.from(table).insert(payload);

@@ -11,6 +11,7 @@ export const useLansia = () => {
   const getLansias = async (searchQuery?: string) => {
     try {
       setLoading(true);
+      setError(null);
       
       if (!activePosyanduId) {
         console.warn('[useLansia] activePosyanduId is null/empty, skipping query');
@@ -52,6 +53,7 @@ export const useLansia = () => {
   const getLansiaById = async (id: string) => {
     try {
       setLoading(true);
+      setError(null);
       const { data, error } = await supabase
         .from('lansias')
         .select(`
@@ -76,6 +78,7 @@ export const useLansia = () => {
   const upsertLansia = async (lansia: Partial<Lansia>) => {
     try {
       setLoading(true);
+      setError(null);
       // Strip related objects that aren't columns
       const { posyandu, pemeriksaan_lansias, ...cleanData } = lansia as any;
 
@@ -103,6 +106,7 @@ export const useLansia = () => {
   const deleteLansia = async (id: string) => {
     try {
       setLoading(true);
+      setError(null);
       const { error } = await supabase
         .from('lansias')
         .delete()

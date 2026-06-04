@@ -17,6 +17,7 @@ export const usePemeriksaan = () => {
   const getPemeriksaans = async (month?: number, year?: number) => {
     try {
       setLoading(true);
+      setError(null);
       
       if (!activePosyanduId) {
         console.warn('[usePemeriksaan] No activePosyanduId, skipping fetch');
@@ -67,6 +68,7 @@ export const usePemeriksaan = () => {
   const getMonthlyAttendance = async (month: number, year: number) => {
     try {
       setLoading(true);
+      setError(null);
       const date = new Date(year, month, 1);
       const start = startOfMonth(date).toISOString();
       const end = endOfMonth(date).toISOString();
@@ -92,5 +94,83 @@ export const usePemeriksaan = () => {
     }
   };
 
-  return { getPemeriksaans, getMonthlyAttendance, loading, error };
+  /**
+   * Add a new pemeriksaan record
+   */
+  const addPemeriksaan = async (payload: Partial<PemeriksaanLansia>) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const { data, error } = await supabase
+        .from('pemeriksaan_lansias')
+        .insert(payload)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as PemeriksaanLansia;
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Update an existing pemeriksaan record
+   */
+  const updatePemeriksaan = async (id: string, data: Partial<PemeriksaanLansia>) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const { error } = await supabase
+        .from('pemeriksaan_lansias')
+        .update({
+          ...data,
+          created_at: undefined // prevent overriding created_at if passed
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      return true;
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Delete a pemeriksaan record
+   */
+  const deletePemeriksaan = async (id: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const { error } = await supabase
+        .from('pemeriksaan_lansias')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      return true;
+    } catch (err: any) {
+      setError(err.message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { 
+    getPemeriksaans, 
+    getMonthlyAttendance, 
+    addPemeriksaan, 
+    updatePemeriksaan, 
+    deletePemeriksaan, 
+    loading, 
+    error 
+  };
 };

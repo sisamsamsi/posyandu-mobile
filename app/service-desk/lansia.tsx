@@ -29,6 +29,7 @@ import {
   Heart
 } from 'lucide-react-native';
 import { useLansia } from '../../hooks/useLansia';
+import { usePemeriksaan } from '../../hooks/usePemeriksaan';
 import { useServiceStore } from '../../stores/service-store';
 import { Lansia } from '../../lib/types';
 import { Card } from '../../components/ui/Card';
@@ -66,6 +67,7 @@ export default function LansiaServiceDesk() {
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const { getLansias, loading } = useLansia();
+  const { addPemeriksaan } = usePemeriksaan();
   const { addToHistory } = useServiceStore();
 
   // Load all Lansias on mount for real-time local search
@@ -109,7 +111,7 @@ export default function LansiaServiceDesk() {
     if (!selectedLansia) return;
     
     try {
-      const { error } = await supabase.from('pemeriksaan_lansias').insert({
+      await addPemeriksaan({
         lansia_id: selectedLansia.id,
         tanggal_periksa: tanggal,
         keluhan: keluhan || null,
@@ -123,8 +125,6 @@ export default function LansiaServiceDesk() {
         lingkar_perut: parseFloat(lingkarPerut) || null,
         lingkar_lengan: parseFloat(lila) || null,
       });
-
-      if (error) throw error;
 
       addToHistory({
         id: selectedLansia.id,

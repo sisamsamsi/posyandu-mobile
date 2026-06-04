@@ -11,6 +11,7 @@ export const useBalita = () => {
   const getBalitas = async (searchQuery?: string) => {
     try {
       setLoading(true);
+      setError(null);
       let query = supabase
         .from('balitas')
         .select(`
@@ -38,6 +39,7 @@ export const useBalita = () => {
   const getBalitaById = async (id: string) => {
     try {
       setLoading(true);
+      setError(null);
       const { data, error } = await supabase
         .from('balitas')
         .select(`
@@ -68,6 +70,7 @@ export const useBalita = () => {
   const upsertBalita = async (balita: Partial<Balita>) => {
     try {
       setLoading(true);
+      setError(null);
       // Strip related objects that aren't columns
       const { posyandu, penimbangans, ...cleanData } = balita as any;
       
@@ -95,6 +98,7 @@ export const useBalita = () => {
   const deleteBalita = async (id: string) => {
     try {
       setLoading(true);
+      setError(null);
       const { error } = await supabase
         .from('balitas')
         .delete()

@@ -1,5 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { COLORS } from '../../lib/constants';
+import { useServiceStore } from '../../stores/service-store';
 
 interface BadgeProps {
   label: string;
@@ -7,15 +9,19 @@ interface BadgeProps {
 }
 
 export const Badge: React.FC<BadgeProps> = ({ label, variant = 'primary' }) => {
+  const { activeWorkspace } = useServiceStore();
+  const isBalita = activeWorkspace !== 'lansia';
+  const primaryThemeColor = isBalita ? COLORS.tealPrimary : COLORS.indigoPrimary;
+
   const getBackgroundColor = () => {
     switch (variant) {
-      case 'primary': return '#0D9488'; // Teal 600
+      case 'primary': return primaryThemeColor;
       case 'secondary': return '#64748B';
       case 'success': return '#22C55E';
       case 'warning': return '#F59E0B';
       case 'danger': return '#EF4444';
       case 'info': return '#06B6D4';
-      default: return '#0D9488';
+      default: return primaryThemeColor;
     }
   };
 

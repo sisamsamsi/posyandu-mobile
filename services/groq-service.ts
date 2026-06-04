@@ -1,5 +1,6 @@
 // services/groq-service.ts
 import { Balita } from '../lib/types';
+import { supabase } from '../lib/supabase';
 
 export interface ZScoreData {
   berat_badan: number;
@@ -41,9 +42,19 @@ export class GroqService {
 
   private static async callGroq(messages: any[], isJsonResponse = false): Promise<string> {
     const apiKey = this.getApiKey();
-    if (!apiKey) {
-      console.warn('Groq API Key is not set in environment variables.');
-      throw new Error('API Key Groq belum diatur. Silakan periksa berkas .env Anda.');
+    const useEdgeFunction = process.env.EXPO_PUBLIC_USE_EDGE_FUNCTION === 'true' || !apiKey;
+
+    if (useEdgeFunction) {
+      try {
+        const { data, error } = await supabase.functions.invoke('counseling', {
+          body: { messages, isJsonResponse }
+        });
+        if (error) throw error;
+        return data?.content || '';
+      } catch (err: any) {
+        console.error('Failed to call Supabase Edge Function counseling:', err);
+        throw new Error(err.message || 'Gagal terhubung dengan layanan AI counseling.');
+      }
     }
 
     try {

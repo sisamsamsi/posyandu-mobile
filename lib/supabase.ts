@@ -9,10 +9,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('CRITICAL: Supabase URL or Anon Key is missing! App will likely crash.');
 }
 
-console.log('Supabase Init:', { 
-  url: supabaseUrl, 
-  hasAnonKey: !!supabaseAnonKey
-});
 
 // Klien utama — menggunakan anon key, tunduk pada RLS
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {

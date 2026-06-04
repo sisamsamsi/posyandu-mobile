@@ -50,6 +50,7 @@ export const usePosyandu = () => {
   const getAllPosyandus = async () => {
     try {
       setLoading(true);
+      setError(null);
       const { data, error } = await supabase
         .from('posyandus')
         .select('*')

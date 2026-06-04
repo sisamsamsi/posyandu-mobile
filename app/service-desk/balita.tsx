@@ -73,7 +73,7 @@ export default function BalitaServiceDesk() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const { getBalitas, loading } = useBalita();
-  const { updatePenimbangan } = usePenimbangan();
+  const { updatePenimbangan, addPenimbangan } = usePenimbangan();
   const { activePosyanduId, addToHistory } = useServiceStore();
 
   useEffect(() => {
@@ -278,9 +278,14 @@ export default function BalitaServiceDesk() {
       let res;
       if (editId) {
         const success = await updatePenimbangan(editId as string, payload);
-        res = { error: !success ? new Error('Gagal update data') : null };
+        res = { error: !success ? new Error('Gagal update data') : null, data: null };
       } else {
-        res = await supabase.from('penimbangans').insert(payload).select().single();
+        try {
+          const inserted = await addPenimbangan(payload);
+          res = { error: null, data: inserted };
+        } catch (e: any) {
+          res = { error: e, data: null };
+        }
       }
 
       if (res.error) throw res.error;

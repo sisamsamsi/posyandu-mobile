@@ -15,6 +15,7 @@ export const usePenimbangan = () => {
   const getPenimbangans = async (month?: number, year?: number) => {
     try {
       setLoading(true);
+      setError(null);
       let query = supabase
         .from('penimbangans')
         .select(`
@@ -48,6 +49,7 @@ export const usePenimbangan = () => {
   const deletePenimbangan = async (id: string) => {
     try {
       setLoading(true);
+      setError(null);
       const { error } = await supabase
         .from('penimbangans')
         .delete()
@@ -69,6 +71,7 @@ export const usePenimbangan = () => {
   const updatePenimbangan = async (id: string, data: Partial<Penimbangan>) => {
     try {
       setLoading(true);
+      setError(null);
       const { error } = await supabase
         .from('penimbangans')
         .update({
@@ -93,6 +96,7 @@ export const usePenimbangan = () => {
   const getMonthlyAttendance = async (month: number, year: number) => {
     try {
       setLoading(true);
+      setError(null);
       const date = new Date(year, month, 1);
       const start = startOfMonth(date).toISOString();
       const end = endOfMonth(date).toISOString();
@@ -118,5 +122,28 @@ export const usePenimbangan = () => {
     }
   };
 
-  return { getPenimbangans, getMonthlyAttendance, deletePenimbangan, updatePenimbangan, loading, error };
+  /**
+   * Add a new penimbangan record
+   */
+  const addPenimbangan = async (payload: Partial<Penimbangan>) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const { data, error } = await supabase
+        .from('penimbangans')
+        .insert(payload)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as Penimbangan;
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { getPenimbangans, getMonthlyAttendance, deletePenimbangan, updatePenimbangan, addPenimbangan, loading, error };
 };

@@ -21,19 +21,41 @@ export default function RegisterScreen() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function signUp() {
-    if (!fullName.trim() || !email.trim() || !password.trim()) {
+    if (!fullName.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
       Alert.alert('Data Tidak Lengkap', 'Mohon isi semua bidang yang tersedia.');
+      return;
+    }
+
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      Alert.alert('Format Email Salah', 'Mohon masukkan email yang valid.');
+      return;
+    }
+
+    // Password complexity: minimum 8 characters, at least 1 uppercase, 1 lowercase, and 1 number
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      Alert.alert(
+        'Password Lemah',
+        'Password minimal harus 8 karakter dan mengandung setidaknya 1 huruf besar, 1 huruf kecil, dan 1 angka.'
+      );
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Password Tidak Cocok', 'Password konfirmasi tidak cocok dengan password yang dimasukkan.');
       return;
     }
 
     try {
       setLoading(true);
-      console.log('Attempting registration with:', email);
-      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -106,13 +128,27 @@ export default function RegisterScreen() {
             <View style={styles.passwordContainer}>
               <TextInput
                 style={styles.passwordInput}
-                placeholder="Minimal 6 karakter"
+                placeholder="Minimal 8 karakter (Huruf Besar, Kecil, Angka)"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
                 {showPassword ? <EyeOff size={20} color="#64748b" /> : <Eye size={20} color="#64748b" />}
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.label}>Konfirmasi Password</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Ulangi password"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!showConfirmPassword}
+              />
+              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeIcon}>
+                {showConfirmPassword ? <EyeOff size={20} color="#64748b" /> : <Eye size={20} color="#64748b" />}
               </TouchableOpacity>
             </View>
 

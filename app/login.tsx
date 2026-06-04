@@ -16,13 +16,10 @@ export default function LoginScreen() {
   async function signInWithEmail() {
     try {
       setLoading(true);
-      console.log('Attempting login with:', email);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-
-      console.log('Login result:', { hasData: !!data, hasSession: !!data?.session, error: error?.message });
 
       if (error) {
         Alert.alert('Login Gagal', error.message);

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { COLORS } from '../../lib/constants';
+import { useServiceStore } from '../../stores/service-store';
 
 interface CardProps {
   children: React.ReactNode;
@@ -8,7 +9,15 @@ interface CardProps {
 }
 
 export const Card: React.FC<CardProps> = ({ children, style }) => {
-  return <View style={[styles.card, style]}>{children}</View>;
+  const { activeWorkspace } = useServiceStore();
+  const isBalita = activeWorkspace !== 'lansia'; // default to balita/teal if null
+  const dynamicShadowColor = isBalita ? COLORS.tealPrimary : COLORS.indigoPrimary;
+
+  return (
+    <View style={[styles.card, { shadowColor: dynamicShadowColor }, style]}>
+      {children}
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({
@@ -17,9 +26,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 16,
     marginBottom: 16,
-    shadowColor: COLORS.tealPrimary,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.02,
+    shadowOpacity: 0.04,
     shadowRadius: 16,
     elevation: 2,
   },
