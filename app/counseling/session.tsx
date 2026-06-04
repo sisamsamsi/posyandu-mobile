@@ -38,6 +38,7 @@ import { GroqService, ZScoreData, PreviousCounseling, AdaptiveQuestion, Intervie
 import { WhatsAppService } from '../../services/whatsapp-service';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+import { calculateAgeMonths } from '../../lib/utils';
 
 type SessionStage = 
   | 'loading-data' 
@@ -182,11 +183,7 @@ export default function CounselingSessionScreen() {
     }
   };
 
-  const calculateAgeMonths = (birthDate: string, measureDate: string): number => {
-    const birth = new Date(birthDate);
-    const measure = new Date(measureDate);
-    return (measure.getFullYear() - birth.getFullYear()) * 12 + (measure.getMonth() - birth.getMonth());
-  };
+
 
   const handleNextStep = () => {
     const isStep4 = currentStep === 4;

@@ -42,6 +42,7 @@ import { RiskSummary } from '../../components/ui/RiskSummary';
 import { ZScoreEngine } from '../../services/zscore-engine';
 import { whoService } from '../../services/who-service';
 import { RiskPredictionService } from '../../services/risk-prediction';
+import { calculateAgeMonths, calculateAgeMonthsDecimal } from '../../lib/utils';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { COLORS } from '../../lib/constants';
@@ -288,26 +289,26 @@ export default function BalitaDetail() {
         
         if (latest) {
            const genderChar = data.jenis_kelamin === 'Laki-laki' ? 'L' : 'P';
-           const ageAtMeasurement = RiskPredictionService.calculateAgeMonths(data.tanggal_lahir, latest.tanggal);
+           const ageAtMeasurementDecimal = calculateAgeMonthsDecimal(data.tanggal_lahir, latest.tanggal);
            
            // Repair missing Z-Scores/Statuses locally for analysis accuracy
            const repairedLatest = { ...latest };
            
            if (!repairedLatest.zscore_bb_u || !repairedLatest.status_bb_u) {
-             const res = ZScoreEngine.calculate(bbStandards, genderChar, ageAtMeasurement, latest.berat_badan, 'BB/U');
+             const res = ZScoreEngine.calculate(bbStandards, genderChar, ageAtMeasurementDecimal, latest.berat_badan, 'BB/U');
              repairedLatest.zscore_bb_u = res.zscore;
              repairedLatest.status_bb_u = res.status;
            }
            
            if (!repairedLatest.zscore_tb_u || !repairedLatest.status_tb_u) {
-             const res = ZScoreEngine.calculate(tbStandards, genderChar, ageAtMeasurement, latest.tinggi_badan, 'TB/U');
+             const res = ZScoreEngine.calculate(tbStandards, genderChar, ageAtMeasurementDecimal, latest.tinggi_badan, 'TB/U');
              repairedLatest.zscore_tb_u = res.zscore;
              repairedLatest.status_tb_u = res.status;
            }
            
            if (!repairedLatest.status_gizi_imt_u || !repairedLatest.zscore_imt_u) {
              const bmi = latest.berat_badan / ((latest.tinggi_badan / 100) ** 2);
-             const res = ZScoreEngine.calculate(imtStandards, genderChar, ageAtMeasurement, bmi, 'IMT/U');
+             const res = ZScoreEngine.calculate(imtStandards, genderChar, ageAtMeasurementDecimal, bmi, 'IMT/U');
              repairedLatest.zscore_imt_u = res.zscore;
              repairedLatest.status_gizi_imt_u = res.status;
            }

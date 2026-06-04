@@ -10,6 +10,14 @@ export const generateMonthlyReportHtml = (
   weighings: WeighingItem[],
   nutritionSummary: NutritionSummary
 ) => {
+  const hasNewBalita = weighings.some(w => w.is_baru);
+
+  const dsPct = skdn.s > 0 ? (skdn.d / skdn.s) * 100 : 0;
+  const ndPct = skdn.d > 0 ? (skdn.n / skdn.d) * 100 : 0;
+
+  const dsColor = dsPct >= 85 ? '#0d9488' : '#ef4444';
+  const ndColor = ndPct >= 88 ? '#22c55e' : '#ef4444';
+
   const problemsRows = problems.length > 0 
     ? problems.map((p, i) => `
         <tr>
@@ -25,24 +33,42 @@ export const generateMonthlyReportHtml = (
     : '<tr><td colspan="5" style="text-align:center; padding: 20px; color: #94a3b8;">Tidak ada balita dengan masalah gizi bulan ini.</td></tr>';
 
   const weighingRows = weighings.length > 0
-    ? weighings.map((w, i) => `
-        <tr style="${w.status_kehadiran === 'Tidak Hadir' ? 'background-color: #fffbeb; color: #64748b;' : ''}">
-          <td style="text-align:center;">${i + 1}</td>
-          <td style="font-weight: bold; color: ${w.status_kehadiran === 'Tidak Hadir' ? '#64748b' : '#1e293b'};">${w.nama}</td>
-          <td style="text-align:center;">${w.umur_bulan} bln</td>
-          <td style="text-align:center;">${w.jenis_kelamin}</td>
-          <td style="text-align:center;">RT ${String(w.rt).padStart(2, '0')}</td>
-          <td style="text-align:center;">
-            <span class="badge ${w.status_kehadiran === 'Hadir' ? 'bg-teal' : 'bg-orange'}">${w.status_kehadiran}</span>
-          </td>
-          <td style="text-align:center; font-weight:bold;">${w.berat_badan !== null ? w.berat_badan.toFixed(2) : '-'}</td>
-          <td style="text-align:center;">${w.tinggi_badan !== null ? w.tinggi_badan.toFixed(2) : '-'}</td>
-          <td style="text-align:center; color: #0d9488; font-weight:bold;">${w.zscore_bb_u !== null && w.zscore_bb_u !== undefined ? w.zscore_bb_u.toFixed(2) : '-'}</td>
-          <td style="text-align:center; color: #0d9488; font-weight:bold;">${w.zscore_tb_u !== null && w.zscore_tb_u !== undefined ? w.zscore_tb_u.toFixed(2) : '-'}</td>
-          <td style="text-align:center; color: #0d9488; font-weight:bold;">${w.zscore_bb_tb !== null && w.zscore_bb_tb !== undefined ? w.zscore_bb_tb.toFixed(2) : '-'}</td>
-        </tr>
-      `).join('')
-    : '<tr><td colspan="11" style="text-align:center; padding: 20px;">Tidak ada data penimbangan.</td></tr>';
+    ? weighings.map((w, i) => {
+        const formattedDob = w.tanggal_lahir 
+          ? format(new Date(w.tanggal_lahir), 'dd/MM/yyyy')
+          : '-';
+          
+        const beratStr = w.berat_badan !== null ? w.berat_badan.toFixed(2) : '-';
+        const tinggiStr = w.tinggi_badan !== null ? w.tinggi_badan.toFixed(2) : '-';
+        const beratTinggi = w.status_kehadiran === 'Hadir' ? `${beratStr} / ${tinggiStr}` : '-';
+        
+        const trendBadge = w.bb_trend === 'N' 
+          ? '<span class="badge bg-teal" style="font-size:10px;">N</span>' 
+          : w.bb_trend === 'T' 
+            ? '<span class="badge bg-orange" style="font-size:10px;">T</span>' 
+            : '-';
+            
+        return `
+          <tr style="${w.status_kehadiran === 'Tidak Hadir' ? 'background-color: #fffbeb; color: #64748b;' : ''}">
+            <td style="text-align:center;">${i + 1}</td>
+            <td>${w.nik || '-'}</td>
+            <td style="font-weight: bold; color: ${w.status_kehadiran === 'Tidak Hadir' ? '#64748b' : '#1e293b'};">${w.nama}</td>
+            <td style="text-align:center;">${w.jenis_kelamin}</td>
+            <td style="text-align:center;">${formattedDob}</td>
+            <td style="text-align:center;">${w.umur_bulan} bln</td>
+            <td style="text-align:center; font-weight:bold;">${beratTinggi}</td>
+            <td style="text-align:center;">${w.status_bb_u || '-'}</td>
+            <td style="text-align:center; color: #0d9488; font-weight:bold;">${w.zscore_bb_u !== null && w.zscore_bb_u !== undefined ? w.zscore_bb_u.toFixed(2) : '-'}</td>
+            <td style="text-align:center;">${w.status_tb_u || '-'}</td>
+            <td style="text-align:center; color: #0d9488; font-weight:bold;">${w.zscore_tb_u !== null && w.zscore_tb_u !== undefined ? w.zscore_tb_u.toFixed(2) : '-'}</td>
+            <td style="text-align:center;">${w.status_bb_tb || '-'}</td>
+            <td style="text-align:center; color: #0d9488; font-weight:bold;">${w.zscore_bb_tb !== null && w.zscore_bb_tb !== undefined ? w.zscore_bb_tb.toFixed(2) : '-'}</td>
+            <td style="text-align:center;">${trendBadge}</td>
+            ${hasNewBalita ? `<td style="text-align:center; font-weight:bold; color:#0d9488;">${w.is_baru ? 'Ya' : '-'}</td>` : ''}
+          </tr>
+        `;
+      }).join('')
+    : `<tr><td colspan="${hasNewBalita ? 15 : 14}" style="text-align:center; padding: 20px;">Tidak ada data penimbangan.</td></tr>`;
 
   // Filter for children with counseling priority:
   // Only present children (Hadir) who have nutritional problems (Z-score <= -2)
@@ -153,8 +179,8 @@ export const generateMonthlyReportHtml = (
           
           /* Table Styling */
           table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
-          th { background-color: #f1f5f9; color: #475569; font-weight: 800; font-size: 11px; text-transform: uppercase; padding: 12px 15px; text-align: left; border-bottom: 2px solid #e2e8f0; }
-          td { padding: 12px 15px; font-size: 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+          th { background-color: #f1f5f9; color: #475569; font-weight: 800; font-size: 10px; text-transform: uppercase; padding: 10px 5px; text-align: center; border-bottom: 2px solid #e2e8f0; }
+          td { padding: 10px 5px; font-size: 10.5px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
           tr:last-child td { border-bottom: none; }
           tr:nth-child(even) { background-color: #f8fafc; }
           
@@ -171,9 +197,9 @@ export const generateMonthlyReportHtml = (
           .analysis-item { flex: 1; padding: 0 15px; border-right: 1px solid #f1f5f9; }
           .analysis-item:last-child { border-right: none; }
           .analysis-label { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; }
-          .analysis-value { font-size: 18px; font-weight: 800; color: #0d9488; margin: 5px 0; }
+          .analysis-value { font-size: 18px; font-weight: 800; margin: 5px 0; }
           .analysis-desc { font-size: 11px; color: #475569; line-height: 1.4; }
-
+ 
            /* Counseling Cards Section */
           .counseling-container { display: flex; flex-direction: column; gap: 12px; }
           .counseling-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; margin-bottom: 15px; }
@@ -183,7 +209,7 @@ export const generateMonthlyReportHtml = (
           .counseling-text { font-size: 11.5px; line-height: 1.5; color: #334155; background: #f8fafc; padding: 10px 12px; border-radius: 8px; border-left: 4px solid #0d9488; }
           .counseling-text-warning { border-left: 4px solid #ef4444; background: #fef2f2; }
           .counseling-text-absent { border-left: 4px solid #f59e0b; background: #fffbeb; }
-
+ 
           /* Footer */
           .footer { margin-top: 50px; border-top: 1px solid #e2e8f0; padding-top: 20px; color: #94a3b8; font-size: 10px; display: flex; justify-content: space-between; }
         </style>
@@ -196,7 +222,7 @@ export const generateMonthlyReportHtml = (
             <div class="periode">Posyandu ${posyanduName} • Periode ${monthName} ${year}</div>
           </div>
         </div>
-
+ 
         <div class="summary-grid">
           <div class="summary-card">
             <div class="summary-label">S (Semua)</div>
@@ -208,18 +234,18 @@ export const generateMonthlyReportHtml = (
             <div class="summary-value">${skdn.k}</div>
             <div class="summary-sub">Memiliki KMS</div>
           </div>
-          <div class="summary-card" style="border-bottom: 3px solid #0d9488;">
+          <div class="summary-card" style="border-bottom: 3px solid ${dsColor};">
             <div class="summary-label">D (Datang)</div>
             <div class="summary-value">${skdn.d}</div>
-            <div class="summary-sub">Partisipasi: ${skdn.s > 0 ? ((skdn.d/skdn.s)*100).toFixed(1) : 0}%</div>
+            <div class="summary-sub">Partisipasi: ${dsPct.toFixed(1)}%</div>
           </div>
-          <div class="summary-card" style="border-bottom: 3px solid #22c55e;">
+          <div class="summary-card" style="border-bottom: 3px solid ${ndColor};">
             <div class="summary-label">N (Naik)</div>
             <div class="summary-value">${skdn.n}</div>
-            <div class="summary-sub">Tingkat N/D: ${skdn.d > 0 ? ((skdn.n/skdn.d)*100).toFixed(1) : 0}%</div>
+            <div class="summary-sub">Tingkat N/D: ${ndPct.toFixed(1)}%</div>
           </div>
         </div>
-
+ 
         <div class="section">
           <div class="section-header">
             <div class="section-number">I</div>
@@ -228,17 +254,17 @@ export const generateMonthlyReportHtml = (
           <div class="analysis-row">
             <div class="analysis-item">
               <div class="analysis-label">Partisipasi Masyarakat (D/S)</div>
-              <div class="analysis-value">${skdn.s > 0 ? ((skdn.d/skdn.s)*100).toFixed(1) : 0}%</div>
-              <div class="analysis-desc">Target minimal 80%. Menggambarkan keaktifan warga datang ke Posyandu.</div>
+              <div class="analysis-value" style="color: ${dsColor};">${dsPct.toFixed(1)}%</div>
+              <div class="analysis-desc">Target minimal 85%. Menggambarkan keaktifan warga datang ke Posyandu.</div>
             </div>
             <div class="analysis-item">
               <div class="analysis-label">Keberhasilan Program (N/D)</div>
-              <div class="analysis-value">${skdn.d > 0 ? ((skdn.n/skdn.d)*100).toFixed(1) : 0}%</div>
-              <div class="analysis-desc">Indikator kesehatan balita. Menggambarkan persentase balita yang tumbuh baik.</div>
+              <div class="analysis-value" style="color: ${ndColor};">${ndPct.toFixed(1)}%</div>
+              <div class="analysis-desc">Target minimal 88%. Indikator kesehatan balita. Menggambarkan persentase balita yang tumbuh baik.</div>
             </div>
           </div>
         </div>
-
+ 
         <div class="section">
           <div class="section-header">
             <div class="section-number">II</div>
@@ -263,7 +289,7 @@ export const generateMonthlyReportHtml = (
             </div>
           </div>
         </div>
-
+ 
         <div class="section">
           <div class="section-header">
             <div class="section-number">III</div>
@@ -272,11 +298,11 @@ export const generateMonthlyReportHtml = (
           <table>
             <thead>
               <tr>
-                <th style="width: 30px;">No</th>
-                <th>Nama Balita</th>
-                <th>NIK</th>
-                <th>Jenis Masalah</th>
-                <th>Detail Status Terakhir</th>
+                <th style="width: 30px; text-align:center;">No</th>
+                <th style="text-align:left;">Nama Balita</th>
+                <th style="text-align:left;">NIK</th>
+                <th style="text-align:left;">Jenis Masalah</th>
+                <th style="text-align:left;">Detail Status Terakhir</th>
               </tr>
             </thead>
             <tbody>
@@ -284,7 +310,7 @@ export const generateMonthlyReportHtml = (
             </tbody>
           </table>
         </div>
-
+ 
         <div class="section" style="page-break-before: always;">
           <div class="section-header">
             <div class="section-number">IV</div>
@@ -293,17 +319,21 @@ export const generateMonthlyReportHtml = (
           <table>
             <thead>
               <tr>
-                <th style="width: 20px;">No</th>
-                <th>Nama Balita</th>
-                <th style="text-align:center; width: 40px;">Umur</th>
-                <th style="text-align:center; width: 20px;">L/P</th>
-                <th style="text-align:center; width: 40px;">RT</th>
-                <th style="text-align:center; width: 50px;">Status</th>
-                <th style="text-align:center; width: 35px;">BB</th>
-                <th style="text-align:center; width: 35px;">TB</th>
-                <th style="text-align:center; width: 35px; background-color: #f0fdfa;">BB/U</th>
-                <th style="text-align:center; width: 35px; background-color: #f0fdfa;">TB/U</th>
-                <th style="text-align:center; width: 35px; background-color: #f0fdfa;">BB/TB</th>
+                <th style="width: 25px; text-align:center;">No</th>
+                <th style="width: 100px; text-align:left;">NIK</th>
+                <th style="text-align:left;">Nama Balita</th>
+                <th style="width: 25px; text-align:center;">JK</th>
+                <th style="width: 70px; text-align:center;">Tgl Lahir</th>
+                <th style="width: 50px; text-align:center;">Usia</th>
+                <th style="width: 85px; text-align:center;">Berat / Tinggi</th>
+                <th style="width: 60px; text-align:center; background-color: #f0fdfa;">BB/U</th>
+                <th style="width: 45px; text-align:center; background-color: #f0fdfa;">ZS BB/U</th>
+                <th style="width: 60px; text-align:center; background-color: #f0fdfa;">TB/U</th>
+                <th style="width: 45px; text-align:center; background-color: #f0fdfa;">ZS TB/U</th>
+                <th style="width: 70px; text-align:center; background-color: #f0fdfa;">BB/TB</th>
+                <th style="width: 45px; text-align:center; background-color: #f0fdfa;">ZS BB/TB</th>
+                <th style="width: 45px; text-align:center;">Naik BB</th>
+                ${hasNewBalita ? '<th style="width: 35px; text-align:center;">Baru</th>' : ''}
               </tr>
             </thead>
             <tbody>
@@ -311,7 +341,7 @@ export const generateMonthlyReportHtml = (
             </tbody>
           </table>
         </div>
-
+ 
         <div class="section" style="page-break-before: always;">
           <div class="section-header">
             <div class="section-number">V</div>
@@ -324,7 +354,7 @@ export const generateMonthlyReportHtml = (
             ${counselingCardsHtml}
           </div>
         </div>
-
+ 
         <div class="footer">
           <div>Dicetak oleh sistem pada: ${format(new Date(), 'dd MMMM yyyy HH:mm')}</div>
           <div>Laporan PDF Standar Posyandu</div>

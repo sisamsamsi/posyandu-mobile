@@ -25,6 +25,20 @@ export const calculateAgeMonths = (birthDate: string | Date, referenceDate: stri
 };
 
 /**
+ * Calculate age in months as a float between two dates
+ * @param birthDate Date of birth (YYYY-MM-DD)
+ * @param referenceDate Reference date (defaults to now)
+ */
+export const calculateAgeMonthsDecimal = (birthDate: string | Date, referenceDate: string | Date = new Date()): number => {
+  const birth = new Date(birthDate);
+  const ref = new Date(referenceDate);
+  const diffTime = Math.abs(ref.getTime() - birth.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays / 30.4375;
+};
+
+
+/**
  * Format date to Indonesian long format
  */
 export const formatIndoDate = (date: string | Date): string => {

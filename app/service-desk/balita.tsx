@@ -43,7 +43,7 @@ import { ReportService } from '../../services/report-service';
 import { WhatsAppService } from '../../services/whatsapp-service';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS } from '../../lib/constants';
-import { calculateAgeMonths } from '../../lib/utils';
+import { calculateAgeMonths, calculateAgeMonthsDecimal } from '../../lib/utils';
 
 type Step = 'search' | 'input' | 'confirm' | 'success';
 
@@ -180,6 +180,7 @@ export default function BalitaServiceDesk() {
     }
 
     const ageMonths = calculateAgeMonths(selectedBalita.tanggal_lahir, tanggal);
+    const ageMonthsDecimal = calculateAgeMonthsDecimal(selectedBalita.tanggal_lahir, tanggal);
     
     // Automatically assume standard measurement:
     // - Recumbent length for <24 months
@@ -188,11 +189,11 @@ export default function BalitaServiceDesk() {
     const adjustedHeight = heightVal;
     const gender = selectedBalita.jenis_kelamin === 'Laki-laki' ? 'L' : 'P';
 
-    const bbResult = ZScoreEngine.calculate(standards.bb, gender, ageMonths, weightVal, 'BB/U');
-    const tbResult = ZScoreEngine.calculate(standards.tb, gender, ageMonths, adjustedHeight, 'TB/U');
+    const bbResult = ZScoreEngine.calculate(standards.bb, gender, ageMonthsDecimal, weightVal, 'BB/U');
+    const tbResult = ZScoreEngine.calculate(standards.tb, gender, ageMonthsDecimal, adjustedHeight, 'TB/U');
     const bmiVal = weightVal / ((adjustedHeight / 100) ** 2);
-    const imtResult = ZScoreEngine.calculate(standards.imt, gender, ageMonths, bmiVal, 'IMT/U');
-    const bbtbResult = ZScoreEngine.calculate(standards.bbtb, gender, adjustedHeight, weightVal, 'BB/TB', ageMonths);
+    const imtResult = ZScoreEngine.calculate(standards.imt, gender, ageMonthsDecimal, bmiVal, 'IMT/U');
+    const bbtbResult = ZScoreEngine.calculate(standards.bbtb, gender, adjustedHeight, weightVal, 'BB/TB', ageMonthsDecimal);
 
     setLiveResult({
       bb_u: bbResult,

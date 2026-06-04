@@ -19,6 +19,8 @@ export interface ProblematicBalita {
 
 export interface WeighingItem {
   nama: string;
+  nik?: string;
+  tanggal_lahir?: string;
   umur_bulan: number;
   jenis_kelamin: string;
   nama_ortu: string;
@@ -28,8 +30,13 @@ export interface WeighingItem {
   zscore_bb_u?: number | null;
   zscore_tb_u?: number | null;
   zscore_bb_tb?: number | null;
+  status_bb_u?: string | null;
+  status_tb_u?: string | null;
+  status_bb_tb?: string | null;
   status_kehadiran: 'Hadir' | 'Tidak Hadir';
   catatan_penyuluhan?: string | null;
+  is_baru?: boolean;
+  bb_trend?: 'T' | 'N' | '-';
 }
 
 export interface NutritionSummary {
@@ -250,7 +257,7 @@ export class ReportService {
     // ── STEP 1: Ambil balitas ──
     const { data: balitas, error: bError } = await supabase
       .from('balitas')
-      .select('id, nama, tanggal_lahir, jenis_kelamin, nama_ortu, rt, posyandu_id')
+      .select('id, nama, nik, tanggal_lahir, jenis_kelamin, nama_ortu, rt, posyandu_id, created_at')
       .eq('posyandu_id', posyanduId)
       .gt('tanggal_lahir', birthThresholdStr);
       
@@ -258,6 +265,27 @@ export class ReportService {
     const balitaList = balitas || [];
     const balitaIds = balitaList.map(b => b.id);
     const safeBalitaIds = balitaIds.length > 0 ? balitaIds : ['00000000-0000-0000-0000-000000000000'];
+
+    // Batch query previous month's weighings to calculate T/N growth trend
+    const prevStartStr = format(startOfMonth(subMonths(startDate, 1)), 'yyyy-MM-dd');
+    const prevEndStr = format(endOfMonth(subMonths(startDate, 1)), 'yyyy-MM-dd');
+
+    const { data: prevVisitsData, error: prevError } = await supabase
+      .from('penimbangans')
+      .select('balita_id, berat_badan')
+      .in('balita_id', safeBalitaIds)
+      .gte('tanggal', prevStartStr)
+      .lte('tanggal', prevEndStr)
+      .order('tanggal', { ascending: false });
+
+    if (prevError) console.error('WeighingList PrevVisits Error:', prevError);
+
+    const prevVisitsMap = new Map<string, number>();
+    (prevVisitsData || []).forEach(pv => {
+      if (!prevVisitsMap.has(pv.balita_id)) {
+        prevVisitsMap.set(pv.balita_id, pv.berat_badan);
+      }
+    });
 
     // ── STEP 2: Ambil penimbangans ──
     const { data: visits, error: wError } = await supabase
@@ -298,9 +326,12 @@ export class ReportService {
     if (cError) console.error('WeighingList Counselings Error:', cError);
     const counselingMap = new Map((counselings || []).map(c => [c.balita_id, c.rekomendasi]));
 
-    return balitaList.map(b => {
+    return balitaList.map((b): WeighingItem => {
       const ageMonths = calculateAgeMonths(b.tanggal_lahir, new Date(year, month - 1, 15));
       const v = latestVisitsMap.get(b.id);
+      
+      const birth = new Date(b.created_at);
+      const isNew = birth.getFullYear() === year && (birth.getMonth() + 1) === month;
       
       if (v) {
         // Child was present / weighed
@@ -316,8 +347,13 @@ export class ReportService {
           advice = 'Tumbuh optimal, pertahankan pola makan seimbang.';
         }
 
+        const prevWeight = prevVisitsMap.get(b.id);
+        const trend: 'N' | 'T' | '-' = prevWeight !== undefined ? (v.berat_badan > prevWeight ? 'N' : 'T') : '-';
+
         return {
           nama: b.nama,
+          nik: b.nik,
+          tanggal_lahir: b.tanggal_lahir,
           umur_bulan: Math.max(0, ageMonths),
           jenis_kelamin: b.jenis_kelamin === 'Laki-laki' ? 'L' : 'P',
           nama_ortu: b.nama_ortu,
@@ -327,13 +363,20 @@ export class ReportService {
           zscore_bb_u: v.zscore_bb_u,
           zscore_tb_u: v.zscore_tb_u,
           zscore_bb_tb: v.zscore_bb_tb,
+          status_bb_u: v.status_bb_u,
+          status_tb_u: v.status_tb_u,
+          status_bb_tb: v.status_bb_tb,
           status_kehadiran: 'Hadir' as const,
-          catatan_penyuluhan: advice
+          catatan_penyuluhan: advice,
+          is_baru: isNew,
+          bb_trend: trend
         };
       } else {
         // Child was absent
         return {
           nama: b.nama,
+          nik: b.nik,
+          tanggal_lahir: b.tanggal_lahir,
           umur_bulan: Math.max(0, ageMonths),
           jenis_kelamin: b.jenis_kelamin === 'Laki-laki' ? 'L' : 'P',
           nama_ortu: b.nama_ortu,
@@ -343,11 +386,16 @@ export class ReportService {
           zscore_bb_u: null,
           zscore_tb_u: null,
           zscore_bb_tb: null,
+          status_bb_u: null,
+          status_tb_u: null,
+          status_bb_tb: null,
           status_kehadiran: 'Tidak Hadir' as const,
-          catatan_penyuluhan: 'Diingatkan Penimbangan Mandiri'
+          catatan_penyuluhan: 'Diingatkan Penimbangan Mandiri',
+          is_baru: isNew,
+          bb_trend: '-'
         };
       }
-    });
+    }).sort((a, b) => b.umur_bulan - a.umur_bulan);
   }
 
   /**

@@ -1,4 +1,5 @@
 import { Balita, Penimbangan, RiskCalculationResult, RiskLevel, RiskColor, RiskBreakdownItem } from '../lib/types';
+import { calculateAgeMonths } from '../lib/utils';
 
 /**
  * Risk Prediction Service
@@ -20,7 +21,7 @@ export class RiskPredictionService {
     currentPenimbangan: Partial<Penimbangan>,
     history: Penimbangan[] = []
   ): RiskCalculationResult {
-    const ageMonths = this.calculateAgeMonths(balita.tanggal_lahir, currentPenimbangan.tanggal || new Date().toISOString());
+    const ageMonths = calculateAgeMonths(balita.tanggal_lahir, currentPenimbangan.tanggal || new Date().toISOString());
 
     // 1. Calculate individual risk scores (0-100)
     const stuntingRisk = this.zscoreToRiskPercentage(currentPenimbangan.zscore_tb_u ?? 0);
@@ -84,12 +85,7 @@ export class RiskPredictionService {
     };
   }
 
-  public static calculateAgeMonths(birthDate: string, measureDate: string): number {
-    const birth = new Date(birthDate);
-    const measure = new Date(measureDate);
-    const months = (measure.getFullYear() - birth.getFullYear()) * 12 + (measure.getMonth() - birth.getMonth());
-    return Math.max(0, months);
-  }
+
 
   private static zscoreToRiskPercentage(zscore: number): number {
     if (zscore < -3) return 100;
