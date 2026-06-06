@@ -390,7 +390,7 @@ function BalitaHasilCard({
         </View>
         <View style={styles.v2StatDiv} />
         <View style={styles.v2StatItem}>
-          <Text style={styles.v2StatVal}>{penimbangan.tinggi_badan.toFixed(2)} cm</Text>
+          <Text style={styles.v2StatVal}>{penimbangan.tinggi_badan.toFixed(1)} cm</Text>
           <Text style={styles.v2StatLab}>TINGGI</Text>
         </View>
         <View style={styles.v2StatDiv} />

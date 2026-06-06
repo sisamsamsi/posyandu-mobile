@@ -70,6 +70,8 @@ function RootLayoutNav() {
         <Stack.Screen name="select-workspace" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="service-desk/balita" options={{ headerShown: false, animation: 'none' }} />
+        <Stack.Screen name="service-desk/lansia" options={{ headerShown: false, animation: 'none' }} />
       </Stack>
     </>
   );

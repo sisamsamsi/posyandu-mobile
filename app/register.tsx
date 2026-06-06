@@ -15,6 +15,7 @@ import { supabase } from '../lib/supabase';
 import { useRouter } from 'expo-router';
 import { COLORS } from '../lib/constants';
 import { Eye, EyeOff, UserPlus } from 'lucide-react-native';
+import { useServiceStore } from '../stores/service-store';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -69,6 +70,9 @@ export default function RegisterScreen() {
       if (error) {
         Alert.alert('Pendaftaran Gagal', error.message);
       } else {
+        // Clear any previous active workspace/posyandu
+        useServiceStore.getState().setActivePosyandu(null);
+        useServiceStore.getState().setActiveWorkspace(null);
         // Assume email confirm is off or user is auto-logged in,
         // Since we are making a Mass Usage app without complex email infrastructure right now.
         // If session exists, user is successfully logged in.

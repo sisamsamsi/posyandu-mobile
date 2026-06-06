@@ -61,6 +61,18 @@ export default function LansiaServiceDesk() {
   const [trigliserida, setTrigliserida] = useState('');
   const [berat, setBerat] = useState('');
   const [tinggi, setTinggi] = useState('');
+  const handleBeratChange = (text: string) => {
+    const cleaned = text.replace(',', '.');
+    if (cleaned === '' || /^\d*\.?\d{0,2}$/.test(cleaned)) {
+      setBerat(text);
+    }
+  };
+  const handleTinggiChange = (text: string) => {
+    const cleaned = text.replace(',', '.');
+    if (cleaned === '' || /^\d*\.?\d{0,1}$/.test(cleaned)) {
+      setTinggi(text);
+    }
+  };
   const [lingkarPerut, setLingkarPerut] = useState('');
   const [lila, setLila] = useState('');
   const [tanggal, setTanggal] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -232,7 +244,7 @@ export default function LansiaServiceDesk() {
                         placeholder="Contoh: 60.50" 
                         keyboardType="decimal-pad" 
                         value={berat} 
-                        onChangeText={setBerat} 
+                        onChangeText={handleBeratChange} 
                      />
                   </View>
                </View>
@@ -242,10 +254,10 @@ export default function LansiaServiceDesk() {
                      <Activity size={18} color={COLORS.indigoPrimary} />
                      <TextInput 
                         style={styles.input} 
-                        placeholder="Contoh: 165.25" 
+                        placeholder="Contoh: 165.2" 
                         keyboardType="decimal-pad" 
                         value={tinggi} 
-                        onChangeText={setTinggi} 
+                        onChangeText={handleTinggiChange} 
                      />
                   </View>
                </View>

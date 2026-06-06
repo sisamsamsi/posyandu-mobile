@@ -70,7 +70,7 @@ export default function RiwayatPenimbanganScreen() {
           <View style={styles.v2StatDivider} />
           <View style={styles.v2StatItem}>
             <Text style={styles.v2StatLabel}>TINGGI</Text>
-            <Text style={styles.v2StatValue}>{item.tinggi_badan.toFixed(2)} <Text style={styles.v2Unit}>cm</Text></Text>
+            <Text style={styles.v2StatValue}>{item.tinggi_badan.toFixed(1)} <Text style={styles.v2Unit}>cm</Text></Text>
           </View>
           <View style={styles.v2StatDivider} />
           <View style={styles.v2StatItem}>

@@ -61,6 +61,18 @@ export default function BalitaServiceDesk() {
   // Form Values
   const [berat, setBerat] = useState('');
   const [tinggi, setTinggi] = useState('');
+  const handleBeratChange = (text: string) => {
+    const cleaned = text.replace(',', '.');
+    if (cleaned === '' || /^\d*\.?\d{0,2}$/.test(cleaned)) {
+      setBerat(text);
+    }
+  };
+  const handleTinggiChange = (text: string) => {
+    const cleaned = text.replace(',', '.');
+    if (cleaned === '' || /^\d*\.?\d{0,1}$/.test(cleaned)) {
+      setTinggi(text);
+    }
+  };
   const [lila, setLila] = useState('');
   const [lica, setLica] = useState('');
   const [tanggal, setTanggal] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -71,6 +83,7 @@ export default function BalitaServiceDesk() {
   const [loadingStandards, setLoadingStandards] = useState(false);
   const [liveResult, setLiveResult] = useState<any>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [previousPenimbangan, setPreviousPenimbangan] = useState<Penimbangan | null>(null);
 
   const { getBalitas, loading } = useBalita();
   const { updatePenimbangan, addPenimbangan } = usePenimbangan();
@@ -162,6 +175,37 @@ export default function BalitaServiceDesk() {
     }
   }, [selectedBalita]);
 
+  // Load previous penimbangan for validation
+  useEffect(() => {
+    if (selectedBalita) {
+      const fetchPreviousPenimbangan = async () => {
+        try {
+          let query = supabase
+            .from('penimbangans')
+            .select('*')
+            .eq('balita_id', selectedBalita.id)
+            .order('tanggal', { ascending: false });
+            
+          if (editId) {
+            query = query.neq('id', editId);
+          }
+          
+          const { data, error } = await query.limit(1);
+          if (!error && data && data.length > 0) {
+            setPreviousPenimbangan(data[0] as Penimbangan);
+          } else {
+            setPreviousPenimbangan(null);
+          }
+        } catch (err) {
+          console.error('Failed to fetch previous penimbangan:', err);
+        }
+      };
+      fetchPreviousPenimbangan();
+    } else {
+      setPreviousPenimbangan(null);
+    }
+  }, [selectedBalita, editId]);
+
   // Recalculate Z-scores on the fly
   useEffect(() => {
     if (!selectedBalita || !standards || !berat || !tinggi) {
@@ -207,6 +251,83 @@ export default function BalitaServiceDesk() {
     });
   }, [berat, tinggi, tanggal, standards, selectedBalita]);
 
+  const validationWarnings = React.useMemo(() => {
+    const list: { type: 'error' | 'warning'; message: string }[] = [];
+    if (!selectedBalita) return list;
+
+    const cleanedBerat = berat.replace(',', '.');
+    const cleanedTinggi = tinggi.replace(',', '.');
+    const wVal = parseFloat(cleanedBerat);
+    const hVal = parseFloat(cleanedTinggi);
+
+    // 1. Check for extreme values (typos)
+    if (!isNaN(wVal)) {
+      if (wVal < 1.5 || wVal > 30) {
+        list.push({
+          type: 'error',
+          message: `Berat badan (${wVal} kg) di luar batas wajar balita (1.5 - 30 kg). Periksa kembali kemungkinan typo.`
+        });
+      }
+    }
+    if (!isNaN(hVal)) {
+      if (hVal < 35 || hVal > 130) {
+        list.push({
+          type: 'error',
+          message: `Tinggi badan (${hVal} cm) di luar batas wajar balita (35 - 130 cm). Periksa kembali kemungkinan typo.`
+        });
+      }
+    }
+
+    // 2. Check against previous measurement
+    if (previousPenimbangan) {
+      const prevDateStr = format(new Date(previousPenimbangan.tanggal), 'dd MMM yyyy');
+      if (!isNaN(hVal) && hVal < previousPenimbangan.tinggi_badan) {
+        list.push({
+          type: 'error',
+          message: `Tinggi badan saat ini (${hVal} cm) lebih rendah dari tinggi sebelumnya (${previousPenimbangan.tinggi_badan} cm pada ${prevDateStr}). Balita tidak seharusnya menyusut.`
+        });
+      }
+      if (!isNaN(wVal)) {
+        const diffWeight = previousPenimbangan.berat_badan - wVal;
+        if (diffWeight > 1.5) {
+          list.push({
+            type: 'warning',
+            message: `Berat badan turun drastis sebesar ${diffWeight.toFixed(2)} kg dibanding sebelumnya (${previousPenimbangan.berat_badan} kg pada ${prevDateStr}). Periksa apakah sudah benar.`
+          });
+        }
+      }
+    }
+
+    // 3. Check for Z-score health abnormalities
+    if (liveResult) {
+      const abnormalStatuses: string[] = [];
+      
+      // BB/U anomalies
+      if (liveResult.bb_u.status.includes('Kurang') || liveResult.bb_u.status.includes('Sangat Kurang')) {
+        abnormalStatuses.push(`BB/U: ${liveResult.bb_u.status} (${liveResult.bb_u.zscore.toFixed(2)})`);
+      }
+      
+      // TB/U anomalies (Stunting / Pendek)
+      if (liveResult.tb_u.status.includes('Pendek') || liveResult.tb_u.status.includes('Sangat Pendek')) {
+        abnormalStatuses.push(`TB/U: ${liveResult.tb_u.status} (${liveResult.tb_u.zscore.toFixed(2)} - Indikasi Stunting)`);
+      }
+      
+      // BB/TB anomalies (Wasted / Obesitas)
+      if (liveResult.bb_tb.status.includes('Wasted') || liveResult.bb_tb.status.includes('Kurang') || liveResult.bb_tb.status.includes('Buruk') || liveResult.bb_tb.status.includes('Obesitas') || liveResult.bb_tb.status.includes('Lebih')) {
+        abnormalStatuses.push(`BB/TB: ${liveResult.bb_tb.status} (${liveResult.bb_tb.zscore.toFixed(2)})`);
+      }
+
+      if (abnormalStatuses.length > 0) {
+        list.push({
+          type: 'warning',
+          message: `Hasil Z-Score menunjukkan kondisi tidak normal:\n` + abnormalStatuses.map(s => `• ${s}`).join('\n')
+        });
+      }
+    }
+
+    return list;
+  }, [berat, tinggi, liveResult, previousPenimbangan, selectedBalita]);
+
   const [lastSavedStatus, setLastSavedStatus] = useState('');
   const [calculatedResult, setCalculatedResult] = useState<any>(null);
   const [lastSavedRecord, setLastSavedRecord] = useState<any>(null);
@@ -217,24 +338,19 @@ export default function BalitaServiceDesk() {
       return;
     }
     
-    // Check for extreme outlier values (typos)
-    const isExtremeHeight = liveResult.heightVal < 35 || liveResult.heightVal > 130;
-    const isExtremeWeight = liveResult.weightVal < 1.5 || liveResult.weightVal > 30;
-
-    if (isExtremeHeight || isExtremeWeight) {
+    // If there are validation warnings, show a warning prompt listing them
+    if (validationWarnings.length > 0) {
+      const messages = validationWarnings.map((w, i) => `${i + 1}. ${w.message}`).join('\n\n');
       Alert.alert(
-        '⚠️ Peringatan Nilai Ekstrem',
-        `Nilai yang Anda masukkan terdeteksi di luar batas wajar:\n` +
-        (isExtremeWeight ? `• Berat Badan: ${liveResult.weightVal} kg\n` : '') +
-        (isExtremeHeight ? `• Tinggi Badan: ${liveResult.heightVal} cm\n` : '') +
-        `Apakah Anda yakin data ini sudah benar? Silakan cek kembali untuk menghindari kesalahan ketik (typo).`,
+        '⚠️ Peringatan Validasi Data',
+        `Ditemukan peringatan pada data yang dimasukkan:\n\n${messages}\n\nApakah Anda yakin data ini sudah benar dan ingin menyimpannya?`,
         [
           {
             text: 'Cek Kembali',
             style: 'cancel'
           },
           {
-            text: 'Ya, Sudah Benar',
+            text: 'Ya, Simpan',
             onPress: () => executeSave()
           }
         ]
@@ -412,23 +528,23 @@ export default function BalitaServiceDesk() {
                      placeholder="Contoh: 8.50" 
                      keyboardType="decimal-pad"
                      value={berat}
-                     onChangeText={setBerat}
+                     onChangeText={handleBeratChange}
                      onFocus={() => setFocusedField('berat')}
                      onBlur={() => setFocusedField(null)}
                   />
                 </View>
               </View>
-
+ 
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>Tinggi / Panjang Badan (cm)</Text>
                 <View style={[styles.inputGroup, focusedField === 'tinggi' && styles.inputGroupFocused]}>
                   <Ruler size={18} color={focusedField === 'tinggi' ? '#09A477' : '#94A3B8'} />
                   <TextInput 
                      style={styles.input} 
-                     placeholder="Contoh: 75.25" 
+                     placeholder="Contoh: 75.2" 
                      keyboardType="decimal-pad"
                      value={tinggi}
-                     onChangeText={setTinggi}
+                     onChangeText={handleTinggiChange}
                      onFocus={() => setFocusedField('tinggi')}
                      onBlur={() => setFocusedField(null)}
                   />
@@ -523,6 +639,28 @@ export default function BalitaServiceDesk() {
                 <Text style={styles.disclaimerText}>
                   * Perhitungan berdasarkan standar pertumbuhan WHO Anthro 2005. Status gizi bersifat indikatif untuk kader kesehatan.
                 </Text>
+              </View>
+            )}
+
+            {validationWarnings.length > 0 && (
+              <View style={styles.warningBoxContainer}>
+                <Text style={styles.warningBoxTitle}>⚠️ Validasi & Peringatan Pengukuran</Text>
+                {validationWarnings.map((warning, i) => (
+                  <View 
+                    key={i} 
+                    style={[
+                      styles.warningItem, 
+                      warning.type === 'error' ? styles.warningItemError : styles.warningItemWarning
+                    ]}
+                  >
+                    <Text style={[
+                      styles.warningText, 
+                      warning.type === 'error' ? styles.warningTextError : styles.warningTextWarning
+                    ]}>
+                      {warning.message}
+                    </Text>
+                  </View>
+                ))}
               </View>
             )}
 
@@ -1017,6 +1155,47 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: 'center',
     fontWeight: '500',
+  },
+  warningBoxContainer: {
+    backgroundColor: '#FFF8F6',
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+  },
+  warningBoxTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#991B1B',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  warningItem: {
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+  },
+  warningItemError: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FCA5A5',
+  },
+  warningItemWarning: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  warningText: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+  warningTextError: {
+    color: '#991B1B',
+  },
+  warningTextWarning: {
+    color: '#92400E',
   },
 });
 

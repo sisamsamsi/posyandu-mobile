@@ -25,6 +25,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { File, Paths } from 'expo-file-system';
 import { ReportService } from '../../services/report-service';
+import { ImportService } from '../../services/import-service';
 import { generateMonthlyReportHtml, generateLansiaReportHtml } from '../../services/pdf-template';
 import { supabase } from '../../lib/supabase';
 import { Card } from '../../components/ui/Card';
@@ -48,6 +49,7 @@ export default function ReportsScreen() {
   const { getLinkedPosyandus } = usePosyandu();
   const [activePosyandu, setActivePosyandu] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
   const [fetchingPosyandu, setFetchingPosyandu] = useState(true);
   
   const now = new Date();
@@ -159,6 +161,23 @@ export default function ReportsScreen() {
     }
   };
 
+  const handleGenerateExcel = async () => {
+    if (!activePosyandu) return;
+    try {
+      setExportingExcel(true);
+      await ImportService.exportToEPPGBM(
+        activePosyandu.id,
+        selectedMonth,
+        selectedYear,
+        activePosyandu.nama_posyandu
+      );
+    } catch (error: any) {
+      Alert.alert('Error', 'Gagal membuat laporan Excel: ' + error.message);
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -221,6 +240,25 @@ export default function ReportsScreen() {
             </>
           )}
         </TouchableOpacity>
+
+        {!isLansia && (
+          <TouchableOpacity 
+            style={[
+              styles.v2GenerateBtn, 
+              { backgroundColor: '#0D9488', marginTop: 12 }, 
+              (exportingExcel || loading) && styles.disabledBtn
+            ]} 
+            onPress={handleGenerateExcel}
+            disabled={exportingExcel || loading}
+          >
+            {exportingExcel ? <ActivityIndicator color="#FFF" /> : (
+              <>
+                <FileDown size={22} color="#FFF" />
+                <Text style={styles.v2GenerateBtnText}>Export Excel (e-PPGBM)</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
 
         <View style={styles.infoSection}>
            <Text style={styles.infoTitle}>Daftar Isi PDF:</Text>

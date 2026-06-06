@@ -72,7 +72,7 @@ export const useBalita = () => {
       setLoading(true);
       setError(null);
       // Strip related objects that aren't columns
-      const { posyandu, penimbangans, ...cleanData } = balita as any;
+      const { posyandu, penimbangans, imunisasi, ...cleanData } = balita as any;
       
       // Inject activePosyanduId if not present
       if (!cleanData.posyandu_id && activePosyanduId) {

@@ -8,8 +8,20 @@ interface QuickTransitionProps {
 }
 
 export const QuickTransition: React.FC<QuickTransitionProps> = ({ currentType, onSwitch }) => {
+  const [clicked, setClicked] = React.useState(false);
+
+  const handlePress = () => {
+    if (clicked) return;
+    setClicked(true);
+    onSwitch();
+  };
+
   return (
-    <TouchableOpacity style={styles.container} onPress={onSwitch}>
+    <TouchableOpacity 
+      style={[styles.container, clicked && { opacity: 0.6 }]} 
+      onPress={handlePress}
+      disabled={clicked}
+    >
       <View style={styles.iconWrapper}>
         <ArrowRightLeft size={16} color="#0D9488" />
       </View>

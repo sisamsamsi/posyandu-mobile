@@ -34,7 +34,7 @@ import {
 } from 'lucide-react-native';
 import { useServiceStore } from '../../stores/service-store';
 import { supabase } from '../../lib/supabase';
-import { Balita, Penimbangan } from '../../lib/types';
+import { Balita, Penimbangan, WHOReferenceRow } from '../../lib/types';
 import { COLORS } from '../../lib/constants';
 import { Card } from '../../components/ui/Card';
 import { ZScoreEngine } from '../../services/zscore-engine';
@@ -42,6 +42,8 @@ import { whoService } from '../../services/who-service';
 import { WhatsAppService } from '../../services/whatsapp-service';
 import { calculateAgeMonths, isBalitaLulus } from '../../lib/utils';
 import { format } from 'date-fns';
+import { id as idLocale } from 'date-fns/locale';
+import { GrowthChart } from '../../components/charts/GrowthChart';
 
 type ActiveTab = 'today' | 'absent' | 'all';
 
@@ -67,6 +69,46 @@ export default function CounselingQueueScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
 
+  // Growth Trend & KMS State
+  const [growthTrends, setGrowthTrends] = useState<Map<string, 'N' | 'T' | '2T' | '-'>>(new Map());
+  const [kmsModalVisible, setKmsModalVisible] = useState(false);
+  const [kmsBalita, setKmsBalita] = useState<Balita | null>(null);
+  const [loadingKms, setLoadingKms] = useState(false);
+  const [whoBB, setWhoBB] = useState<WHOReferenceRow[]>([]);
+  const [whoTB, setWhoTB] = useState<WHOReferenceRow[]>([]);
+  const [whoBBTB, setWhoBBTB] = useState<WHOReferenceRow[]>([]);
+  const [chartIndicator, setChartIndicator] = useState<'BB' | 'TB' | 'BB_TB'>('BB');
+
+  const handleOpenKms = async (balita: Balita) => {
+    setKmsBalita(balita);
+    setKmsModalVisible(true);
+    setLoadingKms(true);
+    setChartIndicator('BB');
+    try {
+      const { data: penList } = await supabase
+        .from('penimbangans')
+        .select('*')
+        .eq('balita_id', balita.id)
+        .order('tanggal', { ascending: true });
+
+      setKmsBalita({ ...balita, penimbangans: penList || [] });
+
+      const [bb, tb, bbtb] = await Promise.all([
+        whoService.getStandards('bb_u', balita.jenis_kelamin),
+        whoService.getStandards('tb_u', balita.jenis_kelamin),
+        whoService.getStandards('bb_tb', balita.jenis_kelamin)
+      ]);
+      setWhoBB(bb);
+      setWhoTB(tb);
+      setWhoBBTB(bbtb);
+    } catch (e) {
+      console.error('KMS error:', e);
+      Alert.alert('Error', 'Gagal memuat data grafik KMS.');
+    } finally {
+      setLoadingKms(false);
+    }
+  };
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -76,6 +118,7 @@ export default function CounselingQueueScreen() {
       .join('')
       .toUpperCase();
   };
+
 
 
 
@@ -105,6 +148,52 @@ export default function CounselingQueueScreen() {
         return;
       }
 
+      const balitaIds = balitasList.map(b => b.id);
+
+      // Ambil seluruh riwayat penimbangan untuk menghitung tren T/2T
+      const { data: historyData, error: historyErr } = await supabase
+        .from('penimbangans')
+        .select('balita_id, berat_badan, tanggal')
+        .in('balita_id', balitaIds)
+        .order('tanggal', { ascending: false });
+
+      if (historyErr) throw historyErr;
+
+      // Group history by balita_id
+      const historyMap = new Map<string, { berat_badan: number; tanggal: string }[]>();
+      (historyData || []).forEach(h => {
+        const list = historyMap.get(h.balita_id) || [];
+        list.push({ berat_badan: h.berat_badan, tanggal: h.tanggal });
+        historyMap.set(h.balita_id, list);
+      });
+
+      const getGrowthTrend = (balitaId: string): 'N' | 'T' | '2T' | '-' => {
+        const history = historyMap.get(balitaId) || [];
+        if (history.length < 2) return '-';
+        const w0 = history[0];
+        const w1 = history[1];
+        
+        if (history.length >= 3) {
+          const w2 = history[2];
+          if (w0.berat_badan <= w1.berat_badan && w1.berat_badan <= w2.berat_badan) {
+            return '2T';
+          }
+        }
+        
+        if (w0.berat_badan <= w1.berat_badan) {
+          return 'T';
+        }
+        
+        return 'N';
+      };
+
+      // Set growth trends map for lookup in UI
+      const computedTrends = new Map<string, 'N' | 'T' | '2T' | '-'>();
+      balitasList.forEach(b => {
+        computedTrends.set(b.id, getGrowthTrend(b.id));
+      });
+      setGrowthTrends(computedTrends);
+
       // Hitung rentang tanggal bulan kalender saat ini
       const date = new Date();
       const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
@@ -113,7 +202,6 @@ export default function CounselingQueueScreen() {
       const endOfMonthStr = format(lastDay, 'yyyy-MM-dd');
 
       // 2. Ambil penimbangan bulan ini
-      const balitaIds = balitasList.map(b => b.id);
       const { data: penimbangansData, error: penimbanganErr } = await supabase
         .from('penimbangans')
         .select('*')
@@ -140,8 +228,7 @@ export default function CounselingQueueScreen() {
       }
       setDoneCounselings(doneMap);
 
-      // 4. Petakan Antrean Bulan Ini (Hanya balita yang sudah ditimbang bulan ini)
-      // Jika anak ditimbang beberapa kali di bulan yang sama, ambil penimbangan terbaru
+      // 4. Petakan Antrean Bulan Ini (Hanya balita yang sudah ditimbang bulan ini dan berstatus T atau 2T)
       const latestPenimbangansMap = new Map<string, Penimbangan>();
       thisMonthPenimbangans.forEach(p => {
         const existing = latestPenimbangansMap.get(p.balita_id);
@@ -151,15 +238,21 @@ export default function CounselingQueueScreen() {
       });
       const uniquePenimbangans = Array.from(latestPenimbangansMap.values());
 
-      const mappedTodayQueue: QueueItem[] = uniquePenimbangans.map(p => {
-        const balita = balitasList.find(b => b.id === p.balita_id)!;
-        return {
-          balita,
-          penimbangan: p,
-          counselingDone: doneMap.has(p.balita_id),
-          penyuluhanId: doneMap.get(p.balita_id),
-        };
-      }).filter(item => item.balita !== undefined); // safe check
+      const mappedTodayQueue: QueueItem[] = uniquePenimbangans
+        .map(p => {
+          const balita = balitasList.find(b => b.id === p.balita_id)!;
+          return {
+            balita,
+            penimbangan: p,
+            counselingDone: doneMap.has(p.balita_id),
+            penyuluhanId: doneMap.get(p.balita_id),
+          };
+        })
+        .filter(item => {
+          if (!item.balita) return false;
+          const trend = computedTrends.get(item.balita.id) || '-';
+          return trend === 'T' || trend === '2T';
+        });
 
       setTodayQueue(mappedTodayQueue);
 
@@ -222,10 +315,7 @@ export default function CounselingQueueScreen() {
     }
   };
 
-  const handleStartSelfReport = (balita: Balita) => {
-    // Arahkan ke Desk Timbang untuk input mandiri dengan pre-selected ID!
-    router.push(`/service-desk/balita?id=${balita.id}`);
-  };
+
 
   const handleSendWhatsAppReminder = async (balita: Balita) => {
     try {
@@ -244,6 +334,35 @@ export default function CounselingQueueScreen() {
 
 
 
+  const renderTrendBadge = (trend: 'N' | 'T' | '2T' | '-') => {
+    switch (trend) {
+      case '2T':
+        return (
+          <View style={[styles.trendBadge, { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5' }]}>
+            <Text style={[styles.trendBadgeText, { color: '#DC2626' }]}>2T</Text>
+          </View>
+        );
+      case 'T':
+        return (
+          <View style={[styles.trendBadge, { backgroundColor: '#FEF3C7', borderColor: '#FCD34D' }]}>
+            <Text style={[styles.trendBadgeText, { color: '#D97706' }]}>T</Text>
+          </View>
+        );
+      case 'N':
+        return (
+          <View style={[styles.trendBadge, { backgroundColor: '#DCFCE7', borderColor: '#86EFAC' }]}>
+            <Text style={[styles.trendBadgeText, { color: '#15803D' }]}>N</Text>
+          </View>
+        );
+      default:
+        return (
+          <View style={[styles.trendBadge, { backgroundColor: '#F1F5F9', borderColor: '#CBD5E1' }]}>
+            <Text style={[styles.trendBadgeText, { color: '#64748B' }]}>-</Text>
+          </View>
+        );
+    }
+  };
+
   const renderQueueItem = ({ item }: { item: QueueItem }) => {
     const ageMonths = calculateAgeMonths(item.balita.tanggal_lahir, todayStr);
     const isWeighed = !!item.penimbangan;
@@ -251,6 +370,35 @@ export default function CounselingQueueScreen() {
     const isLaki = item.balita.jenis_kelamin.toLowerCase().startsWith('l');
     const avatarBg = isLaki ? '#F0FDFA' : '#FDF2F8';
     const avatarColor = isLaki ? '#09A477' : '#DB2777';
+
+    const trend = growthTrends.get(item.balita.id) || '-';
+    const canCounsel = trend === 'T' || trend === '2T';
+
+    let buttonText = 'Mulai Penyuluhan AI';
+    let buttonDisabled = false;
+
+    if (item.counselingDone) {
+      buttonText = 'Buka Riwayat Penyuluhan';
+      buttonDisabled = false;
+    } else if (!isWeighed) {
+      buttonText = 'Belum Ditimbang (Meja 3)';
+      buttonDisabled = true;
+    } else if (!canCounsel) {
+      buttonText = 'Tumbuh Normal (Tidak Perlu AI)';
+      buttonDisabled = true;
+    }
+
+    const buttonStyle = [
+      styles.actionButton,
+      item.counselingDone ? styles.actionButtonDone : null,
+      buttonDisabled ? styles.actionButtonDisabled : null
+    ];
+
+    const buttonTextStyle = [
+      styles.actionButtonText,
+      item.counselingDone ? { color: '#09A477' } : null,
+      buttonDisabled ? { color: '#94A3B8' } : null
+    ];
 
     return (
       <View style={styles.card}>
@@ -263,6 +411,15 @@ export default function CounselingQueueScreen() {
             <Text style={styles.subText}>
               {item.balita.jenis_kelamin} • {ageMonths} bulan
             </Text>
+            <View style={{ flexDirection: 'row', gap: 6, marginTop: 6, alignItems: 'center' }}>
+              {renderTrendBadge(trend)}
+              <TouchableOpacity 
+                style={styles.kmsTextLink} 
+                onPress={() => handleOpenKms(item.balita)}
+              >
+                <Text style={styles.kmsTextLinkText}>Lihat KMS</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           {item.counselingDone && (
             <View style={styles.doneBadge}>
@@ -296,22 +453,17 @@ export default function CounselingQueueScreen() {
         )}
 
         <TouchableOpacity
-          style={[
-            styles.actionButton,
-            !isWeighed && { backgroundColor: '#F59E0B' },
-            item.counselingDone && styles.actionButtonDone
-          ]}
+          style={buttonStyle}
           onPress={() => handleStartCounseling(item)}
+          disabled={buttonDisabled}
         >
-          <Text style={[styles.actionButtonText, item.counselingDone && { color: '#09A477' }]}>
-            {item.counselingDone 
-              ? 'Buka Riwayat Penyuluhan' 
-              : isWeighed 
-                ? 'Mulai Penyuluhan AI' 
-                : 'Input Timbangan Cepat & Mulai'
-            }
-          </Text>
-          <ChevronRight size={18} color={item.counselingDone ? '#09A477' : '#FFF'} />
+          <Text style={buttonTextStyle}>{buttonText}</Text>
+          {!buttonDisabled && !item.counselingDone && (
+            <ChevronRight size={18} color="#FFF" />
+          )}
+          {item.counselingDone && (
+            <ChevronRight size={18} color="#09A477" />
+          )}
         </TouchableOpacity>
       </View>
     );
@@ -341,23 +493,13 @@ export default function CounselingQueueScreen() {
           </View>
         </View>
 
-        <View style={styles.absentActionsRow}>
-          <TouchableOpacity
-            style={styles.absentReminderBtn}
-            onPress={() => handleSendWhatsAppReminder(item)}
-          >
-            <Bell size={14} color="#C2410C" />
-            <Text style={styles.absentReminderText}>Kirim Pengingat WA</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.absentInputBtn}
-            onPress={() => handleStartSelfReport(item)}
-          >
-            <Plus size={14} color="#0F766E" />
-            <Text style={styles.absentInputText}>Input Hasil Mandiri</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={styles.absentReminderBtnFull}
+          onPress={() => handleSendWhatsAppReminder(item)}
+        >
+          <Bell size={14} color="#C2410C" />
+          <Text style={styles.absentReminderText}>Kirim Pengingat WA</Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -504,6 +646,146 @@ export default function CounselingQueueScreen() {
       )}
 
 
+      {/* KMS Chart Modal */}
+      <Modal
+        visible={kmsModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setKmsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Grafik KMS Balita</Text>
+                {kmsBalita && (
+                  <Text style={styles.modalSubTitle}>
+                    {kmsBalita.nama} ({calculateAgeMonths(kmsBalita.tanggal_lahir, todayStr)} bln)
+                  </Text>
+                )}
+              </View>
+              <TouchableOpacity
+                onPress={() => setKmsModalVisible(false)}
+                style={styles.closeModalBtn}
+              >
+                <Text style={styles.closeModalBtnText}>Tutup</Text>
+              </TouchableOpacity>
+            </View>
+
+            {loadingKms ? (
+              <View style={styles.modalLoadingContainer}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+                <Text style={styles.modalLoadingText}>Memuat data grafik...</Text>
+              </View>
+            ) : kmsBalita ? (
+              <ScrollView contentContainerStyle={styles.modalScrollContent} showsVerticalScrollIndicator={false}>
+                {/* Tab Selector */}
+                <View style={styles.chartSelectorRow}>
+                  <TouchableOpacity
+                    style={[styles.chartSelectorTab, chartIndicator === 'BB' && styles.chartSelectorTabActive]}
+                    onPress={() => setChartIndicator('BB')}
+                  >
+                    <Text style={[styles.chartSelectorTabText, chartIndicator === 'BB' && styles.chartSelectorTabTextActive]}>BB/U</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.chartSelectorTab, chartIndicator === 'TB' && styles.chartSelectorTabActive]}
+                    onPress={() => setChartIndicator('TB')}
+                  >
+                    <Text style={[styles.chartSelectorTabText, chartIndicator === 'TB' && styles.chartSelectorTabTextActive]}>TB/U</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.chartSelectorTab, chartIndicator === 'BB_TB' && styles.chartSelectorTabActive]}
+                    onPress={() => setChartIndicator('BB_TB')}
+                  >
+                    <Text style={[styles.chartSelectorTabText, chartIndicator === 'BB_TB' && styles.chartSelectorTabTextActive]}>BB/TB</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Growth Chart */}
+                <View style={styles.chartContainer}>
+                  <GrowthChart
+                    standards={chartIndicator === 'BB' ? whoBB : chartIndicator === 'TB' ? whoTB : whoBBTB}
+                    data={kmsBalita.penimbangans || []}
+                    indicator={chartIndicator === 'BB' ? 'BB' : chartIndicator === 'TB' ? 'TB' : 'BB_TB'}
+                    title={
+                      chartIndicator === 'BB'
+                        ? 'Berat Badan menurut Umur (BB/U)'
+                        : chartIndicator === 'TB'
+                        ? 'Tinggi Badan menurut Umur (TB/U)'
+                        : 'Berat Badan menurut Tinggi Badan (BB/TB)'
+                    }
+                    birthDate={kmsBalita.tanggal_lahir}
+                    bbLahir={kmsBalita.bb_lahir}
+                    tbLahir={kmsBalita.tb_lahir}
+                  />
+                </View>
+
+                {/* Table of History */}
+                <View style={styles.tableCard}>
+                  <Text style={styles.tableCardTitle}>Riwayat Penimbangan & Pengukuran</Text>
+                  {(kmsBalita.penimbangans || []).length > 0 ? (
+                    [...(kmsBalita.penimbangans || [])]
+                      .sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime())
+                      .map((p, index) => {
+                        const isLatest = index === 0;
+                        let zscoreVal = '-';
+                        let statusVal = '-';
+                        if (chartIndicator === 'BB') {
+                          zscoreVal = p.zscore_bb_u !== null ? `Z-score ${p.zscore_bb_u.toFixed(2)}` : '-';
+                          statusVal = p.status_bb_u || '-';
+                        } else if (chartIndicator === 'TB') {
+                          zscoreVal = p.zscore_tb_u !== null ? `Z-score ${p.zscore_tb_u.toFixed(2)}` : '-';
+                          statusVal = p.status_tb_u || '-';
+                        } else if (chartIndicator === 'BB_TB') {
+                          zscoreVal = p.zscore_bb_tb !== null ? `Z-score ${p.zscore_bb_tb.toFixed(2)}` : '-';
+                          statusVal = p.status_bb_tb || '-';
+                        }
+
+                        return (
+                          <View
+                            key={p.id}
+                            style={[
+                              styles.tableRow,
+                              isLatest && {
+                                backgroundColor: '#E6F4EA',
+                                borderRadius: 12,
+                                paddingHorizontal: 8,
+                                marginHorizontal: -8,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.tableCell,
+                                { flex: 1.5, fontWeight: '700' },
+                                isLatest && { color: '#09A477' },
+                              ]}
+                            >
+                              {format(new Date(p.tanggal), 'd MMM yyyy', { locale: idLocale })}
+                            </Text>
+                            <Text style={[styles.tableCell, { flex: 1 }]}>
+                              {p.berat_badan} kg
+                            </Text>
+                            <Text style={[styles.tableCell, { flex: 1 }]}>
+                              {p.tinggi_badan} cm
+                            </Text>
+                            <Text style={[styles.tableCell, { flex: 1.8, fontSize: 11, fontWeight: '600' }]}>
+                              {statusVal} ({zscoreVal})
+                            </Text>
+                          </View>
+                        );
+                      })
+                  ) : (
+                    <Text style={styles.noDataText}>Belum ada riwayat pengukuran.</Text>
+                  )}
+                </View>
+              </ScrollView>
+            ) : (
+              <Text style={styles.noDataText}>Data balita tidak ditemukan.</Text>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -870,21 +1152,139 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 12,
   },
-  absentInputBtn: {
-    flex: 1,
+  absentReminderBtnFull: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F0FDFA',
+    backgroundColor: '#FFF7ED',
     borderWidth: 1,
-    borderColor: '#CCFBF1',
+    borderColor: '#FFEDD5',
     paddingVertical: 12,
     borderRadius: 16,
     gap: 6,
+    marginTop: 14,
   },
-  absentInputText: {
-    color: '#0F766E',
+  // Growth Trend & KMS styles
+  trendBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  trendBadgeText: {
+    fontSize: 10,
     fontWeight: '800',
-    fontSize: 12,
+  },
+  kmsTextLink: {
+    marginLeft: 8,
+    backgroundColor: '#E0F2FE', // sky-100
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  kmsTextLinkText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#0369A1', // sky-700
+  },
+  actionButtonDisabled: {
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  closeModalBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+  },
+  closeModalBtnText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '700',
+  },
+  modalLoadingContainer: {
+    paddingVertical: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalLoadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  modalScrollContent: {
+    paddingBottom: 40,
+  },
+  noDataText: {
+    textAlign: 'center',
+    color: '#94A3B8',
+    paddingVertical: 30,
+    fontStyle: 'italic',
+    fontSize: 14,
+  },
+  chartSelectorRow: { 
+    flexDirection: 'row', 
+    gap: 12, 
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  chartSelectorTab: { 
+    flex: 1, 
+    paddingVertical: 10, 
+    alignItems: 'center', 
+    borderRadius: 12, 
+    backgroundColor: '#F1F5F9' 
+  },
+  chartSelectorTabActive: { 
+    backgroundColor: '#09A477' 
+  },
+  chartSelectorTabText: { 
+    fontSize: 13, 
+    fontWeight: '700', 
+    color: '#475569' 
+  },
+  chartSelectorTabTextActive: { 
+    color: '#FFFFFF' 
+  },
+  chartContainer: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    marginBottom: 16,
+  },
+  tableCard: { 
+    backgroundColor: '#FFFFFF', 
+    borderRadius: 24, 
+    padding: 16, 
+    marginTop: 16, 
+    borderWidth: 1, 
+    borderColor: '#F1F5F9', 
+    elevation: 2, 
+    shadowColor: '#64748B', 
+    shadowOpacity: 0.05, 
+    shadowRadius: 8 
+  },
+  tableCardTitle: { 
+    fontSize: 14, 
+    fontWeight: '900', 
+    color: '#1E293B', 
+    marginBottom: 12 
+  },
+  tableRow: { 
+    flexDirection: 'row', 
+    borderBottomWidth: 1, 
+    borderBottomColor: '#F8FAFC', 
+    paddingVertical: 10, 
+    alignItems: 'center' 
+  },
+  tableCell: { 
+    fontSize: 13, 
+    color: '#334155', 
+    fontWeight: '500' 
   },
 });

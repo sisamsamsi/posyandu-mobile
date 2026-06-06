@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, ChevronRight, FileText } from 'lucide-react-native';
+import { ArrowLeft, ChevronRight, FileText, Trash2 } from 'lucide-react-native';
 import { useServiceStore } from '../../stores/service-store';
 import { supabase } from '../../lib/supabase';
 import { COLORS } from '../../lib/constants';
@@ -89,11 +89,55 @@ export default function CounselingHistoryScreen() {
         const answers = (item.jawaban || []).join(' ').toLowerCase();
         const text = (recommendation + ' ' + questions + ' ' + answers).toLowerCase();
 
-        // 1. Determine category
+        // 1. Determine category via weighted scoring system
+        let giziScore = 0;
+        let tumbuhKembangScore = 0;
+        let imunisasiScore = 0;
+
+        const giziKeywords = ['makan', 'mpasi', 'asi', 'lauk', 'protein', 'hewan', 'bb', 'berat', 'gizi', 'nutrisi', 'susu', 'suap', 'lahap', 'biskuit', 'makanan', 'lapar', 'kenyang'];
+        const tumbuhKembangKeywords = ['stunting', 'pendek', 'tinggi', 'tb', 'motorik', 'sensorik', 'jalan', 'berdiri', 'merangkak', 'duduk', 'tengkurap', 'stimulasi', 'bicara', 'kembang', 'tumbuh'];
+        const imunisasiKeywords = ['imunisasi', 'vaksin', 'campak', 'polio', 'dpt', 'bcg', 'hepatitis', 'pentabio', 'ipv', 'opv', 'suntik', 'booster', 'tetanus'];
+
+        // High-weight matching on actual Q&A text (3x weight)
+        const qaText = (questions + ' ' + answers).toLowerCase();
+        giziKeywords.forEach(kw => {
+          const count = (qaText.split(kw).length - 1);
+          giziScore += count * 3;
+        });
+        tumbuhKembangKeywords.forEach(kw => {
+          const count = (qaText.split(kw).length - 1);
+          tumbuhKembangScore += count * 3;
+        });
+        imunisasiKeywords.forEach(kw => {
+          const count = (qaText.split(kw).length - 1);
+          imunisasiScore += count * 3;
+        });
+
+        // Standard-weight matching on clean recommendation text (1x weight)
+        const cleanRecommendation = recommendation.toLowerCase()
+          .replace(/memantau tumbuh kembang/g, '')
+          .replace(/potensi tumbuh kembang/g, '')
+          .replace(/proses tumbuh kembang/g, '')
+          .replace(/tahap tumbuh kembang/g, '');
+
+        giziKeywords.forEach(kw => {
+          const count = (cleanRecommendation.split(kw).length - 1);
+          giziScore += count;
+        });
+        tumbuhKembangKeywords.forEach(kw => {
+          const count = (cleanRecommendation.split(kw).length - 1);
+          tumbuhKembangScore += count;
+        });
+        imunisasiKeywords.forEach(kw => {
+          const count = (cleanRecommendation.split(kw).length - 1);
+          imunisasiScore += count;
+        });
+
+        // Fallback default is Gizi
         let category: 'Gizi' | 'Tumbuh Kembang' | 'Imunisasi' = 'Gizi';
-        if (text.includes('imunisasi') || text.includes('vaksin') || text.includes('campak') || text.includes('polio') || text.includes('dpt')) {
+        if (imunisasiScore > giziScore && imunisasiScore > tumbuhKembangScore) {
           category = 'Imunisasi';
-        } else if (text.includes('stunting') || text.includes('pendek') || text.includes('tumbuh') || text.includes('kembang') || text.includes('stimulasi') || text.includes('motorik')) {
+        } else if (tumbuhKembangScore > giziScore && tumbuhKembangScore > imunisasiScore) {
           category = 'Tumbuh Kembang';
         }
 
@@ -141,6 +185,39 @@ export default function CounselingHistoryScreen() {
     } else {
       setFilteredData(historyData.filter(item => item.category === activeFilter));
     }
+  };
+
+  const handleDeleteMonthHistory = (monthYear: string, items: HistoryItem[]) => {
+    Alert.alert(
+      'Hapus Riwayat Bulanan',
+      `Apakah Anda yakin ingin menghapus seluruh (${items.length}) riwayat penyuluhan untuk bulan ${monthYear}? Tindakan ini tidak dapat dibatalkan.`,
+      [
+        { text: 'Batal', style: 'cancel' },
+        { 
+          text: 'Hapus Semua', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const ids = items.map(item => item.id);
+              const { error } = await supabase
+                .from('penyuluhans')
+                .delete()
+                .in('id', ids);
+
+              if (error) throw error;
+              
+              Alert.alert('Sukses', `Riwayat penyuluhan bulan ${monthYear} berhasil dihapus.`);
+              fetchHistory();
+            } catch (err: any) {
+              console.error(err);
+              Alert.alert('Gagal Menghapus', err.message || 'Terjadi kesalahan saat menghapus data.');
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const groupDataByMonth = (items: HistoryItem[]) => {
@@ -232,7 +309,17 @@ export default function CounselingHistoryScreen() {
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {groupedHistory.map(([monthYear, items]) => (
             <View key={monthYear} style={styles.monthSection}>
-              <Text style={styles.monthHeader}>{monthYear}</Text>
+              <View style={styles.monthHeaderRow}>
+                <Text style={styles.monthHeader}>{monthYear}</Text>
+                <TouchableOpacity 
+                  onPress={() => handleDeleteMonthHistory(monthYear, items)}
+                  style={styles.deleteMonthBtn}
+                  activeOpacity={0.7}
+                >
+                  <Trash2 size={12} color="#DC2626" />
+                  <Text style={styles.deleteMonthText}>Hapus Bulanan</Text>
+                </TouchableOpacity>
+              </View>
               
               <View style={styles.listCard}>
                 {items.map((item, idx) => {
@@ -338,12 +425,34 @@ const styles = StyleSheet.create({
   monthSection: {
     marginBottom: 20,
   },
+  monthHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
   monthHeader: {
     fontSize: 14,
     fontWeight: '800',
     color: '#0F172A',
-    marginBottom: 8,
     paddingLeft: 4,
+  },
+  deleteMonthBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+    gap: 4,
+  },
+  deleteMonthText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#DC2626',
   },
   listCard: {
     backgroundColor: '#FFFFFF',

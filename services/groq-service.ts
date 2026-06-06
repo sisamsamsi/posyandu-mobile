@@ -94,7 +94,8 @@ export class GroqService {
     metrics: ZScoreData,
     ageMonths: number,
     previousQA: InterviewQA[],
-    previousSession?: PreviousCounseling | null
+    previousSession?: PreviousCounseling | null,
+    bbTrend?: 'N' | 'T' | '2T' | '-'
   ): Promise<AdaptiveQuestion> {
     const step = previousQA.length + 1;
     let focusArea = '';
@@ -112,10 +113,12 @@ Aturan Kritis:
 - DILARANG mengajukan pertanyaan naratif atau generalis yang memicu jawaban ya/tidak, seperti 'apakah anak sudah MPASI?' atau 'apakah asupannya sudah baik?'.
 - Panduan Kader ('guidance') harus berisi petunjuk taktis bagi kader tentang poin-poin yang harus ditanyakan secara bertahap kepada orang tua agar kader tidak hanya pasif menerima jawaban 'sudah' atau 'belum'.
 Adaptasi KMS (Status Gizi Aktual):
+${bbTrend === '2T' ? `- ANAK MENGALAMI 2T (BERAT TIDAK NAIK 2 KALI BERURUT-TURUT): Fokuslah pada menyelidiki penurunan nafsu makan yang parah, penolakan makan berat (gerakan tutup mulut), atau anak lemas.` : ''}
+${bbTrend === 'T' ? `- ANAK MENGALAMI T (BERAT TIDAK NAIK): Tanyakan apakah ada perubahan porsi makan, anak mulai pilih-pilih makanan (picky eater), atau asupan protein hewani yang berkurang akhir-akhir ini.` : ''}
 ${isStunting ? `- ANAK MENGALAMI STUNTING (PENDEK): Prioritaskan pertanyaan tentang asupan protein hewani harian dan mikronutrien (seng, zat besi) penting untuk mengejar tinggi badan anak.` : ''}
 ${isWasting ? `- ANAK MENGALAMI WASTING (KURUS): Prioritaskan kepadatan kalori MPASI, porsi makan, penambahan lemak sehat (minyak, santan, mentega), nafsu makan, dan asupan energi.` : ''}
 ${isUnderweight && !isWasting ? `- ANAK UNDERWEIGHT (BERAT KURANG): Fokus pada pemenuhan kalori total harian, frekuensi makan, porsi makan utama, dan selingan.` : ''}
-${!isStunting && !isWasting && !isUnderweight ? `- ANAK NORMAL: Fokus pada pemeliharaan gizi seimbang, keragaman bahan pangan, dan pencegahan masalah gizi.` : ''}`;
+${!isStunting && !isWasting && !isUnderweight && bbTrend !== 'T' && bbTrend !== '2T' ? `- ANAK NORMAL: Fokus pada pemeliharaan gizi seimbang, keragaman bahan pangan, dan pencegahan masalah gizi.` : ''}`;
     } else if (step === 2) {
       focusArea = 'RIWAYAT KESEHATAN, IMUNISASI, DAN PENYAKIT INFEKSI';
       instructions = `Fokus pada riwayat kesehatan dan infeksi anak dalam 2 minggu terakhir.
@@ -126,9 +129,10 @@ Aturan Kritis:
 - Tanyakan kelengkapan imunisasi dasar/booster sesuai usia anak dan pemberian Vitamin A (kapsul merah/biru).
 - DILARANG mengajukan pertanyaan gejala bahaya darurat medis klinis (red flags) yang menakutkan karena anak diasumsikan dalam kondisi sehat saat datang ke posyandu.
 Adaptasi KMS (Status Gizi Aktual):
+${bbTrend === '2T' || bbTrend === 'T' ? `- ANAK MENGALAMI T ATAU 2T (BERAT TIDAK NAIK): Anda WAJIB menanyakan apakah anak sempat sakit (seperti demam, batuk pilek, diare berulang, tumbuh gigi, atau infeksi saluran kemih) dalam 2 minggu terakhir yang menyebabkan nafsu makan turun drastis atau penyerapan gizi terganggu.` : ''}
 ${isStunting ? `- ANAK MENGALAMI STUNTING: Tanyakan penyakit infeksi berulang/kronis dalam 2-4 minggu terakhir (misal diare, ISPA, TBC) karena penyakit berulang sangat menghambat pertumbuhan tulang/tinggi badan.` : ''}
 ${isWasting ? `- ANAK MENGALAMI WASTING: Tanyakan penyakit infeksi akut baru-baru ini (misal diare, flu berat) yang menurunkan nafsu makan dan menurunkan berat badan secara drastis.` : ''}
-${!isStunting && !isWasting ? `- ANAK NORMAL: Tanyakan status imunisasi dasar dan booster lengkap sesuai jadwal usianya.` : ''}`;
+${!isStunting && !isWasting && bbTrend !== 'T' && bbTrend !== '2T' ? `- ANAK NORMAL: Tanyakan status imunisasi dasar dan booster lengkap sesuai jadwal usianya.` : ''}`;
     } else {
       focusArea = 'POLA PENGASUHAN, MAKAN AKTIF (FEEDING RULES), DAN SANITASI LINGKUNGAN';
       instructions = `Fokus pada pola asuh makan anak dan kebersihan lingkungan sekitar.
@@ -137,9 +141,10 @@ Aturan Kritis:
 - Tanyakan akses air bersih untuk memasak dan kebiasaan cuci tangan pakai sabun sebelum mengolah makanan anak.
 - Hubungkan secara cerdas dengan jawaban sebelumnya (Langkah 1: "${previousQA[0]?.answer}", Langkah 2: "${previousQA[1]?.answer}").
 Adaptasi KMS (Status Gizi Aktual):
+${bbTrend === '2T' || bbTrend === 'T' ? `- ANAK MENGALAMI T ATAU 2T (BERAT TIDAK NAIK): Prioritaskan pertanyaan tentang kepatuhan feeding rules (jadwal makan disiplin, batas waktu makan maksimal 30 menit, tidak memaksa anak makan, membatasi susu/cemilan di sela jam makan utama).` : ''}
 ${isStunting ? `- ANAK MENGALAMI STUNTING: Prioritaskan sanitasi lingkungan rumah, kebersihan sumber air minum (apakah direbus mendidih), kebersihan jamban, dan kebiasaan mencuci tangan pakai sabun (CTPS) sebelum menyiapkan makanan untuk mencegah enteropati lingkungan.` : ''}
-${isWasting || isUnderweight ? `- ANAK WASTING/UNDERWEIGHT: Prioritaskan penerapan Feeding Rules (makan aktif/responsif, batas waktu makan 30 menit, tidak memaksakan anak makan, membatasi susu/dot berlebih di sela jam makan utama agar anak merasa lapar).` : ''}
-${!isStunting && !isWasting && !isUnderweight ? `- ANAK NORMAL: Fokus pada stimulasi motorik kasar/halus atau stimulasi bahasa sesuai usia anak (milestones) dan pengasuhan responsif.` : ''}`;
+${(isWasting || isUnderweight) && bbTrend !== 'T' && bbTrend !== '2T' ? `- ANAK WASTING/UNDERWEIGHT: Prioritaskan penerapan Feeding Rules (makan aktif/responsif, batas waktu makan 30 menit, tidak memaksakan anak makan, membatasi susu/dot berlebih di sela jam makan utama agar anak merasa lapar).` : ''}
+${!isStunting && !isWasting && !isUnderweight && bbTrend !== 'T' && bbTrend !== '2T' ? `- ANAK NORMAL: Fokus pada stimulasi motorik kasar/halus atau stimulasi bahasa sesuai usia anak (milestones) dan pengasuhan responsif.` : ''}`;
     }
 
     const systemPrompt = `Anda adalah Ahli Gizi dan Tumbuh Kembang Posyandu (Kemenkes RI) yang sangat ramah, hangat, dan profesional.
@@ -168,6 +173,7 @@ Anda HARUS mengembalikan respon dalam format JSON objek dengan format sebagai be
 - Berat Badan: ${metrics.berat_badan} kg (Status BB/U: ${metrics.status_bb_u ?? 'Normal'}, Z-score: ${metrics.zscore_bb_u != null ? metrics.zscore_bb_u.toFixed(2) : 'N/A'})
 - Tinggi Badan: ${metrics.tinggi_badan} cm (Status TB/U: ${metrics.status_tb_u ?? 'Normal'}, Z-score: ${metrics.zscore_tb_u != null ? metrics.zscore_tb_u.toFixed(2) : 'N/A'})
 - Status Gizi (BB/TB): ${metrics.status_bb_tb ?? 'Normal'} (Z-score: ${metrics.zscore_bb_tb != null ? metrics.zscore_bb_tb.toFixed(2) : 'N/A'})
+- Tren Berat Badan (KMS): ${bbTrend === '2T' ? '2T (Tidak Naik 2 Kali)' : bbTrend === 'T' ? 'T (Tidak Naik)' : bbTrend === 'N' ? 'N (Naik)' : '- (Baru/Tidak ada data)'}
 
 ### MEMORI PENYULUHAN BULAN LALU:
 ${previousSession 
@@ -226,20 +232,22 @@ Buatkan 1 objek JSON berisi "question" and "guidance" yang paling relevan untuk 
     metrics: ZScoreData,
     ageMonths: number,
     qaList: InterviewQA[],
-    catatanKader?: string
+    catatanKader?: string,
+    bbTrend?: 'N' | 'T' | '2T' | '-'
   ): Promise<string> {
     const systemPrompt = `Anda adalah Ahli Gizi dan Tumbuh Kembang Posyandu (Kemenkes RI) yang sangat ramah, hangat, dan profesional.
 Tugas Anda adalah merumuskan ringkasan saran/rekomendasi gizi, MPASI praktis, dan panduan tumbuh kembang yang spesifik untuk anak berdasarkan hasil penimbangan serta jawaban wawancara orang tua ditambah catatan lapangan kader.
 
 Panduan Penulisan Rekomendasi:
 1. BAHASA: Gunakan bahasa Indonesia yang hangat, membangkitkan semangat, berempati tinggi, dan bebas dari istilah medis yang terlalu rumit. Berikan dukungan moral kepada orang tua anak.
-2. PRAKTIS & EKONOMIS: Tawarkan rekomendasi pangan protein lokal terjangkau (misal: telur rebus/dadar, ikan kembung/lele, hati ayam, tempe, tahu) sesuai dengan kemampuan dan akses pasar lokal mereka.
+2. TREN BERAT BADAN (T & 2T):
+   - Jika anak mengalami T (Tidak Naik) atau 2T (Tidak Naik 2x berturut-turut): Anda WAJIB memberikan perhatian khusus terkait tren berat badannya yang terhambat atau turun. Asumsikan kemungkinan penyebab seperti baru sembuh dari sakit (ISPA/ISK/diare), tumbuh gigi, atau penerapan feeding rules yang kurang tepat. Berikan rekomendasi asupan padat kalori (tambahkan lemak sehat seperti minyak kelapa, santan, atau mentega ke dalam makanan), porsi kecil tapi sering, prioritaskan porsi protein hewani harian, dan sarankan pemeriksaan ke Puskesmas/Bidan Desa jika berat badan tetap tidak naik bulan depan.
 3. ADAPTIF KMS (Z-SCORE):
    - Jika anak mengalami STUNTING (TB/U Pendek/Sangat Pendek): Prioritaskan asupan protein hewani harian dan higienitas air minum/sanitasi rumah untuk mengejar tinggi badannya.
    - Jika anak mengalami WASTING (BB/TB Kurus/Sangat Kurus) atau UNDERWEIGHT: Prioritaskan penambahan kalori dan lemak sehat (minyak/santan/mentega), aturan jadwal feeding rules yang tertata, serta asupan nutrisi porsi kecil tapi sering.
-   - Jika anak NORMAL: Apresiasi keberhasilan orang tua, sarankan pertahankan pola makan gizi seimbang, dan berikan stimulasi perkembangan sesuai usia.
+   - Jika anak NORMAL (dan trennya naik/bagus): Apresiasi keberhasilan orang tua, sarankan pertahankan pola makan gizi seimbang, dan berikan stimulasi perkembangan sesuai usia.
 4. INTEGRASI CATATAN KADER: Jika kader menyertakan catatan lapangan (seperti kondisi fisik lemas, rambut kusam, atau situasi sosial-ekonomi mikro), Anda WAJIB menganalisis data observasi tersebut dan menyematkan rekomendasi klinis/asuhan tambahan yang relevan di dalam poin saran Anda.
-5. TANPA DARURAT RED FLAGS: Hindari rujukan klinis darurat rumah sakit yang menakutkan, cukup sarankan konsultasi/rujukan persuasif ke Puskesmas/Bidan Desa jika status gizi balita berada di kategori kurang/sangat kurang/pendek dan tidak membaik bulan depan.
+5. TANPA DARURAT RED FLAGS: Hindari rujukan klinis darurat rumah sakit yang menakutkan, cukup sarankan rujukan persuasif ke Puskesmas/Bidan Desa jika status gizi atau tren berat badan anak mengkhawatirkan dan tidak kunjung membaik.
 6. STRUKTUR: Buatlah saran dalam bentuk 3-4 poin ringkas, padat, dan sangat mudah diingat oleh orang tua. Batasi panjang tulisan maksimal 120-150 kata agar nyaman dibaca di layar HP dan saat dikirim via WhatsApp maupun dicetak di laporan PDF.`;
 
     const userPrompt = `### PROFIL BALITA:
@@ -248,6 +256,7 @@ Panduan Penulisan Rekomendasi:
 - Status Gizi BB/U: ${metrics.status_bb_u ?? 'Normal'} (Z-Score: ${metrics.zscore_bb_u != null ? metrics.zscore_bb_u.toFixed(2) : 'N/A'})
 - Status Tinggi TB/U: ${metrics.status_tb_u ?? 'Normal'} (Z-Score: ${metrics.zscore_tb_u != null ? metrics.zscore_tb_u.toFixed(2) : 'N/A'})
 - Status Gizi BB/TB: ${metrics.status_bb_tb ?? 'Normal'} (Z-Score: ${metrics.zscore_bb_tb != null ? metrics.zscore_bb_tb.toFixed(2) : 'N/A'})
+- Tren Berat Badan (KMS): ${bbTrend === '2T' ? '2T (Tidak Naik 2 Kali)' : bbTrend === 'T' ? 'T (Tidak Naik)' : bbTrend === 'N' ? 'N (Naik)' : '- (Baru/Tidak ada data)'}
 
 ### HASIL WAWANCARA MEJA 4/5:
 ${qaList.map((qa, index) => `${index + 1}. Tanya: "${qa.question}"\n   Jawab: "${qa.answer}"`).join('\n')}

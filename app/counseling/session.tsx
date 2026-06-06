@@ -31,7 +31,7 @@ import {
 import { useAuthStore } from '../../stores/auth-store';
 import { useServiceStore } from '../../stores/service-store';
 import { supabase } from '../../lib/supabase';
-import { Balita, Penimbangan } from '../../lib/types';
+import { Balita, Penimbangan, WHOReferenceRow } from '../../lib/types';
 import { COLORS } from '../../lib/constants';
 import { Card } from '../../components/ui/Card';
 import { GroqService, ZScoreData, PreviousCounseling, AdaptiveQuestion, InterviewQA } from '../../services/groq-service';
@@ -39,6 +39,8 @@ import { WhatsAppService } from '../../services/whatsapp-service';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { calculateAgeMonths } from '../../lib/utils';
+import { whoService } from '../../services/who-service';
+import { GrowthChart } from '../../components/charts/GrowthChart';
 
 type SessionStage = 
   | 'loading-data' 
@@ -72,8 +74,46 @@ export default function CounselingSessionScreen() {
   const [loadingNext, setLoadingNext] = useState<boolean>(false);
   const [aiRecommendation, setAiRecommendation] = useState<string>('');
 
+  // Growth Trend & KMS State
+  const [whoBB, setWhoBB] = useState<WHOReferenceRow[]>([]);
+  const [whoTB, setWhoTB] = useState<WHOReferenceRow[]>([]);
+  const [whoBBTB, setWhoBBTB] = useState<WHOReferenceRow[]>([]);
+  const [chartIndicator, setChartIndicator] = useState<'BB' | 'TB' | 'BB_TB'>('BB');
+  const [showKmsChart, setShowKmsChart] = useState(false);
+  const [calculatedTrend, setCalculatedTrend] = useState<'N' | 'T' | '2T' | '-'>('-');
+  const [balitaPenimbangans, setBalitaPenimbangans] = useState<Penimbangan[]>([]);
+
   const chatScrollRef = useRef<ScrollView>(null);
   const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+  const renderTrendBadgeMini = (trend: 'N' | 'T' | '2T' | '-') => {
+    switch (trend) {
+      case '2T':
+        return (
+          <View style={[styles.trendBadgeMini, { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5' }]}>
+            <Text style={[styles.trendBadgeMiniText, { color: '#DC2626' }]}>2T</Text>
+          </View>
+        );
+      case 'T':
+        return (
+          <View style={[styles.trendBadgeMini, { backgroundColor: '#FEF3C7', borderColor: '#FCD34D' }]}>
+            <Text style={[styles.trendBadgeMiniText, { color: '#D97706' }]}>T</Text>
+          </View>
+        );
+      case 'N':
+        return (
+          <View style={[styles.trendBadgeMini, { backgroundColor: '#DCFCE7', borderColor: '#86EFAC' }]}>
+            <Text style={[styles.trendBadgeMiniText, { color: '#15803D' }]}>N</Text>
+          </View>
+        );
+      default:
+        return (
+          <View style={[styles.trendBadgeMini, { backgroundColor: '#F1F5F9', borderColor: '#CBD5E1' }]}>
+            <Text style={[styles.trendBadgeMiniText, { color: '#64748B' }]}>-</Text>
+          </View>
+        );
+    }
+  };
 
   useEffect(() => {
     if (balitaId && penimbanganId) {
@@ -96,7 +136,7 @@ export default function CounselingSessionScreen() {
   const initializeSession = async () => {
     try {
       setStage('loading-data');
-      setLoadingText('Mengambil riwayat tumbuh kembang...');
+      setLoadingText('Memuat data...');
 
       // 1. Ambil data balita beserta posyandunya
       const { data: balitaData, error: balitaErr } = await supabase
@@ -119,7 +159,49 @@ export default function CounselingSessionScreen() {
       if (penimbanganErr) throw penimbanganErr;
       setPenimbangan(penimbanganData as Penimbangan);
 
-      // 3. Ambil data penyuluhan bulan lalu (jika ada)
+      // 3. Ambil seluruh riwayat penimbangan balita untuk KMS & Tren
+      const { data: historyData, error: historyErr } = await supabase
+        .from('penimbangans')
+        .select('*')
+        .eq('balita_id', balitaId)
+        .order('tanggal', { ascending: true }); // ascending for chart plotting
+
+      if (historyErr) throw historyErr;
+      const historyList = historyData as Penimbangan[];
+      setBalitaPenimbangans(historyList);
+
+      // Hitung trend berdasarkan history (descending untuk formula trend)
+      let bbTrend: 'N' | 'T' | '2T' | '-' = '-';
+      const descHistory = [...historyList].sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime());
+      if (descHistory.length >= 2) {
+        const w0 = descHistory[0];
+        const w1 = descHistory[1];
+        if (descHistory.length >= 3) {
+          const w2 = descHistory[2];
+          if (w0.berat_badan <= w1.berat_badan && w1.berat_badan <= w2.berat_badan) {
+            bbTrend = '2T';
+          }
+        }
+        if (bbTrend !== '2T' && w0.berat_badan <= w1.berat_badan) {
+          bbTrend = 'T';
+        }
+        if (bbTrend === '-') {
+          bbTrend = 'N';
+        }
+      }
+      setCalculatedTrend(bbTrend);
+
+      // Fetch WHO standards
+      const [bb, tb, bbtb] = await Promise.all([
+        whoService.getStandards('bb_u', balitaData.jenis_kelamin),
+        whoService.getStandards('tb_u', balitaData.jenis_kelamin),
+        whoService.getStandards('bb_tb', balitaData.jenis_kelamin)
+      ]);
+      setWhoBB(bb);
+      setWhoTB(tb);
+      setWhoBBTB(bbtb);
+
+      // 4. Ambil data penyuluhan bulan lalu (jika ada)
       const { data: prevData, error: prevErr } = await supabase
         .from('penyuluhans')
         .select('*')
@@ -141,7 +223,7 @@ export default function CounselingSessionScreen() {
         setPreviousSession(prevSessionObj);
       }
 
-      // 4. Tahap Pembuatan Pertanyaan Langkah 1 AI (Gizi & MPASI)
+      // 5. Tahap Pembuatan Pertanyaan Langkah 1 AI (Gizi & MPASI)
       setStage('generating-questions');
       setLoadingText('AI sedang menganalisis status tumbuh kembang & merumuskan pertanyaan gizi khusus...');
 
@@ -164,7 +246,8 @@ export default function CounselingSessionScreen() {
         metrics,
         ageMonths,
         [],
-        prevSessionObj
+        prevSessionObj,
+        bbTrend
       );
 
       setActiveQuestion(firstQ);
@@ -242,7 +325,8 @@ export default function CounselingSessionScreen() {
           metrics,
           ageMonths,
           updatedQaList,
-          previousSession
+          previousSession,
+          calculatedTrend
         );
 
         setQuestionsHistory([...questionsHistory, nextQ]);
@@ -305,7 +389,14 @@ export default function CounselingSessionScreen() {
       };
 
       // 1. Generate rekomendasi dari Groq
-      const rec = await GroqService.generateRecommendations(balita, metrics, ageMonths, qaList, catatanKader);
+      const rec = await GroqService.generateRecommendations(
+        balita, 
+        metrics, 
+        ageMonths, 
+        qaList, 
+        catatanKader,
+        calculatedTrend
+      );
       setAiRecommendation(rec);
 
       // 2. Simpan Sesi Penyuluhan ke Supabase
@@ -472,21 +563,66 @@ export default function CounselingSessionScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.chatProfileName}>{balita?.nama}</Text>
-                <Text style={styles.chatProfileSub}>
-                  {balita?.jenis_kelamin} • {calculateAgeMonths(balita?.tanggal_lahir || '', todayStr)} bln
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                  <Text style={styles.chatProfileSub}>
+                    {balita?.jenis_kelamin} • {calculateAgeMonths(balita?.tanggal_lahir || '', todayStr)} bln
+                  </Text>
+                  {renderTrendBadgeMini(calculatedTrend)}
+                </View>
+              </View>
+              <TouchableOpacity 
+                style={[styles.toggleKmsBtn, showKmsChart && styles.toggleKmsBtnActive]}
+                onPress={() => setShowKmsChart(!showKmsChart)}
+              >
+                <Text style={[styles.toggleKmsBtnText, showKmsChart && styles.toggleKmsBtnTextActive]}>
+                  {showKmsChart ? 'Tutup KMS' : 'Lihat KMS'}
                 </Text>
-              </View>
-              <View style={styles.chatProfileZscores}>
-                <View style={styles.zBadgeMini}>
-                  <Text style={styles.zBadgeLabelMini}>BB/U</Text>
-                  <Text style={styles.zBadgeValMini}>{penimbangan?.status_bb_u?.split(' ')[0]}</Text>
-                </View>
-                <View style={styles.zBadgeMini}>
-                  <Text style={styles.zBadgeLabelMini}>TB/U</Text>
-                  <Text style={styles.zBadgeValMini}>{penimbangan?.status_tb_u?.split(' ')[0]}</Text>
-                </View>
-              </View>
+              </TouchableOpacity>
             </View>
+
+            {/* Collapsible Growth Chart */}
+            {showKmsChart && balita && (
+              <View style={styles.collapsibleKmsContainer}>
+                <View style={styles.chartSelectorRow}>
+                  <TouchableOpacity
+                    style={[styles.chartSelectorTab, chartIndicator === 'BB' && styles.chartSelectorTabActive]}
+                    onPress={() => setChartIndicator('BB')}
+                  >
+                    <Text style={[styles.chartSelectorTabText, chartIndicator === 'BB' && styles.chartSelectorTabTextActive]}>BB/U</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.chartSelectorTab, chartIndicator === 'TB' && styles.chartSelectorTabActive]}
+                    onPress={() => setChartIndicator('TB')}
+                  >
+                    <Text style={[styles.chartSelectorTabText, chartIndicator === 'TB' && styles.chartSelectorTabTextActive]}>TB/U</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.chartSelectorTab, chartIndicator === 'BB_TB' && styles.chartSelectorTabActive]}
+                    onPress={() => setChartIndicator('BB_TB')}
+                  >
+                    <Text style={[styles.chartSelectorTabText, chartIndicator === 'BB_TB' && styles.chartSelectorTabTextActive]}>BB/TB</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.counselingChartWrapper}>
+                  <GrowthChart
+                    standards={chartIndicator === 'BB' ? whoBB : chartIndicator === 'TB' ? whoTB : whoBBTB}
+                    data={balitaPenimbangans}
+                    indicator={chartIndicator === 'BB' ? 'BB' : chartIndicator === 'TB' ? 'TB' : 'BB_TB'}
+                    title={
+                      chartIndicator === 'BB'
+                        ? 'Berat Badan menurut Umur (BB/U)'
+                        : chartIndicator === 'TB'
+                        ? 'Tinggi Badan menurut Umur (TB/U)'
+                        : 'Berat Badan menurut Tinggi Badan (BB/TB)'
+                    }
+                    birthDate={balita.tanggal_lahir}
+                    bbLahir={balita.bb_lahir}
+                    tbLahir={balita.tb_lahir}
+                  />
+                </View>
+              </View>
+            )}
 
             {/* Step Indicator Header Line */}
             <View style={styles.stepProgressContainer}>
@@ -1353,5 +1489,73 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 15,
     fontWeight: 'bold',
+  },
+  trendBadgeMini: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  trendBadgeMiniText: {
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  toggleKmsBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#E0F2FE',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  toggleKmsBtnActive: {
+    backgroundColor: '#0284C7',
+    borderColor: '#0284C7',
+  },
+  toggleKmsBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0369A1',
+  },
+  toggleKmsBtnTextActive: {
+    color: '#FFFFFF',
+  },
+  collapsibleKmsContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  counselingChartWrapper: {
+    marginTop: 8,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  chartSelectorRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  chartSelectorTab: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+  },
+  chartSelectorTabActive: {
+    backgroundColor: '#09A477',
+  },
+  chartSelectorTabText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  chartSelectorTabTextActive: {
+    color: '#FFFFFF',
   },
 });

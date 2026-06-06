@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase';
 import { useRouter } from 'expo-router';
 import { COLORS } from '../lib/constants';
 import { Eye, EyeOff } from 'lucide-react-native';
+import { useServiceStore } from '../stores/service-store';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -24,12 +26,55 @@ export default function LoginScreen() {
       if (error) {
         Alert.alert('Login Gagal', error.message);
       } else {
+        // Clear any previous active workspace/posyandu
+        useServiceStore.getState().setActivePosyandu(null);
+        useServiceStore.getState().setActiveWorkspace(null);
         // Explicitly move to workspace selection
         router.replace('/select-workspace');
       }
     } catch (err: any) {
       console.error('Login error exception:', err);
       Alert.alert('Error', err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+  
+  async function signInWithGoogle() {
+    try {
+      setLoading(true);
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+      
+      if (userInfo.type !== 'success') {
+        return; // Sign-in was cancelled, do nothing
+      }
+      
+      const idToken = userInfo.data.idToken;
+      
+      if (!idToken) {
+        throw new Error('Tidak ada ID Token Google yang ditemukan.');
+      }
+
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: idToken,
+      });
+
+      if (error) {
+        Alert.alert('Login Google Gagal', error.message);
+      } else {
+        // Clear any previous active workspace/posyandu
+        useServiceStore.getState().setActivePosyandu(null);
+        useServiceStore.getState().setActiveWorkspace(null);
+        // Explicitly move to workspace selection
+        router.replace('/select-workspace');
+      }
+    } catch (err: any) {
+      if (err.code !== '12501' && err.message !== 'Sign in action cancelled') {
+        console.error('Google Sign-In error:', err);
+        Alert.alert('Error Login Google', err.message || 'Terjadi kesalahan saat masuk menggunakan Google.');
+      }
     } finally {
       setLoading(false);
     }
@@ -93,7 +138,24 @@ export default function LoginScreen() {
               )}
             </TouchableOpacity>
 
+            <View style={styles.dividerContainer}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>atau</Text>
+              <View style={styles.dividerLine} />
+            </View>
 
+            <TouchableOpacity 
+              style={[styles.googleButton, loading && styles.googleButtonDisabled]} 
+              onPress={signInWithGoogle}
+              disabled={loading}
+            >
+              <Image 
+                source={require('../assets/images/google_icon.png')} 
+                style={styles.googleIcon} 
+                resizeMode="contain" 
+              />
+              <Text style={styles.googleButtonText}>Masuk dengan Google</Text>
+            </TouchableOpacity>
 
             <View style={styles.registerPrompt}>
               <Text style={styles.registerPromptText}>Belum punya akun? </Text>
@@ -206,5 +268,49 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e2e8f0',
+  },
+  dividerText: {
+    paddingHorizontal: 12,
+    fontSize: 14,
+    color: '#94a3b8',
+    fontWeight: '500',
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    padding: 14,
+    borderRadius: 8,
+    gap: 12,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.02,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  googleButtonDisabled: {
+    opacity: 0.7,
+  },
+  googleIcon: {
+    width: 22,
+    height: 22,
+  },
+  googleButtonText: {
+    color: '#334155',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

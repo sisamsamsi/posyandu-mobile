@@ -30,6 +30,7 @@ import { usePosyandu } from '../../hooks/usePosyandu';
 import { Posyandu } from '../../lib/types';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
+import { useServiceStore } from '../../stores/service-store';
 
 export default function ImportDataScreen() {
   const router = useRouter();
@@ -43,15 +44,26 @@ export default function ImportDataScreen() {
   const [showPosyanduPicker, setShowPosyanduPicker] = useState(false);
   const [allPosyandus, setAllPosyandus] = useState<Posyandu[]>([]);
 
-  const { getAllPosyandus } = usePosyandu();
+  const { getLinkedPosyandus } = usePosyandu();
+  const { activePosyanduId } = useServiceStore();
 
   useEffect(() => {
     loadPosyandus();
   }, []);
 
   const loadPosyandus = async () => {
-    const list = await getAllPosyandus();
+    const listRels = await getLinkedPosyandus();
+    const list = listRels.map(r => r.posyandus).filter(Boolean);
     setAllPosyandus(list);
+    
+    if (activePosyanduId) {
+      const active = list.find(p => p.id === activePosyanduId);
+      if (active) {
+        setSelectedPosyandu(active);
+        return;
+      }
+    }
+    
     if (list.length > 0) setSelectedPosyandu(list[0]);
   };
 
@@ -165,7 +177,8 @@ export default function ImportDataScreen() {
 
         <TouchableOpacity 
           style={styles.v2PosyanduCard}
-          onPress={() => setShowPosyanduPicker(true)}
+          onPress={() => allPosyandus.length > 1 && setShowPosyanduPicker(true)}
+          disabled={allPosyandus.length <= 1}
         >
           <View style={styles.v2PosyanduIcon}>
             <MapPin size={20} color="#0D9488" />
@@ -174,7 +187,7 @@ export default function ImportDataScreen() {
              <Text style={styles.v2PosyanduLabel}>Target Posyandu</Text>
              <Text style={styles.v2PosyanduName}>{selectedPosyandu?.nama_posyandu || 'Pilih Target'}</Text>
           </View>
-          <ChevronRight size={18} color="#94A3B8" />
+          {allPosyandus.length > 1 && <ChevronRight size={18} color="#94A3B8" />}
         </TouchableOpacity>
 
         {/* Step 2: Template */}

@@ -309,6 +309,12 @@ export default function DashboardScreen() {
       bgColor: '#FFF7ED',
       onPress: () => router.push('/monitoring/balita'),
     },
+    {
+      label: 'Import Data',
+      icon: <FileUp size={18} color="#0EA5E9" />,
+      bgColor: '#E0F2FE',
+      onPress: () => router.push('/admin/import-data'),
+    },
   ] : [
     {
       label: 'Data Lansia',
