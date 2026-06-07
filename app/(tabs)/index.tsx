@@ -161,16 +161,30 @@ export default function DashboardScreen() {
     
     if (activePosyanduId) {
       const active = list.find(p => p.id === activePosyanduId);
-      if (active) setActivePosyanduName(active.nama_posyandu);
+      if (active) {
+        setActivePosyanduName(
+          isBalita 
+            ? (active.nama_posyandu_balita || active.nama_posyandu) 
+            : (active.nama_posyandu_lansia || active.nama_posyandu)
+        );
+      }
     } else if (list.length > 0) {
       setActivePosyandu(list[0].id);
-      setActivePosyanduName(list[0].nama_posyandu);
+      setActivePosyanduName(
+        isBalita 
+          ? (list[0].nama_posyandu_balita || list[0].nama_posyandu) 
+          : (list[0].nama_posyandu_lansia || list[0].nama_posyandu)
+      );
     }
   };
 
   const handleSelectPosyandu = (p: any) => {
     setActivePosyandu(p.id);
-    setActivePosyanduName(p.nama_posyandu);
+    setActivePosyanduName(
+      isBalita 
+        ? (p.nama_posyandu_balita || p.nama_posyandu) 
+        : (p.nama_posyandu_lansia || p.nama_posyandu)
+    );
     setShowPosyanduPicker(false);
   };
 
@@ -190,7 +204,7 @@ export default function DashboardScreen() {
     loadPosyandus();
     fetchStats();
     checkOtaUpdate();
-  }, [activePosyanduId]);
+  }, [activePosyanduId, activeWorkspace]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -831,7 +845,11 @@ export default function DashboardScreen() {
                       onPress={() => handleSelectPosyandu(item)}
                     >
                        <MapPin size={18} color="#94A3B8" />
-                       <Text style={styles.pickerItemText}>{item.nama_posyandu}</Text>
+                       <Text style={styles.pickerItemText}>
+                          {isBalita 
+                            ? (item.nama_posyandu_balita || item.nama_posyandu) 
+                            : (item.nama_posyandu_lansia || item.nama_posyandu)}
+                       </Text>
                        {activePosyanduId === item.id && <View style={[styles.activeDot, { backgroundColor: isBalita ? '#09A477' : '#4F46E5' }]} />}
                     </TouchableOpacity>
                   )}

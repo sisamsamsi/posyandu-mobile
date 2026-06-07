@@ -16,6 +16,11 @@ export interface Posyandu {
   jadwal_balita_jam: string | null;
   jadwal_lansia_tanggal: number | null;
   jadwal_lansia_jam: string | null;
+  // Pemisahan nama/alamat per divisi
+  nama_posyandu_balita: string | null;
+  alamat_posyandu_balita: string | null;
+  nama_posyandu_lansia: string | null;
+  alamat_posyandu_lansia: string | null;
   // Logo
   logo_url: string | null;
   invite_code?: string; // New field

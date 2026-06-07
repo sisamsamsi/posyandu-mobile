@@ -196,7 +196,7 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
     
     // After the last recorded point
     if (idx > actualVisits[actualVisits.length - 1].idx) {
-      return actualVisits[actualVisits.length - 1].y;
+      return null;
     }
     
     // Interpolate between surrounding points
@@ -258,7 +258,7 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
         withDots: false,
       },
       {
-        data: balitaDataRaw,
+        data: balitaDataRaw as number[],
         color: () => '#0F766E', // Child Curve Dark Teal
         strokeWidth: 3.5,
         withDots: true,

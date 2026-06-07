@@ -10,7 +10,26 @@ export const generateMonthlyReportHtml = (
   weighings: WeighingItem[],
   nutritionSummary: NutritionSummary
 ) => {
-  const hasNewBalita = weighings.some(w => w.is_baru);
+  const newBalitaList = weighings.filter(w => w.is_baru);
+  const newBalitaRows = newBalitaList.length > 0
+    ? newBalitaList.map((w, i) => `
+        <tr>
+          <td style="text-align:center;">${i + 1}</td>
+          <td>${w.nik || '-'}</td>
+          <td style="font-weight: bold;">${w.nama}</td>
+          <td style="text-align:center;">${w.tanggal_lahir ? format(new Date(w.tanggal_lahir), 'dd/MM/yyyy') : '-'}</td>
+          <td style="text-align:center;">${w.jenis_kelamin}</td>
+          <td>${w.nama_ortu}</td>
+          <td>${w.alamat || '-'} / RT ${String(w.rt).padStart(2, '0')}</td>
+        </tr>
+      `).join('')
+    : '';
+
+  let sectionIdx = 1;
+  const getSectionNum = () => {
+    const numerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+    return numerals[sectionIdx++ - 1] || String(sectionIdx);
+  };
 
   const dsPct = skdn.s > 0 ? (skdn.d / skdn.s) * 100 : 0;
   const ndPct = skdn.d > 0 ? (skdn.n / skdn.d) * 100 : 0;
@@ -64,11 +83,10 @@ export const generateMonthlyReportHtml = (
             <td style="text-align:center;">${w.status_bb_tb || '-'}</td>
             <td style="text-align:center; color: #0d9488; font-weight:bold;">${w.zscore_bb_tb !== null && w.zscore_bb_tb !== undefined ? w.zscore_bb_tb.toFixed(2) : '-'}</td>
             <td style="text-align:center;">${trendBadge}</td>
-            ${hasNewBalita ? `<td style="text-align:center; font-weight:bold; color:#0d9488;">${w.is_baru ? 'Ya' : '-'}</td>` : ''}
           </tr>
         `;
       }).join('')
-    : `<tr><td colspan="${hasNewBalita ? 15 : 14}" style="text-align:center; padding: 20px;">Tidak ada data penimbangan.</td></tr>`;
+    : `<tr><td colspan="14" style="text-align:center; padding: 20px;">Tidak ada data penimbangan.</td></tr>`;
 
   // Filter for children with counseling priority:
   // Only present children (Hadir) who have nutritional problems (Z-score <= -2)
@@ -248,7 +266,7 @@ export const generateMonthlyReportHtml = (
  
         <div class="section">
           <div class="section-header">
-            <div class="section-number">I</div>
+            <div class="section-number">${getSectionNum()}</div>
             <div class="section-title">Hasil Analisis Indikator</div>
           </div>
           <div class="analysis-row">
@@ -267,7 +285,7 @@ export const generateMonthlyReportHtml = (
  
         <div class="section">
           <div class="section-header">
-            <div class="section-number">II</div>
+            <div class="section-number">${getSectionNum()}</div>
             <div class="section-title">Ringkasan Validasi Gizi</div>
           </div>
           <div class="summary-grid" style="margin-bottom: 0;">
@@ -290,9 +308,37 @@ export const generateMonthlyReportHtml = (
           </div>
         </div>
  
+        ${newBalitaList.length > 0 ? `
         <div class="section">
           <div class="section-header">
-            <div class="section-number">III</div>
+            <div class="section-number">${getSectionNum()}</div>
+            <div class="section-title">Daftar Registrasi Balita Baru</div>
+          </div>
+          <div style="margin-bottom: 10px; font-size: 11px; color: #475569;">
+            Berikut adalah daftar balita yang baru didaftarkan pada periode penimbangan bulan ini.
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 30px; text-align:center;">No</th>
+                <th style="width: 100px; text-align:left;">NIK</th>
+                <th style="text-align:left;">Nama Balita</th>
+                <th style="width: 80px; text-align:center;">Tgl Lahir</th>
+                <th style="width: 30px; text-align:center;">JK</th>
+                <th style="text-align:left;">Nama Orang Tua</th>
+                <th style="text-align:left;">Alamat / RT</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${newBalitaRows}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+ 
+        <div class="section">
+          <div class="section-header">
+            <div class="section-number">${getSectionNum()}</div>
             <div class="section-title">Daftar Balita Prioritas (Bermasalah Gizi)</div>
           </div>
           <table>
@@ -313,7 +359,7 @@ export const generateMonthlyReportHtml = (
  
         <div class="section" style="page-break-before: always;">
           <div class="section-header">
-            <div class="section-number">IV</div>
+            <div class="section-number">${getSectionNum()}</div>
             <div class="section-title">Daftar Penimbangan Keseluruhan</div>
           </div>
           <table>
@@ -333,7 +379,6 @@ export const generateMonthlyReportHtml = (
                 <th style="width: 70px; text-align:center; background-color: #f0fdfa;">BB/TB</th>
                 <th style="width: 45px; text-align:center; background-color: #f0fdfa;">ZS BB/TB</th>
                 <th style="width: 45px; text-align:center;">Naik BB</th>
-                ${hasNewBalita ? '<th style="width: 35px; text-align:center;">Baru</th>' : ''}
               </tr>
             </thead>
             <tbody>
@@ -344,7 +389,7 @@ export const generateMonthlyReportHtml = (
  
         <div class="section" style="page-break-before: always;">
           <div class="section-header">
-            <div class="section-number">V</div>
+            <div class="section-number">${getSectionNum()}</div>
             <div class="section-title">Hasil Penyuluhan & Tindak Lanjut Khusus (Klinis AI)</div>
           </div>
           <div style="margin-bottom: 15px; font-size: 11px; color: #475569; line-height: 1.5;">

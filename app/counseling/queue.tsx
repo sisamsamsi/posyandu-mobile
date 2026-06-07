@@ -251,7 +251,9 @@ export default function CounselingQueueScreen() {
         .filter(item => {
           if (!item.balita) return false;
           const trend = computedTrends.get(item.balita.id) || '-';
-          return trend === 'T' || trend === '2T';
+          const statusTbU = item.penimbangan?.status_tb_u || '';
+          const isStunted = statusTbU.includes('Pendek');
+          return trend === 'T' || trend === '2T' || isStunted;
         });
 
       setTodayQueue(mappedTodayQueue);
@@ -372,7 +374,9 @@ export default function CounselingQueueScreen() {
     const avatarColor = isLaki ? '#09A477' : '#DB2777';
 
     const trend = growthTrends.get(item.balita.id) || '-';
-    const canCounsel = trend === 'T' || trend === '2T';
+    const statusTbU = item.penimbangan?.status_tb_u || '';
+    const isStunted = statusTbU.includes('Pendek');
+    const canCounsel = trend === 'T' || trend === '2T' || isStunted;
 
     let buttonText = 'Mulai Penyuluhan AI';
     let buttonDisabled = false;

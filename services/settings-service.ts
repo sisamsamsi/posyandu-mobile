@@ -5,6 +5,10 @@ import { Posyandu } from '../lib/types';
 export interface PosyanduSettingsUpdate {
   nama_posyandu?: string;
   alamat_lengkap?: string;
+  nama_posyandu_balita?: string | null;
+  alamat_posyandu_balita?: string | null;
+  nama_posyandu_lansia?: string | null;
+  alamat_posyandu_lansia?: string | null;
   kelurahan?: string;
   kecamatan?: string;
   kabupaten?: string;

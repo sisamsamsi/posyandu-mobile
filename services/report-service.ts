@@ -21,6 +21,7 @@ export interface WeighingItem {
   nama: string;
   nik?: string;
   tanggal_lahir?: string;
+  alamat?: string;
   umur_bulan: number;
   jenis_kelamin: string;
   nama_ortu: string;
@@ -257,7 +258,7 @@ export class ReportService {
     // ── STEP 1: Ambil balitas ──
     const { data: balitas, error: bError } = await supabase
       .from('balitas')
-      .select('id, nama, nik, tanggal_lahir, jenis_kelamin, nama_ortu, rt, posyandu_id, created_at')
+      .select('id, nama, nik, tanggal_lahir, jenis_kelamin, nama_ortu, rt, posyandu_id, created_at, alamat')
       .eq('posyandu_id', posyanduId)
       .gt('tanggal_lahir', birthThresholdStr);
       
@@ -354,6 +355,7 @@ export class ReportService {
           nama: b.nama,
           nik: b.nik,
           tanggal_lahir: b.tanggal_lahir,
+          alamat: b.alamat || '-',
           umur_bulan: Math.max(0, ageMonths),
           jenis_kelamin: b.jenis_kelamin === 'Laki-laki' ? 'L' : 'P',
           nama_ortu: b.nama_ortu,
@@ -377,6 +379,7 @@ export class ReportService {
           nama: b.nama,
           nik: b.nik,
           tanggal_lahir: b.tanggal_lahir,
+          alamat: b.alamat || '-',
           umur_bulan: Math.max(0, ageMonths),
           jenis_kelamin: b.jenis_kelamin === 'Laki-laki' ? 'L' : 'P',
           nama_ortu: b.nama_ortu,

@@ -93,6 +93,10 @@ export default function ReportsScreen() {
     getPosyanduInfo();
   }, [activePosyanduId]);
 
+  const resolvedPosyanduName = isLansia
+    ? (activePosyandu?.nama_posyandu_lansia || activePosyandu?.nama_posyandu || 'Posyandu')
+    : (activePosyandu?.nama_posyandu_balita || activePosyandu?.nama_posyandu || 'Posyandu');
+
   const handleGenerateReport = async () => {
     if (!activePosyandu) return;
 
@@ -107,7 +111,7 @@ export default function ReportsScreen() {
         // Lansia Report
         const checks = await ReportService.getLansiaReportData(activePosyandu.id, selectedMonth, selectedYear);
         html = generateLansiaReportHtml(
-          activePosyandu.nama_posyandu,
+          resolvedPosyanduName,
           monthLabel,
           selectedYear,
           checks
@@ -120,7 +124,7 @@ export default function ReportsScreen() {
         const nutritionSummary = await ReportService.getNutritionSummary(activePosyandu.id, selectedMonth, selectedYear);
         
         html = generateMonthlyReportHtml(
-          activePosyandu.nama_posyandu,
+          resolvedPosyanduName,
           monthLabel,
           selectedYear,
           skdn,
@@ -169,7 +173,7 @@ export default function ReportsScreen() {
         activePosyandu.id,
         selectedMonth,
         selectedYear,
-        activePosyandu.nama_posyandu
+        resolvedPosyanduName
       );
     } catch (error: any) {
       Alert.alert('Error', 'Gagal membuat laporan Excel: ' + error.message);
