@@ -12,6 +12,7 @@ export default function PengaturanPage() {
   // Profile settings state
   const [namaPuskesmas, setNamaPuskesmas] = useState('Puskesmas Pondok I');
   const [kodePuskesmas, setKodePuskesmas] = useState('P3402010101');
+  const [kecamatan, setKecamatan] = useState('Wonokromo');
   const [kepalaPuskesmas, setKepalaPuskesmas] = useState('Dr. dr. Hendra Irawan, M.Kes');
   const [nipKepala, setNipKepala] = useState('197508102003121004');
   const [alamat, setAlamat] = useState('Jl. Raya Wonosari KM 7, Bantul, DIY');
@@ -26,6 +27,7 @@ export default function PengaturanPage() {
         const parsed = JSON.parse(savedProfile);
         setNamaPuskesmas(parsed.namaPuskesmas || 'Puskesmas Pondok I');
         setKodePuskesmas(parsed.kodePuskesmas || 'P3402010101');
+        setKecamatan(parsed.kecamatan || 'Wonokromo');
         setKepalaPuskesmas(parsed.kepalaPuskesmas || 'Dr. dr. Hendra Irawan, M.Kes');
         setNipKepala(parsed.nipKepala || '197508102003121004');
         setAlamat(parsed.alamat || 'Jl. Raya Wonosari KM 7, Bantul, DIY');
@@ -39,10 +41,11 @@ export default function PengaturanPage() {
     setSuccessMsg('');
 
     setTimeout(() => {
-      const profile = { namaPuskesmas, kodePuskesmas, kepalaPuskesmas, nipKepala, alamat };
+      const profile = { namaPuskesmas, kodePuskesmas, kecamatan, kepalaPuskesmas, nipKepala, alamat };
       localStorage.setItem('simpul_sehat_puskesmas_profile', JSON.stringify(profile));
       setSaving(false);
       setSuccessMsg('Pengaturan profil Puskesmas berhasil disimpan.');
+      window.dispatchEvent(new Event('puskesmas-profile-updated'));
     }, 800);
   };
 
@@ -107,9 +110,9 @@ export default function PengaturanPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
               <label style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>Kecamatan/Wilayah Kerja</label>
               <input 
-                type="text" required defaultValue="Wonokromo"
-                style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '12px', backgroundColor: '#f8fafc', color: '#64748b' }}
-                disabled
+                type="text" required value={kecamatan}
+                onChange={(e) => setKecamatan(e.target.value)}
+                style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '12px' }}
               />
             </div>
           </div>

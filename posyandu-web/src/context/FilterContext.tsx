@@ -9,7 +9,7 @@ interface FilterContextType {
   selectedPosyanduId: string;
   setSelectedPosyanduId: (id: string) => void;
   desaList: string[];
-  posyanduList: Array<{ id: string; nama_posyandu: string; tipe_posyandu: string; kelurahan: string }>;
+  posyanduList: Array<{ id: string; nama_posyandu: string; tipe_posyandu: string; kelurahan: string; invite_code: string | null }>;
   loading: boolean;
 }
 
@@ -19,29 +19,17 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
   const [selectedDesa, setSelectedDesa] = useState<string>('all');
   const [selectedPosyanduId, setSelectedPosyanduId] = useState<string>('all');
   const [desaList, setDesaList] = useState<string[]>([]);
-  const [posyanduList, setPosyanduList] = useState<Array<{ id: string; nama_posyandu: string; tipe_posyandu: string; kelurahan: string }>>([]);
+  const [posyanduList, setPosyanduList] = useState<Array<{ id: string; nama_posyandu: string; tipe_posyandu: string; kelurahan: string; invite_code: string | null }>>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   // Fetch unique Desa/Kalurahan and Posyandus on mount
   useEffect(() => {
     async function fetchData() {
       try {
-        // Check and restore simulation session if bypass mode is active
-        let { data: sessionData } = await supabase.auth.getSession();
-        if (!sessionData?.session && typeof window !== 'undefined' && localStorage.getItem('simpul_sehat_bypass_session') === 'true') {
-          const email = 'simulasi@posyandu.com';
-          const password = 'password123';
-          const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
-          if (loginError) {
-            await supabase.auth.signUp({ email, password });
-            await supabase.auth.signInWithPassword({ email, password });
-          }
-        }
-
         // Get all Posyandu units
         const { data: posyandus, error } = await supabase
           .from('posyandus')
-          .select('id, nama_posyandu, tipe_posyandu, kelurahan')
+          .select('id, nama_posyandu, tipe_posyandu, kelurahan, invite_code')
           .order('nama_posyandu', { ascending: true });
 
         if (error) throw error;

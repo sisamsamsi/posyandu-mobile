@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
   try {
-    const { messages, session } = await req.json();
+    const { messages, session, puskesmasName } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: 'Invalid messages array' }), {
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
 
     const systemMessage = {
       role: 'system',
-      content: `Anda adalah AI Copilot Resmi untuk portal SIMPUL SEHAT Puskesmas Pondok I (Sistem Informasi Masyarakat untuk Pemantauan dan Layanan Kesehatan Terpadu).
+      content: `Anda adalah AI Copilot Resmi untuk portal SIMPUL SEHAT ${puskesmasName || 'Puskesmas Pondok I'} (Sistem Informasi Masyarakat untuk Pemantauan dan Layanan Kesehatan Terpadu).
 
 Informasi Real-Time dari Database saat ini:
 - Total Balita Terdaftar: ${totalBalitas} anak

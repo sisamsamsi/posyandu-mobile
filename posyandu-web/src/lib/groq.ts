@@ -3,7 +3,7 @@ import Groq from 'groq-sdk';
 const apiKey = process.env.GROQ_API_KEY || '';
 
 if (!apiKey) {
-  console.warn('GROQ_API_KEY is missing in environment variables. AI features will fail.');
+  throw new Error('[SIMPUL SEHAT] GROQ_API_KEY wajib diisi di .env.local untuk fitur AI');
 }
 
 export const groq = new Groq({

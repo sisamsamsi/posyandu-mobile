@@ -12,12 +12,11 @@ export default function LoginPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const router = useRouter();
 
-  // Redirect to dashboard if session already exists (either real or bypass)
+  // Redirect to dashboard if session already exists
   useEffect(() => {
     async function checkSession() {
       const { data } = await supabase.auth.getSession();
-      const isBypass = localStorage.getItem('simpul_sehat_bypass_session');
-      if (data?.session || isBypass === 'true') {
+      if (data?.session) {
         router.push('/dashboard');
       }
     }
@@ -32,38 +31,13 @@ export default function LoginPage() {
     const trimmedEmail = email.trim();
 
     try {
-      // 1. Attempt standard sign in
+      // Attempt standard sign in
       const { data, error } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
         password: password
       });
 
       if (error) {
-        // 2. If it fails and user entered the default demo credentials, try to auto-signup
-        if (trimmedEmail === 'kader@posyandu.com' && password === 'password123') {
-          console.log('Demo user not found. Attempting auto-registration...');
-          
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-            email: trimmedEmail,
-            password: password
-          });
-
-          if (signUpError) {
-            throw new Error('Gagal masuk. Silakan gunakan tombol "Bypass Mode Simulasi" di bawah.');
-          }
-
-          if (signUpData?.session) {
-            router.push('/dashboard');
-            return;
-          } else {
-            // Signed up successfully but might require email confirmation
-            // We can bypass in this case since we know they entered the correct credentials
-            localStorage.setItem('simpul_sehat_bypass_session', 'true');
-            router.push('/dashboard');
-            return;
-          }
-        }
-        
         throw error;
       }
 
@@ -75,11 +49,6 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleBypass = () => {
-    localStorage.setItem('simpul_sehat_bypass_session', 'true');
-    router.push('/dashboard');
   };
 
   return (
@@ -252,53 +221,10 @@ export default function LoginPage() {
               {loading ? 'Menghubungkan...' : 'Masuk ke Portal'}
               <ArrowRight size={14} />
             </button>
-
-            <button 
-              type="button"
-              onClick={handleBypass}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                padding: '10px 16px',
-                backgroundColor: '#f8fafc',
-                border: '1px solid #cbd5e1',
-                color: '#475569',
-                borderRadius: '12px',
-                fontSize: '13px',
-                fontWeight: 500,
-                cursor: 'pointer',
-                transition: 'background-color 0.2s'
-              }}
-            >
-              <Sparkles size={14} style={{ color: '#14B8A6' }} />
-              <span>Simulasi Masuk (Bypass Auth)</span>
-            </button>
           </div>
         </form>
 
-        {/* Development Helper Box */}
-        <div 
-          style={{
-            marginTop: '28px',
-            padding: '14px',
-            backgroundColor: '#f0f9ff', // Blue 50
-            border: '1px solid #bae6fd', // Blue 200
-            borderRadius: '12px',
-            fontSize: '11px',
-            color: '#0369a1', // Blue 700
-            lineHeight: '1.5'
-          }}
-        >
-          <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-            <Sparkles size={12} style={{ color: '#0284c7' }} />
-            <span>Mode Pengembangan / Uji Coba</span>
-          </div>
-          Gunakan akun uji coba bawaan:<br />
-          Email: <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>kader@posyandu.com</span><br />
-          Sandi: <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>password123</span>
-        </div>
+        {/* Development Helper Box removed for production security */}
       </div>
     </div>
   );

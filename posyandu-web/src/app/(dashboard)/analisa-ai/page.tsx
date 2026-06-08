@@ -64,6 +64,17 @@ export default function AnalisaAiPage() {
     setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
     try {
+      let puskesmasName = 'Puskesmas Pondok I';
+      const savedProfile = localStorage.getItem('simpul_sehat_puskesmas_profile');
+      if (savedProfile) {
+        try {
+          const parsed = JSON.parse(savedProfile);
+          if (parsed.namaPuskesmas) {
+            puskesmasName = parsed.namaPuskesmas;
+          }
+        } catch (_) {}
+      }
+
       const { data: sessionData } = await supabase.auth.getSession();
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
@@ -73,7 +84,8 @@ export default function AnalisaAiPage() {
             role: m.role,
             content: m.content
           })),
-          session: sessionData?.session
+          session: sessionData?.session,
+          puskesmasName
         })
       });
 

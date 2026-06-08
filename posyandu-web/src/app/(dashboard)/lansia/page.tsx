@@ -574,7 +574,7 @@ export default function LansiaPage() {
                     style={{ padding: '6px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '12px' }}
                   >
                     <option value="">Pilih Posyandu</option>
-                    {posyanduList.filter(p => p.tipe_posyandu === 'lansia').map(p => (
+                    {posyanduList.map(p => (
                       <option key={p.id} value={p.id}>{p.nama_posyandu}</option>
                     ))}
                   </select>

@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { Bell } from 'lucide-react';
+import { Bell, Building2 } from 'lucide-react';
 import { useFilters } from '@/context/FilterContext';
 
 export default function Header() {
@@ -15,6 +15,29 @@ export default function Header() {
     desaList, 
     posyanduList 
   } = useFilters();
+
+  const [puskesmasName, setPuskesmasName] = useState('Puskesmas Pondok I');
+
+  useEffect(() => {
+    const updateProfile = () => {
+      const saved = localStorage.getItem('simpul_sehat_puskesmas_profile');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setPuskesmasName(parsed.namaPuskesmas || 'Puskesmas Pondok I');
+        } catch (_) {}
+      }
+    };
+
+    updateProfile();
+
+    window.addEventListener('puskesmas-profile-updated', updateProfile);
+    window.addEventListener('storage', updateProfile);
+    return () => {
+      window.removeEventListener('puskesmas-profile-updated', updateProfile);
+      window.removeEventListener('storage', updateProfile);
+    };
+  }, []);
 
   // Generate breadcrumbs & title based on route path
   const getBreadcrumbsAndTitle = () => {
@@ -123,11 +146,20 @@ export default function Header() {
           ))}
         </select>
 
-        <select className="header-select" defaultValue="pondok-1">
-          <option value="pondok-1">Puskesmas Pondok I</option>
-          <option value="pondok-2">Puskesmas Pondok II</option>
-          <option value="sukamaju">Puskesmas Sukamaju</option>
-        </select>
+        <div 
+          className="header-select" 
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '6px', 
+            cursor: 'default',
+            userSelect: 'none',
+            backgroundColor: '#f8fafc' 
+          }}
+        >
+          <Building2 size={14} style={{ color: '#14B8A6' }} />
+          <span>{puskesmasName}</span>
+        </div>
 
         {/* Notification Bell with Badge */}
         <div style={{ position: 'relative', cursor: 'pointer', padding: '4px' }}>

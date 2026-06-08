@@ -31,6 +31,16 @@ interface Balita {
 export default function BalitaPage() {
   const router = useRouter();
   const { selectedDesa, selectedPosyanduId, posyanduList, loading: filtersLoading } = useFilters();
+
+  // Calculate age in months
+  const calculateAgeMonths = (dobStr: string) => {
+    const dob = new Date(dobStr);
+    const today = new Date();
+    let months = (today.getFullYear() - dob.getFullYear()) * 12;
+    months -= dob.getMonth();
+    months += today.getMonth();
+    return months <= 0 ? 0 : months;
+  };
   
   // Data States
   const [balitas, setBalitas] = useState<Balita[]>([]);
@@ -43,6 +53,7 @@ export default function BalitaPage() {
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [statusFilter, setStatusFilter] = useState<'aktif' | 'lulus'>('aktif');
   
   // Form States
   const [nik, setNik] = useState('');
@@ -123,17 +134,26 @@ export default function BalitaPage() {
   // Handle Search & Filter in UI
   const filteredData = balitas.filter(b => {
     const q = searchQuery.toLowerCase();
-    return (
+    const matchesSearch = (
       b.nama.toLowerCase().includes(q) ||
       b.nik.includes(q) ||
       (b.posyandu?.nama_posyandu || '').toLowerCase().includes(q)
     );
+
+    if (!matchesSearch) return false;
+
+    const age = calculateAgeMonths(b.tanggal_lahir);
+    if (statusFilter === 'aktif') {
+      return age < 60;
+    } else {
+      return age >= 60;
+    }
   });
 
-  // Reset to page 1 when filters or search terms change
+  // Reset to page 1 when filters, search terms, or status changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedDesa, selectedPosyanduId]);
+  }, [searchQuery, selectedDesa, selectedPosyanduId, statusFilter]);
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -162,16 +182,6 @@ export default function BalitaPage() {
     return pages.filter((page, index, self) => {
       return page !== '...' || self[index - 1] !== '...';
     });
-  };
-
-  // Calculate age in months
-  const calculateAgeMonths = (dobStr: string) => {
-    const dob = new Date(dobStr);
-    const today = new Date();
-    let months = (today.getFullYear() - dob.getFullYear()) * 12;
-    months -= dob.getMonth();
-    months += today.getMonth();
-    return months <= 0 ? 0 : months;
   };
 
   const handleOpenModal = () => {
@@ -310,8 +320,26 @@ export default function BalitaPage() {
     <div>
       {/* 1. SEARCH & FILTERS BAR */}
       <div className="filter-bar">
-        <div style={{ display: 'flex', gap: '8px', flex: 1 }}>
-          <div className="search-input-wrapper">
+        <div style={{ display: 'flex', gap: '8px', flex: 1, alignItems: 'center' }}>
+          {/* Toggle Status Balita */}
+          <div className="toggle-switch-container" style={{ margin: 0, height: '34px' }}>
+            <button 
+              className={`toggle-btn ${statusFilter === 'aktif' ? 'active' : ''}`}
+              onClick={() => setStatusFilter('aktif')}
+              style={{ fontSize: '11px', padding: '0 12px' }}
+            >
+              Aktif (&lt; 5 Thn)
+            </button>
+            <button 
+              className={`toggle-btn ${statusFilter === 'lulus' ? 'active' : ''}`}
+              onClick={() => setStatusFilter('lulus')}
+              style={{ fontSize: '11px', padding: '0 12px' }}
+            >
+              Lulus (&ge; 5 Thn)
+            </button>
+          </div>
+
+          <div className="search-input-wrapper" style={{ flex: 1 }}>
             <Search size={14} className="search-icon" />
             <input 
               type="text" 
@@ -584,7 +612,7 @@ export default function BalitaPage() {
                     style={{ padding: '6px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '12px' }}
                   >
                     <option value="">Pilih Posyandu</option>
-                    {posyanduList.filter(p => p.tipe_posyandu === 'balita').map(p => (
+                    {posyanduList.map(p => (
                       <option key={p.id} value={p.id}>{p.nama_posyandu}</option>
                     ))}
                   </select>

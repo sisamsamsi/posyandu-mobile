@@ -153,7 +153,7 @@ export default function ImportDataPage() {
     setStep(3);
   };
 
-  // 4. Submit Bulk Insert to Supabase
+  // 4. Submit Bulk Insert to Supabase (Optimized to avoid N+1 query problem)
   const handleSaveData = async () => {
     setLoading(true);
     let inserted = 0;
@@ -161,53 +161,75 @@ export default function ImportDataPage() {
     const errors: string[] = [];
 
     try {
-      // Loop through data and check/insert
+      // 1. Filter out invalid NIKs
+      const validItemsToProcess = [];
       for (const item of parsedData) {
-        if (!item.nik || item.nik.length !== 16) {
-          errors.push(`NIK tidak valid (harus 16 digit) untuk: ${item.nama || 'Tanpa Nama'}`);
-          skipped++;
-          continue;
-        }
-
-        // Check duplicate
-        const { data: existing } = await supabase
-          .from('balitas')
-          .select('id')
-          .eq('nik', item.nik)
-          .maybeSingle();
-
-        if (existing) {
-          skipped++;
-          continue;
-        }
-
-        // Insert Toddler
-        const { data: insertedBalita, error: insErr } = await supabase
-          .from('balitas')
-          .insert([{
-            posyandu_id: item.posyandu_id,
-            nik: item.nik,
-            nama: item.nama || 'Tanpa Nama',
-            tanggal_lahir: item.tanggal_lahir,
-            jenis_kelamin: item.jenis_kelamin,
-            nama_ortu: item.nama_ortu || 'Ortu',
-            no_hp_ortu: item.no_hp_ortu || null,
-            alamat: item.alamat || 'Alamat tidak diisi',
-            rt: parseInt(item.rt) || 1,
-            bb_lahir: item.bb_lahir ? parseFloat(item.bb_lahir) : null,
-            tb_lahir: item.tb_lahir ? parseFloat(item.tb_lahir) : null,
-            anak_ke: parseInt(item.anak_ke) || 1
-          }])
-          .select('id')
-          .single();
-
-        if (insErr) {
-          errors.push(`Gagal menyimpan ${item.nama || 'Row'}: ${insErr.message}`);
+        if (!item.nik || item.nik.length !== 16 || isNaN(Number(item.nik))) {
+          errors.push(`NIK tidak valid (harus 16 digit angka) untuk: ${item.nama || 'Tanpa Nama'}`);
           skipped++;
         } else {
-          // Auto create immunization record
-          await supabase.from('imunisasi').insert([{ balita_id: insertedBalita.id }]);
-          inserted++;
+          validItemsToProcess.push(item);
+        }
+      }
+
+      if (validItemsToProcess.length > 0) {
+        // 2. Fetch all existing NIKs in bulk (1 query)
+        const nikList = validItemsToProcess.map(item => item.nik);
+        const { data: existingRecords, error: fetchErr } = await supabase
+          .from('balitas')
+          .select('nik')
+          .in('nik', nikList);
+
+        if (fetchErr) throw fetchErr;
+
+        const existingNiks = new Set((existingRecords || []).map(r => r.nik));
+
+        // 3. Separate new records vs skipped (duplicates)
+        const itemsToInsert = [];
+        for (const item of validItemsToProcess) {
+          if (existingNiks.has(item.nik)) {
+            skipped++;
+          } else {
+            itemsToInsert.push({
+              posyandu_id: item.posyandu_id,
+              nik: item.nik,
+              nama: item.nama || 'Tanpa Nama',
+              tanggal_lahir: item.tanggal_lahir,
+              jenis_kelamin: item.jenis_kelamin,
+              nama_ortu: item.nama_ortu || 'Ortu',
+              no_hp_ortu: item.no_hp_ortu || null,
+              alamat: item.alamat || 'Alamat tidak diisi',
+              rt: parseInt(item.rt) || 1,
+              bb_lahir: item.bb_lahir ? parseFloat(item.bb_lahir) : null,
+              tb_lahir: item.tb_lahir ? parseFloat(item.tb_lahir) : null,
+              anak_ke: parseInt(item.anak_ke) || 1
+            });
+          }
+        }
+
+        // 4. Bulk Insert Toddlers if there are any (1 query)
+        if (itemsToInsert.length > 0) {
+          const { data: insertedBalitas, error: insErr } = await supabase
+            .from('balitas')
+            .insert(itemsToInsert)
+            .select('id');
+
+          if (insErr) {
+            errors.push(`Gagal menyimpan data bulk balita: ${insErr.message}`);
+            skipped += itemsToInsert.length;
+          } else if (insertedBalitas && insertedBalitas.length > 0) {
+            inserted += insertedBalitas.length;
+
+            // 5. Bulk Insert Immunization placeholders (1 query)
+            const immunizationPayloads = insertedBalitas.map(b => ({ balita_id: b.id }));
+            const { error: imErr } = await supabase
+              .from('imunisasi')
+              .insert(immunizationPayloads);
+
+            if (imErr) {
+              errors.push(`Gagal membuat data imunisasi bulk: ${imErr.message}`);
+            }
+          }
         }
       }
 
@@ -294,9 +316,9 @@ export default function ImportDataPage() {
                 onChange={(e) => setPosyanduId(e.target.value)}
                 style={{ width: '100%', padding: '8px', borderRadius: '12px' }}
               >
-                <option value="">Pilih Posyandu Balita...</option>
-                {posyanduList.filter(p => p.tipe_posyandu === 'balita').map(p => (
-                  <option key={p.id} value={p.id}>{p.nama_posyandu} (Desa {p.kelurahan})</option>
+                <option value="">Pilih Unit Posyandu...</option>
+                {posyanduList.map(p => (
+                  <option key={p.id} value={p.id}>{p.nama_posyandu} (Desa {p.kelurahan || '-'})</option>
                 ))}
               </select>
             </div>

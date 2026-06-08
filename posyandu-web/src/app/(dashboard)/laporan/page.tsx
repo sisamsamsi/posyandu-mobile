@@ -25,6 +25,7 @@ interface LaporanRow {
   lingkar_lengan: number | null;
   lingkar_kepala: number | null;
   status_bb_u: string | null;
+  nama_posyandu: string;
 }
 
 export default function LaporanPage() {
@@ -53,11 +54,6 @@ export default function LaporanPage() {
   ];
 
   const fetchLaporanData = async () => {
-    if (selectedPosyanduId === 'all') {
-      setData([]);
-      return;
-    }
-
     try {
       setLoading(true);
       const yearNum = parseInt(selectedYear);
@@ -68,16 +64,47 @@ export default function LaporanPage() {
       const lastDay = new Date(yearNum, monthNum, 0).getDate();
       const endDate = `${yearNum}-${String(monthNum).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-      // 1. Fetch balitas in this Posyandu
-      const { data: balitas, error: bErr } = await supabase
+      // Get target posyandu IDs
+      let targetPosyanduIds: string[] = [];
+      if (selectedPosyanduId !== 'all') {
+        targetPosyanduIds = [selectedPosyanduId];
+      } else {
+        targetPosyanduIds = posyanduList
+          .filter(p => selectedDesa === 'all' || p.kelurahan === selectedDesa)
+          .map(p => p.id);
+      }
+
+      if (targetPosyanduIds.length === 0) {
+        setData([]);
+        return;
+      }
+
+      // 1. Fetch balitas in target Posyandus
+      const { data: allBalitas, error: bErr } = await supabase
         .from('balitas')
-        .select('*')
-        .eq('posyandu_id', selectedPosyanduId)
+        .select('*, posyandu:posyandus(nama_posyandu)')
+        .in('posyandu_id', targetPosyanduIds)
         .order('nama', { ascending: true });
 
       if (bErr) throw bErr;
 
-      if (!balitas || balitas.length === 0) {
+      if (!allBalitas || allBalitas.length === 0) {
+        setData([]);
+        return;
+      }
+
+      // Filter to keep only active balitas (< 60 months old at the selected month/year)
+      const balitas = allBalitas.filter(b => {
+        const dob = new Date(b.tanggal_lahir);
+        const refDate = new Date(yearNum, monthNum - 1, 1);
+        let months = (refDate.getFullYear() - dob.getFullYear()) * 12;
+        months -= dob.getMonth();
+        months += refDate.getMonth();
+        const age = months <= 0 ? 0 : months;
+        return age < 60;
+      });
+
+      if (balitas.length === 0) {
         setData([]);
         return;
       }
@@ -123,7 +150,8 @@ export default function LaporanPage() {
           tinggi_badan: w ? w.tinggi_badan : null,
           lingkar_lengan: w ? w.lingkar_lengan : null,
           lingkar_kepala: w ? w.lingkar_kepala : null,
-          status_bb_u: w ? w.status_bb_u : null
+          status_bb_u: w ? w.status_bb_u : null,
+          nama_posyandu: (b as any).posyandu?.nama_posyandu || ''
         };
       });
 
@@ -148,12 +176,13 @@ export default function LaporanPage() {
 
     try {
       const activePosyandu = posyanduList.find(p => p.id === selectedPosyanduId);
-      const posyanduName = activePosyandu?.nama_posyandu || 'Posyandu';
+      const posyanduName = activePosyandu?.nama_posyandu || 'Semua_Posyandu';
       const monthLabel = monthsList.find(m => m.value === selectedMonth)?.label || '';
 
       // Map rows to final e-PPGBM structure columns
       const exportData = data.map((row) => ({
         'No': row.no,
+        'Posyandu': row.nama_posyandu,
         'NIK Balita': row.nik,
         'Nama Balita': row.nama,
         'Tanggal Lahir': row.tanggal_lahir,
@@ -228,9 +257,9 @@ export default function LaporanPage() {
           </select>
 
           {selectedPosyanduId === 'all' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#ea580c' }}>
-              <AlertCircle size={14} />
-              <span>Silakan pilih Unit Posyandu spesifik di menu atas untuk menarik data laporan.</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#0f766e' }}>
+              <AlertCircle size={14} style={{ color: '#14b8a6' }} />
+              <span>Menampilkan laporan gabungan dari semua posyandu.</span>
             </div>
           )}
         </div>
@@ -238,7 +267,7 @@ export default function LaporanPage() {
         <div>
           <button 
             onClick={handleExportExcel}
-            disabled={exporting || data.length === 0 || selectedPosyanduId === 'all'}
+            disabled={exporting || data.length === 0}
             className="btn btn-primary"
           >
             <FileSpreadsheet size={14} />
@@ -248,11 +277,7 @@ export default function LaporanPage() {
       </div>
 
       {/* REPORT PREVIEW */}
-      {selectedPosyanduId === 'all' ? (
-        <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#fff', borderRadius: '16px', border: '1px solid #e2e8f0', color: '#64748b' }}>
-          Gunakan filter **Nama Posyandu** pada header atas untuk menampilkan laporan bulanan posyandu bersangkutan.
-        </div>
-      ) : loading ? (
+      {loading ? (
         <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
           Menyusun data laporan...
         </div>
@@ -277,6 +302,7 @@ export default function LaporanPage() {
                 <th>Nama Balita</th>
                 <th>NIK</th>
                 <th>JK</th>
+                {selectedPosyanduId === 'all' && <th>Posyandu</th>}
                 <th>Tanggal Ukur</th>
                 <th>Berat (kg)</th>
                 <th>Tinggi (cm)</th>
@@ -291,6 +317,7 @@ export default function LaporanPage() {
                   <td style={{ fontWeight: 500, color: '#1e293b' }}>{row.nama}</td>
                   <td style={{ fontFamily: 'monospace' }}>{row.nik}</td>
                   <td>{row.jenis_kelamin}</td>
+                  {selectedPosyanduId === 'all' && <td style={{ fontWeight: 500, color: '#0d9488' }}>{row.nama_posyandu}</td>}
                   <td>{row.tanggal_pengukuran ? new Date(row.tanggal_pengukuran).toLocaleDateString('id-ID') : '-'}</td>
                   <td>{row.berat_badan || '-'}</td>
                   <td>{row.tinggi_badan || '-'}</td>

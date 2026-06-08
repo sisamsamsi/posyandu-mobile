@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Building2, Plus, RefreshCw, Key, Check } from 'lucide-react';
+import { Building2, Plus, RefreshCw, Key, Check, Edit2, Trash2 } from 'lucide-react';
 import { useFilters } from '@/context/FilterContext';
 
 interface Posyandu {
@@ -12,7 +12,7 @@ interface Posyandu {
   alamat_lengkap: string | null;
   kelurahan: string | null;
   kecamatan: string | null;
-  kode_ketua: string | null;
+  invite_code: string | null;
   created_at: string;
 }
 
@@ -22,12 +22,13 @@ export default function PosyanduPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
 
   // Form States
   const [namaPosyandu, setNamaPosyandu] = useState('');
   const [tipePosyandu, setTipePosyandu] = useState('balita');
   const [alamat, setAlamat] = useState('');
-  const [kelurahan, setKelurahan] = useState('Sukamaju');
+  const [kelurahan, setKelurahan] = useState('');
   const [kecamatan, setKecamatan] = useState('Pakualaman');
   const [generatedCode, setGeneratedCode] = useState('');
 
@@ -37,7 +38,7 @@ export default function PosyanduPage() {
       setLoading(true);
       const { data, error } = await supabase
         .from('posyandus')
-        .select('id, nama_posyandu, tipe_posyandu, alamat_lengkap, kelurahan, kecamatan, kode_ketua, created_at')
+        .select('id, nama_posyandu, tipe_posyandu, alamat_lengkap, kelurahan, kecamatan, invite_code, created_at')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -66,13 +67,42 @@ export default function PosyanduPage() {
   };
 
   const handleOpenModal = () => {
+    setEditId(null);
     setNamaPosyandu('');
-    setTipePosyandu('balita');
+    setTipePosyandu('balita'); // internal default
     setAlamat('');
-    setKelurahan('Sukamaju');
+    setKelurahan('');
     setKecamatan('Pakualaman');
     setGeneratedCode(generateCode());
     setShowModal(true);
+  };
+
+  const handleOpenEditModal = (p: Posyandu) => {
+    setEditId(p.id);
+    setNamaPosyandu(p.nama_posyandu || '');
+    setTipePosyandu(p.tipe_posyandu || 'balita');
+    setAlamat(p.alamat_lengkap || '');
+    setKelurahan(p.kelurahan || '');
+    setKecamatan(p.kecamatan || '');
+    setGeneratedCode(p.invite_code || '');
+    setShowModal(true);
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (window.confirm(`Apakah Anda yakin ingin menghapus unit Posyandu "${name}"? Tindakan ini tidak dapat dibatalkan.`)) {
+      try {
+        const { error } = await supabase
+          .from('posyandus')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+        
+        fetchPosyandus();
+      } catch (err: any) {
+        alert('Gagal menghapus posyandu: ' + err.message);
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -82,30 +112,39 @@ export default function PosyanduPage() {
     try {
       const payload = {
         nama_posyandu: namaPosyandu.trim(),
-        tipe_posyandu: tipePosyandu,
+        tipe_posyandu: 'balita', // keep as balita for backward compat in old tables
         alamat_lengkap: alamat.trim(),
-        kelurahan: kelurahan,
-        kecamatan: kecamatan,
+        kelurahan: kelurahan.trim(),
+        kecamatan: kecamatan.trim(),
         kabupaten: 'Yogyakarta',
         provinsi: 'DIY',
-        kode_ketua: generatedCode,
-        // Fallbacks for older mobile columns
-        nama_posyandu_balita: tipePosyandu === 'balita' ? namaPosyandu.trim() : null,
-        alamat_posyandu_balita: tipePosyandu === 'balita' ? alamat.trim() : null,
-        nama_posyandu_lansia: tipePosyandu === 'lansia' ? namaPosyandu.trim() : null,
-        alamat_posyandu_lansia: tipePosyandu === 'lansia' ? alamat.trim() : null,
+        invite_code: generatedCode,
+        // Populate both division columns to sync with unified ILP mobile schema
+        nama_posyandu_balita: namaPosyandu.trim(),
+        alamat_posyandu_balita: alamat.trim(),
+        nama_posyandu_lansia: namaPosyandu.trim(),
+        alamat_posyandu_lansia: alamat.trim(),
       };
 
-      const { error } = await supabase
-        .from('posyandus')
-        .insert([payload]);
-
-      if (error) throw error;
+      if (editId) {
+        const { error } = await supabase
+          .from('posyandus')
+          .update(payload)
+          .eq('id', editId);
+        
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('posyandus')
+          .insert([payload]);
+        
+        if (error) throw error;
+      }
 
       setShowModal(false);
       fetchPosyandus();
     } catch (err: any) {
-      alert('Gagal membuat posyandu: ' + err.message);
+      alert('Gagal menyimpan posyandu: ' + err.message);
     } finally {
       setSubmitting(false);
     }
@@ -142,26 +181,21 @@ export default function PosyanduPage() {
       ) : (
         <div className="table-container">
           <table className="custom-table">
-            <thead>
+             <thead>
               <tr>
                 <th>Nama Posyandu</th>
-                <th>Tipe Posyandu</th>
                 <th>Kelurahan / Desa</th>
                 <th>Kecamatan</th>
                 <th>Alamat Lengkap</th>
-                <th>Kode Ketua (Mobile Auth)</th>
+                <th>Kode Undangan (Mobile Auth)</th>
                 <th>Tanggal Dibuat</th>
+                <th style={{ width: '150px' }}>Aksi</th>
               </tr>
             </thead>
             <tbody>
               {posyandus.map((p) => (
                 <tr key={p.id}>
                   <td style={{ fontWeight: 500, color: '#1e293b' }}>{p.nama_posyandu}</td>
-                  <td>
-                    <span className={`badge ${p.tipe_posyandu === 'balita' ? 'badge-info' : 'badge-warning'}`}>
-                      {p.tipe_posyandu === 'balita' ? 'Balita' : 'Lansia'}
-                    </span>
-                  </td>
                   <td>{p.kelurahan || '-'}</td>
                   <td>{p.kecamatan || '-'}</td>
                   <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -171,11 +205,31 @@ export default function PosyanduPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <Key size={12} style={{ color: '#14B8A6' }} />
                       <span style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '12px', color: '#0d9488', backgroundColor: '#f0fdfa', padding: '2px 6px', borderRadius: '8px' }}>
-                        {p.kode_ketua || '-'}
+                        {p.invite_code || '-'}
                       </span>
                     </div>
                   </td>
                   <td>{new Date(p.created_at).toLocaleDateString('id-ID')}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button 
+                        onClick={() => handleOpenEditModal(p)}
+                        className="btn btn-secondary"
+                        style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', height: '28px' }}
+                      >
+                        <Edit2 size={12} />
+                        <span>Edit</span>
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(p.id, p.nama_posyandu)}
+                        className="btn btn-secondary"
+                        style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', height: '28px', color: '#ef4444', borderColor: '#fee2e2', backgroundColor: '#fef2f2' }}
+                      >
+                        <Trash2 size={12} />
+                        <span>Hapus</span>
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -217,7 +271,7 @@ export default function PosyanduPage() {
           >
             {/* Modal Header */}
             <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 600, fontSize: '14px', color: '#1e293b' }}>Mendaftarkan Unit Posyandu Baru</span>
+              <span style={{ fontWeight: 600, fontSize: '14px', color: '#1e293b' }}>{editId ? 'Ubah Data Posyandu' : 'Mendaftarkan Unit Posyandu Baru'}</span>
               <button 
                 type="button" 
                 onClick={() => setShowModal(false)}
@@ -242,47 +296,34 @@ export default function PosyanduPage() {
                 />
               </div>
 
-              {/* Tipe Posyandu */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>Tipe Layanan Posyandu</label>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer' }}>
-                    <input 
-                      type="radio" 
-                      name="tipe" 
-                      value="balita" 
-                      checked={tipePosyandu === 'balita'} 
-                      onChange={() => setTipePosyandu('balita')} 
-                    />
-                    <span>Posyandu Balita (Tumbuh Kembang)</span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer' }}>
-                    <input 
-                      type="radio" 
-                      name="tipe" 
-                      value="lansia" 
-                      checked={tipePosyandu === 'lansia'} 
-                      onChange={() => setTipePosyandu('lansia')} 
-                    />
-                    <span>Posyandu Lansia (Degeneratif)</span>
-                  </label>
-                </div>
+              {/* Info Layanan Primer */}
+              <div style={{ 
+                padding: '10px 12px', 
+                backgroundColor: '#f8fafc', 
+                border: '1px solid #e2e8f0', 
+                borderRadius: '12px',
+                fontSize: '11px',
+                color: '#475569',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '2px'
+              }}>
+                <span style={{ fontWeight: 600, color: '#1e293b' }}>Layanan Terintegrasi (ILP)</span>
+                <span>Unit Posyandu baru akan didaftarkan sebagai unit terintegrasi yang melayani Balita (Tumbuh Kembang) & Lansia (Degeneratif) sekaligus.</span>
               </div>
 
               {/* Kelurahan & Kecamatan */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <label style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>Kelurahan / Desa</label>
-                  <select 
+                  <input 
+                    type="text" 
+                    required 
                     value={kelurahan}
                     onChange={(e) => setKelurahan(e.target.value)}
-                    style={{ padding: '8px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '12px' }}
-                  >
-                    <option value="Sukamaju">Sukamaju</option>
-                    <option value="Mekarjaya">Mekarjaya</option>
-                    <option value="Tugu">Tugu</option>
-                    <option value="Cisalak">Cisalak</option>
-                  </select>
+                    placeholder="Nama kelurahan/desa..."
+                    style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '12px' }}
+                  />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <label style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>Kecamatan</label>
@@ -347,7 +388,7 @@ export default function PosyanduPage() {
                 disabled={submitting}
                 className="btn btn-primary"
               >
-                {submitting ? 'Menyimpan...' : 'Simpan & Rilis Kode'}
+                {submitting ? 'Menyimpan...' : editId ? 'Simpan Perubahan' : 'Simpan & Rilis Kode'}
               </button>
             </div>
           </form>

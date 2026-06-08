@@ -13,8 +13,7 @@ export default function DashboardLayout({
   return (
     <FilterProvider>
       <div className="app-container">
-        {/* Sidebar Navigasi Kiri */}
-        <Sidebar adminName="Dr. Anisa Putri" puskesmasName="Puskesmas Pondok I" />
+        <Sidebar />
         
         {/* Konten Utama */}
         <div className="main-wrapper">

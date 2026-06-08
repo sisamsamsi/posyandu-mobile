@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
@@ -22,11 +22,38 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ 
-  adminName = 'Dr. Anisa Putri', 
-  puskesmasName = 'Puskesmas Sukamaju' 
-}: SidebarProps) {
+  adminName: propAdminName, 
+  puskesmasName: propPuskesmasName 
+}: SidebarProps = {}) {
   const pathname = usePathname();
   const router = useRouter();
+
+  const [adminName, setAdminName] = useState(propAdminName || 'Dr. Anisa Putri');
+  const [puskesmasName, setPuskesmasName] = useState(propPuskesmasName || 'Puskesmas Pondok I');
+
+  useEffect(() => {
+    if (propAdminName || propPuskesmasName) return;
+
+    const updateProfile = () => {
+      const saved = localStorage.getItem('simpul_sehat_puskesmas_profile');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setAdminName(parsed.kepalaPuskesmas || 'Dr. dr. Hendra Irawan, M.Kes');
+          setPuskesmasName(parsed.namaPuskesmas || 'Puskesmas Pondok I');
+        } catch (_) {}
+      }
+    };
+
+    updateProfile();
+
+    window.addEventListener('puskesmas-profile-updated', updateProfile);
+    window.addEventListener('storage', updateProfile);
+    return () => {
+      window.removeEventListener('puskesmas-profile-updated', updateProfile);
+      window.removeEventListener('storage', updateProfile);
+    };
+  }, [propAdminName, propPuskesmasName]);
 
   const menuItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -40,7 +67,6 @@ export default function Sidebar({
   ];
 
   const handleSignOut = async () => {
-    localStorage.removeItem('simpul_sehat_bypass_session');
     await supabase.auth.signOut();
     router.push('/');
   };

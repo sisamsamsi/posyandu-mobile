@@ -125,6 +125,45 @@ const calculateAgeMonthsAtDate = (dobStr: string, dateStr: string) => {
   return months <= 0 ? 0 : months;
 };
 
+const getStatusBadgeStyle = (status: string | null | undefined): { className: string; text: string } => {
+  if (!status) return { className: 'badge-secondary', text: '-' };
+  const s = status.toLowerCase();
+  
+  // Status Kritis (Gizi Buruk, Sangat Pendek, Sangat Kurang)
+  if (
+    s.includes('sangat') || 
+    s.includes('buruk') || 
+    s.includes('severely') || 
+    s.includes('sk') || 
+    s.includes('sp')
+  ) {
+    return { className: 'badge-danger', text: status }; // Merah
+  }
+  
+  // Status Kurang / Risiko (Gizi Kurang, Pendek, Berisiko)
+  if (
+    s.includes('kurang') || 
+    s.includes('pendek') || 
+    s.includes('wasted') || 
+    s.includes('berisiko') || 
+    s.includes('k')
+  ) {
+    return { className: 'badge-warning', text: status }; // Kuning
+  }
+  
+  // Status Lebih (Obesitas, Gizi Lebih, Overweight)
+  if (
+    s.includes('lebih') || 
+    s.includes('obesitas') || 
+    s.includes('overweight')
+  ) {
+    return { className: 'badge-info', text: status }; // Biru/Cyan
+  }
+  
+  // Status Normal
+  return { className: 'badge-success', text: status }; // Hijau
+};
+
 const interpolateSD = (points: Whopoint[], x: number): Omit<Whopoint, 'x'> => {
   const sorted = [...points].sort((a, b) => a.x - b.x);
   if (x <= sorted[0].x) return { sd3: sorted[0].sd3, sd2: sorted[0].sd2, sd0: sorted[0].sd0, sdM2: sorted[0].sdM2, sdM3: sorted[0].sdM3 };
@@ -514,7 +553,10 @@ export default function BalitaDetailPage({ params }: PageProps) {
                     <span style={{ fontSize: '16px', fontWeight: 700, display: 'block', color: '#1e293b', margin: '2px 0' }}>
                       {latestMeas && latestMeas.zscore_bb_u !== null && latestMeas.zscore_bb_u !== undefined ? latestMeas.zscore_bb_u.toFixed(1) : '-'}
                     </span>
-                    <span className="badge badge-success">{latestMeas?.status_bb_u || 'Normal'}</span>
+                    {(() => {
+                      const badge = getStatusBadgeStyle(latestMeas?.status_bb_u || 'Normal');
+                      return <span className={`badge ${badge.className}`}>{badge.text}</span>;
+                    })()}
                   </div>
 
                   <div style={{ padding: '12px', border: '1px solid #e2e8f0', borderRadius: '12px', textAlign: 'center' }}>
@@ -522,7 +564,10 @@ export default function BalitaDetailPage({ params }: PageProps) {
                     <span style={{ fontSize: '16px', fontWeight: 700, display: 'block', color: '#1e293b', margin: '2px 0' }}>
                       {latestMeas && latestMeas.zscore_tb_u !== null && latestMeas.zscore_tb_u !== undefined ? latestMeas.zscore_tb_u.toFixed(1) : '-'}
                     </span>
-                    <span className="badge badge-success">{latestMeas?.status_tb_u || 'Normal'}</span>
+                    {(() => {
+                      const badge = getStatusBadgeStyle(latestMeas?.status_tb_u || 'Normal');
+                      return <span className={`badge ${badge.className}`}>{badge.text}</span>;
+                    })()}
                   </div>
 
                   <div style={{ padding: '12px', border: '1px solid #e2e8f0', borderRadius: '12px', textAlign: 'center' }}>
@@ -530,7 +575,10 @@ export default function BalitaDetailPage({ params }: PageProps) {
                     <span style={{ fontSize: '16px', fontWeight: 700, display: 'block', color: '#1e293b', margin: '2px 0' }}>
                       {latestMeas && latestMeas.zscore_bb_tb !== null && latestMeas.zscore_bb_tb !== undefined ? latestMeas.zscore_bb_tb.toFixed(1) : '-'}
                     </span>
-                    <span className="badge badge-success">{latestMeas?.status_bb_tb || 'Normal'}</span>
+                    {(() => {
+                      const badge = getStatusBadgeStyle(latestMeas?.status_bb_tb || 'Normal');
+                      return <span className={`badge ${badge.className}`}>{badge.text}</span>;
+                    })()}
                   </div>
                 </div>
               </div>

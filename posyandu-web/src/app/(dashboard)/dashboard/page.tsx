@@ -37,7 +37,29 @@ export default function Dashboard() {
   const { selectedDesa, setSelectedDesa, selectedPosyanduId, setSelectedPosyanduId, desaList, posyanduList, loading: filtersLoading } = useFilters();
   const [toggleMode, setToggleMode] = useState<'balita' | 'lansia'>('balita');
   const [mounted, setMounted] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState('Mei 2026');
+  
+  // Generate Indonesian month options
+  const monthsIndo = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+  
+  const generateMonthOptions = () => {
+    const options = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      options.push(`${monthsIndo[d.getMonth()]} ${d.getFullYear()}`);
+    }
+    return options;
+  };
+
+  const monthOptionsList = generateMonthOptions();
+
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return `${monthsIndo[now.getMonth()]} ${now.getFullYear()}`;
+  });
 
   // Stats States
   const [stats, setStats] = useState({
@@ -77,8 +99,8 @@ export default function Dashboard() {
         };
         const parts = selectedMonth.split(' ');
         const monthName = parts[0];
-        const year = parseInt(parts[1]) || 2026;
-        const monthNum = monthMap[monthName] || 5;
+        const year = parseInt(parts[1]) || new Date().getFullYear();
+        const monthNum = monthMap[monthName] || (new Date().getMonth() + 1);
 
         // Start and end dates for the selected month
         const startDate = `${year}-${String(monthNum).padStart(2, '0')}-01`;
@@ -101,11 +123,20 @@ export default function Dashboard() {
 
         // Query balitas and lansias in these posyandus
         const [balitasRes, lansiasRes] = await Promise.all([
-          supabase.from('balitas').select('id, jenis_kelamin, posyandu_id').in('posyandu_id', safePosyanduIds),
+          supabase.from('balitas').select('id, jenis_kelamin, posyandu_id, tanggal_lahir').in('posyandu_id', safePosyanduIds),
           supabase.from('lansias').select('id, jenis_kelamin, posyandu_id').in('posyandu_id', safePosyanduIds)
         ]);
 
-        const activeBalitas = balitasRes.data || [];
+        const allBalitas = balitasRes.data || [];
+        const activeBalitas = allBalitas.filter(b => {
+          const dob = new Date(b.tanggal_lahir);
+          const refDate = new Date(year, monthNum - 1, 1);
+          let months = (refDate.getFullYear() - dob.getFullYear()) * 12;
+          months -= dob.getMonth();
+          months += refDate.getMonth();
+          const age = months <= 0 ? 0 : months;
+          return age < 60;
+        });
         const activeLansias = lansiasRes.data || [];
 
         const activeBalitaIds = activeBalitas.map(b => b.id);
@@ -372,12 +403,7 @@ export default function Dashboard() {
               <option key={desa} value={desa}>{desa}</option>
             ))}
             {desaList.length === 0 && (
-              <>
-                <option value="Sukamaju">Sukamaju</option>
-                <option value="Mekarjaya">Mekarjaya</option>
-                <option value="Tugu">Tugu</option>
-                <option value="Cisalak">Cisalak</option>
-              </>
+              <option value="" disabled>Belum ada kalurahan terdaftar</option>
             )}
           </select>
 
@@ -392,11 +418,7 @@ export default function Dashboard() {
               <option key={posy.id} value={posy.id}>{posy.nama_posyandu}</option>
             ))}
             {posyanduList.length === 0 && (
-              <>
-                <option value="melati-2">Posyandu Melati 2</option>
-                <option value="kenanga">Posyandu Kenanga</option>
-                <option value="mawar-1">Posyandu Mawar 1</option>
-              </>
+              <option value="" disabled>Belum ada posyandu terdaftar</option>
             )}
           </select>
 
@@ -405,11 +427,11 @@ export default function Dashboard() {
             className="header-select"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
+            suppressHydrationWarning={true}
           >
-            <option value="Mei 2026">Mei 2026</option>
-            <option value="April 2026">April 2026</option>
-            <option value="Maret 2026">Maret 2026</option>
-            <option value="Februari 2026">Februari 2026</option>
+            {monthOptionsList.map(mOpt => (
+              <option key={mOpt} value={mOpt} suppressHydrationWarning={true}>{mOpt}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -424,10 +446,6 @@ export default function Dashboard() {
               <span>Total Balita</span>
             </div>
             <div className="metric-card-value">{stats.totalBalita.toLocaleString('id-ID')}</div>
-            <div className="metric-card-change change-up">
-              <ChevronUp size={12} />
-              <span>3.2% dari bulan lalu</span>
-            </div>
           </div>
 
           {/* Card 2: Kehadiran */}
@@ -437,10 +455,6 @@ export default function Dashboard() {
               <span>Kehadiran Penimbangan</span>
             </div>
             <div className="metric-card-value">{stats.kehadiran}%</div>
-            <div className="metric-card-change change-up">
-              <ChevronUp size={12} />
-              <span>1.8% dari bulan lalu</span>
-            </div>
           </div>
 
           {/* Card 3: Stunting */}
@@ -450,10 +464,6 @@ export default function Dashboard() {
               <span>Balita Terindikasi Stunting</span>
             </div>
             <div className="metric-card-value">{stats.stunting}</div>
-            <div className="metric-card-change change-down" style={{ color: '#16a34a' }}>
-              <ChevronDown size={12} />
-              <span>2 anak dari bulan lalu</span>
-            </div>
           </div>
 
           {/* Card 4: Wasting */}
@@ -463,10 +473,6 @@ export default function Dashboard() {
               <span>Balita Wasting (Kurus)</span>
             </div>
             <div className="metric-card-value">{stats.wasting}</div>
-            <div className="metric-card-change change-down" style={{ color: '#16a34a' }}>
-              <ChevronDown size={12} />
-              <span>1 anak dari bulan lalu</span>
-            </div>
           </div>
         </div>
       ) : (
@@ -478,10 +484,6 @@ export default function Dashboard() {
               <span>Total Lansia</span>
             </div>
             <div className="metric-card-value">{stats.totalLansia.toLocaleString('id-ID')}</div>
-            <div className="metric-card-change change-up">
-              <ChevronUp size={12} />
-              <span>0.5% dari bulan lalu</span>
-            </div>
           </div>
 
           {/* Card 2: Pemeriksaan */}
@@ -491,10 +493,6 @@ export default function Dashboard() {
               <span>Lansia Diperiksa</span>
             </div>
             <div className="metric-card-value">{stats.lansiaKehadiran}%</div>
-            <div className="metric-card-change change-up">
-              <ChevronUp size={12} />
-              <span>2.4% dari bulan lalu</span>
-            </div>
           </div>
 
           {/* Card 3: Hipertensi */}
@@ -504,10 +502,6 @@ export default function Dashboard() {
               <span>Lansia Hipertensi</span>
             </div>
             <div className="metric-card-value">{stats.hipertensi}</div>
-            <div className="metric-card-change change-up" style={{ color: '#e11d48' }}>
-              <ChevronUp size={12} />
-              <span>5 kasus baru bulan ini</span>
-            </div>
           </div>
 
           {/* Card 4: Diabetes */}
@@ -517,10 +511,6 @@ export default function Dashboard() {
               <span>Lansia Diabetes</span>
             </div>
             <div className="metric-card-value">{stats.diabetes}</div>
-            <div className="metric-card-change change-down" style={{ color: '#16a34a' }}>
-              <ChevronDown size={12} />
-              <span>2 kasus teratasi</span>
-            </div>
           </div>
         </div>
       )}
@@ -715,7 +705,7 @@ export default function Dashboard() {
           </div>
 
           <div className="anomaly-list">
-            {anomalies.length > 0 ? (
+            {anomalies.length > 0 && anomalies.filter(a => a.tipe_kategori === toggleMode).length > 0 ? (
               anomalies
                 .filter(a => a.tipe_kategori === toggleMode)
                 .map((a) => (
@@ -739,51 +729,9 @@ export default function Dashboard() {
                   </div>
                 ))
             ) : (
-              toggleMode === 'balita' ? (
-                <>
-                  <div className="anomaly-item">
-                    <div>
-                      <span className="anomaly-title">4 balita mengalami penurunan BB drastis</span>
-                      <p className="anomaly-desc">Ditemukan penurunan &gt; 1.5kg dalam penimbangan 7 hari terakhir.</p>
-                      <div className="anomaly-meta">Deteksi AI - Terakhir: 1 jam lalu</div>
-                    </div>
-                  </div>
-
-                  <div className="anomaly-item">
-                    <div>
-                      <span className="anomaly-title">2 balita tidak naik BB &gt; 2 bulan (2T)</span>
-                      <p className="anomaly-desc">Perlu intervensi penyuluhan gizi / rujukan bidan desa segera.</p>
-                      <div className="anomaly-meta">Deteksi AI - Terakhir: 3 jam lalu</div>
-                    </div>
-                  </div>
-
-                  <div className="anomaly-item" style={{ backgroundColor: '#fff7ed', borderLeftColor: '#ea580c' }}>
-                    <div>
-                      <span className="anomaly-title" style={{ color: '#c2410c' }}>1 posyandu belum melapor bulan ini</span>
-                      <p className="anomaly-desc" style={{ color: '#c2410c' }}>Posyandu Cempaka belum mengirimkan rekapitulasi data.</p>
-                      <div className="anomaly-meta">Deteksi AI - Terakhir: 12 jam lalu</div>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="anomaly-item">
-                    <div>
-                      <span className="anomaly-title">2 lansia terdeteksi Hipertensi Krisis</span>
-                      <p className="anomaly-desc">Tekanan darah sistolik di atas 180 mmHg terdaftar di Posyandu Kenanga.</p>
-                      <div className="anomaly-meta">Deteksi AI - Terakhir: 30 menit lalu</div>
-                    </div>
-                  </div>
-
-                  <div className="anomaly-item">
-                    <div>
-                      <span className="anomaly-title">1 lansia terdeteksi Gula Darah Ekstrem</span>
-                      <p className="anomaly-desc">Pemeriksaan GDA &gt; 350 mg/dL terdaftar di Sukamaju.</p>
-                      <div className="anomaly-meta">Deteksi AI - Terakhir: 2 jam lalu</div>
-                    </div>
-                  </div>
-                </>
-              )
+              <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', fontSize: '11px', border: '1px dashed #cbd5e1', borderRadius: '12px', margin: '12px' }}>
+                Tidak ada anomali terdeteksi untuk periode ini.
+              </div>
             )}
           </div>
         </div>
