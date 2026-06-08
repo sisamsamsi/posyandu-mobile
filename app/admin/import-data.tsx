@@ -35,6 +35,25 @@ import { useServiceStore } from '../../stores/service-store';
 export default function ImportDataScreen() {
   const router = useRouter();
   const [type, setType] = useState<'balita' | 'lansia'>('balita');
+
+  // Helper: ambil nama posyandu sesuai segmen yang sedang diimpor
+  const getSegmentName = (p: Posyandu | null, t: 'balita' | 'lansia') => {
+    if (!p) return 'Pilih Target';
+    return t === 'balita'
+      ? (p.nama_posyandu_balita || p.nama_posyandu)
+      : (p.nama_posyandu_lansia || p.nama_posyandu);
+  };
+
+  // Helper: label segmen posyandu (untuk badge di modal picker)
+  const getSegmentBadge = (p: Posyandu): string => {
+    const hasBalita = !!p.jadwal_balita_tanggal || !!p.nama_posyandu_balita;
+    const hasLansia = !!p.jadwal_lansia_tanggal || !!p.nama_posyandu_lansia;
+    if (hasBalita && hasLansia) return 'Balita & Lansia';
+    if (hasBalita) return 'Balita';
+    if (hasLansia) return 'Lansia';
+    return 'ILP';
+  };
+
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   
@@ -184,8 +203,15 @@ export default function ImportDataScreen() {
             <MapPin size={20} color="#0D9488" />
           </View>
           <View style={styles.v2PosyanduInfo}>
-             <Text style={styles.v2PosyanduLabel}>Target Posyandu</Text>
-             <Text style={styles.v2PosyanduName}>{selectedPosyandu?.nama_posyandu || 'Pilih Target'}</Text>
+             <Text style={styles.v2PosyanduLabel}>
+               {type === 'balita' ? 'Target Posyandu Balita' : 'Target Posyandu Lansia'}
+             </Text>
+             <Text style={styles.v2PosyanduName}>{getSegmentName(selectedPosyandu, type)}</Text>
+             {selectedPosyandu && (
+               <Text style={styles.v2PosyanduSegmentHint}>
+                 {getSegmentBadge(selectedPosyandu)}
+               </Text>
+             )}
           </View>
           {allPosyandus.length > 1 && <ChevronRight size={18} color="#94A3B8" />}
         </TouchableOpacity>
@@ -275,7 +301,14 @@ export default function ImportDataScreen() {
          <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Target Posyandu</Text>
+                  <View>
+                    <Text style={styles.modalTitle}>
+                      {type === 'balita' ? 'Pilih Sasaran Balita' : 'Pilih Sasaran Lansia'}
+                    </Text>
+                    <Text style={styles.modalSubtitle}>
+                      Menampilkan nama segmen {type === 'balita' ? 'balita' : 'lansia'} per posyandu
+                    </Text>
+                  </View>
                   <TouchableOpacity onPress={() => setShowPosyanduPicker(false)}>
                     <Text style={styles.closeBtn}>Batal</Text>
                   </TouchableOpacity>
@@ -288,9 +321,14 @@ export default function ImportDataScreen() {
                       style={styles.pickerItem}
                       onPress={() => { setSelectedPosyandu(item); setShowPosyanduPicker(false); }}
                     >
-                       <MapPin size={18} color="#94A3B8" />
-                       <Text style={styles.pickerItemText}>{item.nama_posyandu}</Text>
-                       {selectedPosyandu?.id === item.id && <View style={styles.activeDot} />}
+                       <View style={[styles.pickerIconWrap, { backgroundColor: type === 'balita' ? '#F0FDFA' : '#EEF2FF' }]}>
+                         <MapPin size={16} color={type === 'balita' ? '#0D9488' : '#6366F1'} />
+                       </View>
+                       <View style={styles.pickerItemInfo}>
+                         <Text style={styles.pickerItemText}>{getSegmentName(item, type)}</Text>
+                         <Text style={styles.pickerItemSub}>{getSegmentBadge(item)}</Text>
+                       </View>
+                       {selectedPosyandu?.id === item.id && <View style={[styles.activeDot, { backgroundColor: type === 'balita' ? '#0D9488' : '#6366F1' }]} />}
                     </TouchableOpacity>
                   )}
                />
@@ -351,9 +389,14 @@ const styles = StyleSheet.create({
   modalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, maxHeight: '70%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1E293B' },
+  modalSubtitle: { fontSize: 11, color: '#94A3B8', marginTop: 2, fontWeight: '500' },
   closeBtn: { color: '#EF4444', fontWeight: 'bold' },
-  pickerItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  pickerItemText: { flex: 1, fontSize: 16, color: '#1E293B', marginLeft: 12 },
+  pickerItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  pickerIconWrap: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  pickerItemInfo: { flex: 1, marginLeft: 12 },
+  pickerItemText: { fontSize: 15, fontWeight: '700', color: '#1E293B' },
+  pickerItemSub: { fontSize: 11, color: '#94A3B8', marginTop: 2, fontWeight: '500' },
+  v2PosyanduSegmentHint: { fontSize: 10, color: '#0D9488', fontWeight: '700', marginTop: 3, textTransform: 'uppercase', letterSpacing: 0.5 },
   activeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#0D9488' },
   // V2 STYLES
   v2BackBtn: {

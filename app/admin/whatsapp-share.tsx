@@ -79,10 +79,11 @@ export default function WhatsAppShareScreen() {
       }
 
       if (activeTab === 'hasil') {
-        // Fetch balitas with this month's penimbangan
+        // Fetch penimbangan bulan ini, hanya untuk balita di posyandu aktif
         const { data: penimbanganData } = await supabase
           .from('penimbangans')
-          .select('*, balita:balitas(*)')
+          .select('*, balita:balitas!inner(*)')
+          .eq('balita.posyandu_id', activePosyanduId)
           .gte('tanggal', start)
           .lte('tanggal', end)
           .order('tanggal', { ascending: false });
@@ -128,16 +129,18 @@ export default function WhatsAppShareScreen() {
 
         setBalitasDenganPenimbangan(merged);
       } else {
-        // Fetch all balita
+        // Fetch balita milik posyandu aktif saja
         const { data: allBalita } = await supabase
           .from('balitas')
           .select('*')
+          .eq('posyandu_id', activePosyanduId)
           .order('nama', { ascending: true });
 
-        // Fetch balita IDs that already have penimbangan this month
+        // Fetch balita IDs yang sudah ditimbang bulan ini (filter posyandu via join)
         const { data: penimbanganIds } = await supabase
           .from('penimbangans')
-          .select('balita_id')
+          .select('balita_id, balita:balitas!inner(posyandu_id)')
+          .eq('balita.posyandu_id', activePosyanduId)
           .gte('tanggal', start)
           .lte('tanggal', end);
 

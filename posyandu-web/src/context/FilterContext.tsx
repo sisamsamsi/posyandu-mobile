@@ -9,7 +9,17 @@ interface FilterContextType {
   selectedPosyanduId: string;
   setSelectedPosyanduId: (id: string) => void;
   desaList: string[];
-  posyanduList: Array<{ id: string; nama_posyandu: string; tipe_posyandu: string; kelurahan: string; invite_code: string | null }>;
+  posyanduList: Array<{
+    id: string;
+    nama_posyandu: string;
+    nama_posyandu_balita: string | null;
+    nama_posyandu_lansia: string | null;
+    jadwal_balita_tanggal: number | null;
+    jadwal_lansia_tanggal: number | null;
+    tipe_posyandu: string;
+    kelurahan: string;
+    invite_code: string | null;
+  }>;
   loading: boolean;
 }
 
@@ -19,7 +29,17 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
   const [selectedDesa, setSelectedDesa] = useState<string>('all');
   const [selectedPosyanduId, setSelectedPosyanduId] = useState<string>('all');
   const [desaList, setDesaList] = useState<string[]>([]);
-  const [posyanduList, setPosyanduList] = useState<Array<{ id: string; nama_posyandu: string; tipe_posyandu: string; kelurahan: string; invite_code: string | null }>>([]);
+  const [posyanduList, setPosyanduList] = useState<Array<{
+    id: string;
+    nama_posyandu: string;
+    nama_posyandu_balita: string | null;
+    nama_posyandu_lansia: string | null;
+    jadwal_balita_tanggal: number | null;
+    jadwal_lansia_tanggal: number | null;
+    tipe_posyandu: string;
+    kelurahan: string;
+    invite_code: string | null;
+  }>>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   // Fetch unique Desa/Kalurahan and Posyandus on mount
@@ -29,7 +49,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
         // Get all Posyandu units
         const { data: posyandus, error } = await supabase
           .from('posyandus')
-          .select('id, nama_posyandu, tipe_posyandu, kelurahan, invite_code')
+          .select('id, nama_posyandu, nama_posyandu_balita, nama_posyandu_lansia, jadwal_balita_tanggal, jadwal_lansia_tanggal, tipe_posyandu, kelurahan, invite_code')
           .order('nama_posyandu', { ascending: true });
 
         if (error) throw error;

@@ -16,7 +16,7 @@ interface Lansia {
   rt: number | null;
   posyandu_id: string | null;
   penyakit_bawaan: string[];
-  posyandu?: { nama_posyandu: string; kelurahan: string };
+  posyandu?: { nama_posyandu: string; nama_posyandu_lansia: string | null; kelurahan: string };
   pemeriksaan_lansias?: Array<{
     tanggal_periksa: string;
     tekanan_darah: string | null;
@@ -61,7 +61,7 @@ export default function LansiaPage() {
         .from('lansias')
         .select(`
           id, nik, nama, jenis_kelamin, tanggal_lahir, alamat, rt, posyandu_id, penyakit_bawaan,
-          posyandu:posyandus(nama_posyandu, kelurahan),
+          posyandu:posyandus(nama_posyandu, nama_posyandu_lansia, kelurahan),
           pemeriksaan_lansias(tanggal_periksa, tekanan_darah, gula_darah, kolesterol, asam_urat)
         `);
       const { data, error } = await query.order('nama', { ascending: true });
@@ -119,7 +119,7 @@ export default function LansiaPage() {
     return (
       l.nama.toLowerCase().includes(q) ||
       l.nik.includes(q) ||
-      (l.posyandu?.nama_posyandu || '').toLowerCase().includes(q)
+      (l.posyandu?.nama_posyandu_lansia || l.posyandu?.nama_posyandu || '').toLowerCase().includes(q)
     );
   });
 
@@ -240,12 +240,12 @@ export default function LansiaPage() {
       if (!editId) {
         const { data: existing } = await supabase
           .from('lansias')
-          .select('id, nama, posyandus(nama_posyandu)')
+          .select('id, nama, posyandus(nama_posyandu, nama_posyandu_lansia)')
           .eq('nik', nik)
           .maybeSingle();
 
         if (existing) {
-          throw new Error(`Lansia dengan NIK ini sudah terdaftar atas nama ${existing.nama} di ${(existing as any).posyandus?.nama_posyandu || 'Posyandu'}`);
+          throw new Error(`Lansia dengan NIK ini sudah terdaftar atas nama ${existing.nama} di ${(existing as any).posyandus?.nama_posyandu_lansia || (existing as any).posyandus?.nama_posyandu || 'Posyandu'}`);
         }
       }
 
@@ -355,7 +355,7 @@ export default function LansiaPage() {
                     <td style={{ fontFamily: 'monospace' }}>{l.nik}</td>
                     <td>{l.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'}</td>
                     <td>{age} thn</td>
-                    <td>{l.posyandu?.nama_posyandu || '-'}</td>
+                    <td>{l.posyandu?.nama_posyandu_lansia || l.posyandu?.nama_posyandu || '-'}</td>
                     <td>
                       {latestExam?.tekanan_darah ? (
                         <span style={{ 

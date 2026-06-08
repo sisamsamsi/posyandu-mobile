@@ -76,7 +76,10 @@ export default function Dashboard() {
 
   // Dynamic Chart States
   const [stuntingTrend, setStuntingTrend] = useState<any[]>([]);
-  const [giziDistribution, setGiziDistribution] = useState<any[]>([]);
+  const [activeGiziTab, setActiveGiziTab] = useState<'bbu' | 'tbu' | 'bbtb'>('bbu');
+  const [bbuDistribution, setBbuDistribution] = useState<any[]>([]);
+  const [tbuDistribution, setTbuDistribution] = useState<any[]>([]);
+  const [bbtbDistribution, setBbtbDistribution] = useState<any[]>([]);
   const [lansiaTensiTrend, setLansiaTensiTrend] = useState<any[]>([]);
   const [lansiaRisk, setLansiaRisk] = useState<any[]>([]);
   const [posyanduStatuses, setPosyanduStatuses] = useState<any[]>([]);
@@ -209,29 +212,92 @@ export default function Dashboard() {
           diabetes: diabetesCount
         });
 
-        // Compute gizi distribution
-        let giziBaik = 0;
-        let giziKurang = 0;
-        let giziBuruk = 0;
+        // Compute BB/U distribution
+        let bbuSangatKurang = 0;
+        let bbuKurang = 0;
+        let bbuNormal = 0;
+        let bbuRisikoLebih = 0;
+
+        // Compute TB/U distribution
+        let tbuSangatPendek = 0;
+        let tbuPendek = 0;
+        let tbuNormal = 0;
+        let tbuTinggi = 0;
+
+        // Compute BB/TB distribution
+        let bbtbGiziBuruk = 0;
+        let bbtbGiziKurang = 0;
+        let bbtbGiziBaik = 0;
+        let bbtbRisikoGiziLebih = 0;
+        let bbtbGiziLebih = 0;
+        let bbtbObesitas = 0;
 
         monthlyPenimbangans.forEach(p => {
-          const status = p.status_bb_u || '';
-          if (status.includes('Normal') || status.includes('Lebih') || status.includes('Baik') || status.includes('N')) {
-            giziBaik++;
-          } else if (status.includes('Sangat Kurang') || status.includes('Buruk') || status.includes('SK')) {
-            giziBuruk++;
-          } else if (status.includes('Kurang') || status.includes('K')) {
-            giziKurang++;
-          } else {
-            giziBaik++;
+          // BB/U
+          const sBbu = (p.status_bb_u || '').toLowerCase();
+          if (sBbu.includes('sangat kurang') || sBbu.includes('severely underweight') || sBbu === 'sk') {
+            bbuSangatKurang++;
+          } else if (sBbu.includes('kurang') || sBbu.includes('underweight') || sBbu === 'k') {
+            bbuKurang++;
+          } else if (sBbu.includes('risiko lebih') || sBbu.includes('risk of overweight')) {
+            bbuRisikoLebih++;
+          } else if (sBbu.includes('normal') || sBbu === 'n' || sBbu !== '') {
+            bbuNormal++;
+          }
+
+          // TB/U
+          const sTbu = (p.status_tb_u || '').toLowerCase();
+          if (sTbu.includes('sangat pendek') || sTbu.includes('severely stunted') || sTbu === 'sp') {
+            tbuSangatPendek++;
+          } else if (sTbu.includes('pendek') || sTbu.includes('stunted')) {
+            tbuPendek++;
+          } else if (sTbu.includes('tinggi')) {
+            tbuTinggi++;
+          } else if (sTbu.includes('normal') || sTbu !== '') {
+            tbuNormal++;
+          }
+
+          // BB/TB
+          const sBbtb = (p.status_bb_tb || '').toLowerCase();
+          if (sBbtb.includes('gizi buruk') || sBbtb.includes('severely wasted')) {
+            bbtbGiziBuruk++;
+          } else if (sBbtb.includes('gizi kurang') || sBbtb.includes('wasted')) {
+            bbtbGiziKurang++;
+          } else if (sBbtb.includes('risiko gizi lebih') || sBbtb.includes('risk of overweight')) {
+            bbtbRisikoGiziLebih++;
+          } else if (sBbtb.includes('gizi lebih') || sBbtb.includes('overweight')) {
+            bbtbGiziLebih++;
+          } else if (sBbtb.includes('obesitas') || sBbtb.includes('obese')) {
+            bbtbObesitas++;
+          } else if (sBbtb.includes('gizi baik') || sBbtb.includes('normal') || sBbtb !== '') {
+            bbtbGiziBaik++;
           }
         });
 
-        const totalGizi = giziBaik + giziKurang + giziBuruk || 1;
-        setGiziDistribution([
-          { name: `Gizi Baik (${((giziBaik/totalGizi)*100).toFixed(1)}%)`, value: giziBaik, color: '#14B8A6' },
-          { name: `Gizi Kurang (${((giziKurang/totalGizi)*100).toFixed(1)}%)`, value: giziKurang, color: '#ea580c' },
-          { name: `Gizi Buruk (${((giziBuruk/totalGizi)*100).toFixed(1)}%)`, value: giziBuruk, color: '#e11d48' },
+        const totalBbu = (bbuSangatKurang + bbuKurang + bbuNormal + bbuRisikoLebih) || 1;
+        setBbuDistribution([
+          { name: `Normal (${((bbuNormal/totalBbu)*100).toFixed(1)}%)`, value: bbuNormal, color: '#14B8A6' },
+          { name: `Kurang (${((bbuKurang/totalBbu)*100).toFixed(1)}%)`, value: bbuKurang, color: '#ea580c' },
+          { name: `Sangat Kurang (${((bbuSangatKurang/totalBbu)*100).toFixed(1)}%)`, value: bbuSangatKurang, color: '#e11d48' },
+          { name: `Risiko Lebih (${((bbuRisikoLebih/totalBbu)*100).toFixed(1)}%)`, value: bbuRisikoLebih, color: '#3b82f6' },
+        ]);
+
+        const totalTbu = (tbuSangatPendek + tbuPendek + tbuNormal + tbuTinggi) || 1;
+        setTbuDistribution([
+          { name: `Normal (${((tbuNormal/totalTbu)*100).toFixed(1)}%)`, value: tbuNormal, color: '#14B8A6' },
+          { name: `Pendek (${((tbuPendek/totalTbu)*100).toFixed(1)}%)`, value: tbuPendek, color: '#ea580c' },
+          { name: `Sangat Pendek (${((tbuSangatPendek/totalTbu)*100).toFixed(1)}%)`, value: tbuSangatPendek, color: '#e11d48' },
+          { name: `Tinggi (${((tbuTinggi/totalTbu)*100).toFixed(1)}%)`, value: tbuTinggi, color: '#3b82f6' },
+        ]);
+
+        const totalBbtb = (bbtbGiziBuruk + bbtbGiziKurang + bbtbGiziBaik + bbtbRisikoGiziLebih + bbtbGiziLebih + bbtbObesitas) || 1;
+        setBbtbDistribution([
+          { name: `Gizi Baik (${((bbtbGiziBaik/totalBbtb)*100).toFixed(1)}%)`, value: bbtbGiziBaik, color: '#14B8A6' },
+          { name: `Gizi Kurang (${((bbtbGiziKurang/totalBbtb)*100).toFixed(1)}%)`, value: bbtbGiziKurang, color: '#ea580c' },
+          { name: `Gizi Buruk (${((bbtbGiziBuruk/totalBbtb)*100).toFixed(1)}%)`, value: bbtbGiziBuruk, color: '#e11d48' },
+          { name: `Risiko Lebih (${((bbtbRisikoGiziLebih/totalBbtb)*100).toFixed(1)}%)`, value: bbtbRisikoGiziLebih, color: '#f59e0b' },
+          { name: `Gizi Lebih (${((bbtbGiziLebih/totalBbtb)*100).toFixed(1)}%)`, value: bbtbGiziLebih, color: '#3b82f6' },
+          { name: `Obesitas (${((bbtbObesitas/totalBbtb)*100).toFixed(1)}%)`, value: bbtbObesitas, color: '#6366f1' },
         ]);
 
         // Compute lansia Risk
@@ -364,6 +430,12 @@ export default function Dashboard() {
       fetchRealStats();
     }
   }, [selectedDesa, selectedPosyanduId, selectedMonth, toggleMode, mounted, posyanduList, filtersLoading]);
+
+  const activeDistribution = activeGiziTab === 'bbu'
+    ? bbuDistribution
+    : activeGiziTab === 'tbu'
+      ? tbuDistribution
+      : bbtbDistribution;
 
   if (!mounted) return null;
 
@@ -552,25 +624,51 @@ export default function Dashboard() {
 
           {/* Chart Right: Nutrition doughnut */}
           <div className="card chart-card">
-            <div className="card-header-compact">
-              <span className="card-title-compact">Sebaran Status Gizi (BB/U)</span>
+            <div className="card-header-compact" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="card-title-compact">Sebaran Status Gizi ({activeGiziTab === 'bbu' ? 'BB/U' : activeGiziTab === 'tbu' ? 'TB/U' : 'BB/TB'})</span>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => setActiveGiziTab('bbu')}
+                  className={`btn ${activeGiziTab === 'bbu' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ fontSize: '9px', padding: '2px 6px', borderRadius: '4px', height: '22px', display: 'flex', alignItems: 'center' }}
+                >
+                  BB/U
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveGiziTab('tbu')}
+                  className={`btn ${activeGiziTab === 'tbu' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ fontSize: '9px', padding: '2px 6px', borderRadius: '4px', height: '22px', display: 'flex', alignItems: 'center' }}
+                >
+                  TB/U
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveGiziTab('bbtb')}
+                  className={`btn ${activeGiziTab === 'bbtb' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ fontSize: '9px', padding: '2px 6px', borderRadius: '4px', height: '22px', display: 'flex', alignItems: 'center' }}
+                >
+                  BB/TB
+                </button>
+              </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', height: '220px', justifyContent: 'center' }}>
-              {giziDistribution.length > 0 && giziDistribution.some(t => t.value > 0) ? (
+              {activeDistribution.length > 0 && activeDistribution.some(t => t.value > 0) ? (
                 <>
-                  <div style={{ height: '120px', width: '100%' }}>
+                  <div style={{ height: '110px', width: '100%' }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
-                          data={giziDistribution}
+                          data={activeDistribution}
                           cx="50%"
                           cy="50%"
-                          innerRadius={35}
-                          outerRadius={55}
+                          innerRadius={28}
+                          outerRadius={45}
                           paddingAngle={4}
                           dataKey="value"
                         >
-                          {giziDistribution.map((entry, index) => (
+                          {activeDistribution.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
@@ -580,14 +678,14 @@ export default function Dashboard() {
                   </div>
 
                   {/* Legends list */}
-                  <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '4px', padding: '0 8px' }}>
-                    {giziDistribution.map((item) => (
-                      <div key={item.name} style={{ display: 'flex', justifyItems: 'center', justifyContent: 'space-between', fontSize: '10px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: item.color }} />
-                          <span style={{ color: '#64748b' }}>{item.name}</span>
+                  <div style={{ marginTop: '8px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px', padding: '0 12px' }}>
+                    {activeDistribution.map((item) => (
+                      <div key={item.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '9px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: item.color, flexShrink: 0 }} />
+                          <span style={{ color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis' }} title={item.name}>{item.name}</span>
                         </div>
-                        <span style={{ fontWeight: 600, color: '#1e293b' }}>{item.value.toLocaleString('id-ID')}</span>
+                        <span style={{ fontWeight: 600, color: '#1e293b', flexShrink: 0 }}>{item.value.toLocaleString('id-ID')}</span>
                       </div>
                     ))}
                   </div>

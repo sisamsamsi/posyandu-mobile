@@ -194,7 +194,7 @@ export default function BalitaDetailPage({ params }: PageProps) {
   const [balita, setBalita] = useState<any | null>(null);
   const [history, setHistory] = useState<Penimbangan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'kms' | 'history'>('kms');
+  const [activeTab, setActiveTab] = useState<'kms' | 'history' | 'imunisasi'>('kms');
   const [kmsType, setKmsType] = useState<'bbu' | 'tbu' | 'bbtb'>('bbu');
 
   useEffect(() => {
@@ -206,7 +206,7 @@ export default function BalitaDetailPage({ params }: PageProps) {
         // Fetch profile
         const { data: bData, error: bErr } = await supabase
           .from('balitas')
-          .select('*, posyandu:posyandus(nama_posyandu, kelurahan)')
+          .select('*, posyandu:posyandus(nama_posyandu, kelurahan), imunisasi(*)')
           .eq('id', id)
           .maybeSingle();
 
@@ -222,7 +222,11 @@ export default function BalitaDetailPage({ params }: PageProps) {
         if (hErr) throw hErr;
 
         if (bData) {
-          setBalita(bData as any);
+          const balitaData = bData as any;
+          if (balitaData.imunisasi && Array.isArray(balitaData.imunisasi)) {
+            balitaData.imunisasi = balitaData.imunisasi.length > 0 ? balitaData.imunisasi[0] : null;
+          }
+          setBalita(balitaData);
           setHistory(hData || []);
         }
       } catch (err) {
@@ -471,6 +475,12 @@ export default function BalitaDetailPage({ params }: PageProps) {
             >
               Riwayat Timbang
             </button>
+            <button 
+              className={`tab-link ${activeTab === 'imunisasi' ? 'active' : ''}`}
+              onClick={() => setActiveTab('imunisasi')}
+            >
+              Imunisasi
+            </button>
           </div>
 
           {/* Tab Body Content */}
@@ -629,6 +639,65 @@ export default function BalitaDetailPage({ params }: PageProps) {
                           </td>
                         </tr>
                       )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: IMUNISASI */}
+            {activeTab === 'imunisasi' && (
+              <div>
+                <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b', marginBottom: '12px' }}>
+                  Kartu Imunisasi Anak (Dasar & Booster)
+                </h3>
+                <div className="table-container" style={{ border: '1px solid #e2e8f0', boxShadow: 'none' }}>
+                  <table className="custom-table">
+                    <thead>
+                      <tr>
+                        <th>Jenis Vaksin</th>
+                        <th>Jadwal Sasaran</th>
+                        <th>Status</th>
+                        <th>Tanggal Imunisasi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { key: 'hb0_date', label: 'HB0', sub: 'Usia 24 jam' },
+                        { key: 'bcg_date', label: 'BCG', sub: 'Usia < 2 bulan' },
+                        { key: 'penta_1_date', label: 'PENTA 1', sub: 'Usia 2 bulan' },
+                        { key: 'penta_2_date', label: 'PENTA 2', sub: 'Usia 3 bulan' },
+                        { key: 'penta_3_date', label: 'PENTA 3', sub: 'Usia 4 bulan' },
+                        { key: 'ipv_1_date', label: 'IPV 1', sub: 'Usia 2-4 bulan' },
+                        { key: 'ipv_2_date', label: 'IPV 2', sub: 'Usia 3-5 bulan' },
+                        { key: 'ipv_3_date', label: 'IPV 3', sub: 'Usia 4-6 bulan' },
+                        { key: 'pcv_1_date', label: 'PCV 1', sub: 'Usia 2/3 bulan' },
+                        { key: 'pcv_2_date', label: 'PCV 2', sub: 'Usia 3/4 bulan' },
+                        { key: 'pcv_3_date', label: 'PCV 3', sub: 'Usia 12 bulan' },
+                        { key: 'rv_1_date', label: 'ROTAVIRUS 1', sub: 'Usia 2 bulan' },
+                        { key: 'rv_2_date', label: 'ROTAVIRUS 2', sub: 'Usia 3-4 bulan' },
+                        { key: 'rv_3_date', label: 'ROTAVIRUS 3', sub: 'Usia 4-5 bulan' },
+                        { key: 'mr_date', label: 'MR', sub: 'Usia 9 bulan' },
+                        { key: 'je_date', label: 'JE', sub: 'Usia 10 bulan' },
+                        { key: 'booster_penta_date', label: 'PENTA (Booster)', sub: 'Usia 18 - 24 bulan' },
+                        { key: 'booster_mr_date', label: 'MR (Booster)', sub: 'Usia 18 - 24 bulan' },
+                      ].map((v) => {
+                        const dateVal = balita.imunisasi ? balita.imunisasi[v.key] : null;
+                        return (
+                           <tr key={v.key}>
+                             <td style={{ fontWeight: 600 }}>{v.label}</td>
+                             <td style={{ color: '#64748b' }}>{v.sub}</td>
+                             <td>
+                               <span className={`badge ${dateVal ? 'badge-success' : 'badge-secondary'}`}>
+                                 {dateVal ? 'Sudah' : 'Belum'}
+                               </span>
+                             </td>
+                             <td style={{ fontWeight: 500 }}>
+                               {dateVal ? new Date(dateVal).toLocaleDateString('id-ID') : '-'}
+                             </td>
+                           </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

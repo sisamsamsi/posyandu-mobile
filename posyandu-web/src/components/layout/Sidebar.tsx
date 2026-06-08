@@ -10,9 +10,9 @@ import {
   User, 
   BrainCircuit, 
   FileSpreadsheet, 
-  Upload, 
   Settings,
-  LogOut
+  LogOut,
+  ChevronDown
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
@@ -30,6 +30,7 @@ export default function Sidebar({
 
   const [adminName, setAdminName] = useState(propAdminName || 'Dr. Anisa Putri');
   const [puskesmasName, setPuskesmasName] = useState(propPuskesmasName || 'Puskesmas Pondok I');
+  const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
 
   useEffect(() => {
     if (propAdminName || propPuskesmasName) return;
@@ -57,14 +58,72 @@ export default function Sidebar({
 
   const menuItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Posyandu', path: '/posyandu', icon: Building2 },
-    { name: 'Balita', path: '/balita', icon: Baby },
-    { name: 'Lansia', path: '/lansia', icon: User },
-    { name: 'Analisa AI', path: '/analisa-ai', icon: BrainCircuit },
+    { 
+      name: 'Posyandu', 
+      icon: Building2,
+      submenus: [
+        { name: 'Daftar Posyandu', path: '/posyandu' },
+        { name: 'Kehadiran & Pelaporan', path: '/posyandu/kehadiran' }
+      ]
+    },
+    { 
+      name: 'Balita', 
+      icon: Baby,
+      submenus: [
+        { name: 'Data Balita', path: '/balita' },
+        { name: 'Status Gizi', path: '/balita/status-gizi' },
+        { name: 'Penimbangan', path: '/balita/penimbangan' },
+        { name: 'Penyuluhan AI', path: '/balita/penyuluhan' },
+        { name: 'Risiko Tinggi', path: '/balita/risiko-tinggi' }
+      ]
+    },
+    { 
+      name: 'Lansia', 
+      icon: User,
+      submenus: [
+        { name: 'Data Lansia', path: '/lansia' },
+        { name: 'Pemeriksaan Kesehatan', path: '/lansia/pemeriksaan' },
+        { name: 'Risiko PTM', path: '/lansia/risiko-ptm' },
+        { name: 'Kunjungan Prioritas', path: '/lansia/kunjungan-prioritas' }
+      ]
+    },
+    { 
+      name: 'Analisa AI', 
+      icon: BrainCircuit,
+      submenus: [
+        { name: 'Ringkasan Wilayah', path: '/analisa-ai' },
+        { name: 'Risiko Balita', path: '/analisa-ai/risiko-balita' },
+        { name: 'Risiko Lansia', path: '/analisa-ai/risiko-lansia' },
+        { name: 'Tren & Prediksi', path: '/analisa-ai/tren-prediksi' },
+        { name: 'Prioritas Intervensi', path: '/analisa-ai/prioritas-intervensi' },
+        { name: 'Posyandu Bermasalah', path: '/analisa-ai/posyandu-bermasalah' },
+        { name: 'Deteksi Anomali', path: '/analisa-ai/deteksi-anomali' },
+        { name: 'Rekomendasi Penyuluhan', path: '/analisa-ai/rekomendasi-penyuluhan' }
+      ]
+    },
     { name: 'Laporan', path: '/laporan', icon: FileSpreadsheet },
-    { name: 'Import Data', path: '/import-data', icon: Upload },
     { name: 'Pengaturan', path: '/pengaturan', icon: Settings },
   ];
+
+  // Auto-expand menu based on current pathname (only one expanded)
+  useEffect(() => {
+    let activeMenu: string | null = null;
+    menuItems.forEach(item => {
+      if (item.submenus) {
+        const hasActiveSub = item.submenus.some(sub => pathname === sub.path);
+        if (hasActiveSub) {
+          activeMenu = item.name;
+        }
+      }
+    });
+    if (activeMenu) {
+      setExpandedMenu(activeMenu);
+    }
+  }, [pathname]);
+
+  const toggleMenu = (name: string) => {
+    setExpandedMenu(prev => (prev === name ? null : name));
+  };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -84,8 +143,7 @@ export default function Sidebar({
           strokeWidth="2.5" 
           strokeLinecap="round" 
           strokeLinejoin="round" 
-          className="text-teal-600"
-          style={{ color: '#14B8A6' }}
+          style={{ color: '#ffffff' }}
         >
           <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
         </svg>
@@ -103,18 +161,59 @@ export default function Sidebar({
       <nav className="sidebar-menu">
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname.startsWith(item.path);
 
-          return (
-            <Link 
-              key={item.name} 
-              href={item.path}
-              className={`menu-item ${isActive ? 'active' : ''}`}
-            >
-              <Icon size={16} />
-              <span>{item.name}</span>
-            </Link>
-          );
+          if (item.submenus) {
+            const isExpanded = expandedMenu === item.name;
+            const isParentActive = item.submenus.some(sub => pathname === sub.path);
+
+            return (
+              <div key={item.name} className="submenu-wrapper">
+                <button 
+                  onClick={() => toggleMenu(item.name)}
+                  className={`menu-item ${isParentActive ? 'parent-active' : ''}`}
+                >
+                  <div className="menu-item-content">
+                    <Icon size={16} />
+                    <span>{item.name}</span>
+                  </div>
+                  <ChevronDown 
+                    size={14} 
+                    className={`chevron-icon ${isExpanded ? 'rotated' : ''}`} 
+                  />
+                </button>
+                <div className={`submenu-container ${isExpanded ? 'expanded' : ''}`}>
+                  <div className="submenu-list">
+                    {item.submenus.map((sub) => {
+                      const isSubActive = pathname === sub.path;
+                      return (
+                        <Link
+                          key={sub.name}
+                          href={sub.path}
+                          className={`submenu-item ${isSubActive ? 'active' : ''}`}
+                        >
+                          {sub.name}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          } else {
+            const isActive = item.path ? (pathname === item.path || (item.path !== '/' && pathname.startsWith(item.path + '/'))) : false;
+            return (
+              <Link 
+                key={item.name} 
+                href={item.path || '#'}
+                className={`menu-item ${isActive ? 'active' : ''}`}
+              >
+                <div className="menu-item-content">
+                  <Icon size={16} />
+                  <span>{item.name}</span>
+                </div>
+              </Link>
+            );
+          }
         })}
       </nav>
 
@@ -133,7 +232,7 @@ export default function Sidebar({
           onClick={handleSignOut}
           className="action-btn"
           title="Keluar"
-          style={{ color: '#ef4444' }}
+          style={{ color: '#ffffff' }}
         >
           <LogOut size={16} />
         </button>

@@ -82,7 +82,7 @@ export default function LaporanPage() {
       // 1. Fetch balitas in target Posyandus
       const { data: allBalitas, error: bErr } = await supabase
         .from('balitas')
-        .select('*, posyandu:posyandus(nama_posyandu)')
+        .select('*, posyandu:posyandus(nama_posyandu, nama_posyandu_balita)')
         .in('posyandu_id', targetPosyanduIds)
         .order('nama', { ascending: true });
 
@@ -151,7 +151,7 @@ export default function LaporanPage() {
           lingkar_lengan: w ? w.lingkar_lengan : null,
           lingkar_kepala: w ? w.lingkar_kepala : null,
           status_bb_u: w ? w.status_bb_u : null,
-          nama_posyandu: (b as any).posyandu?.nama_posyandu || ''
+          nama_posyandu: (b as any).posyandu?.nama_posyandu_balita || (b as any).posyandu?.nama_posyandu || ''
         };
       });
 

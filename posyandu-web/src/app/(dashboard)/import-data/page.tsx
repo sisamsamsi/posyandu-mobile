@@ -14,6 +14,17 @@ export default function ImportDataPage() {
   const [loading, setLoading] = useState(false);
   const [posyanduId, setPosyanduId] = useState('');
   
+  // Import type (balita or lansia)
+  const [importType, setImportType] = useState<'balita' | 'lansia'>('balita');
+
+  // Helper: nama segmen sesuai tipe
+  const getSegmentName = (p: { nama_posyandu: string; nama_posyandu_balita?: string | null; nama_posyandu_lansia?: string | null; kelurahan?: string | null }) => {
+    const segName = importType === 'balita'
+      ? (p.nama_posyandu_balita || p.nama_posyandu)
+      : (p.nama_posyandu_lansia || p.nama_posyandu);
+    return `${segName} (Desa ${p.kelurahan || '-'})`;
+  };
+  
   // File parsing states
   const [file, setFile] = useState<File | null>(null);
   const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
@@ -27,7 +38,7 @@ export default function ImportDataPage() {
   const [parsedData, setParsedData] = useState<any[]>([]);
   const [stats, setStats] = useState({ inserted: 0, skipped: 0, errors: [] as string[] });
 
-  const dbFields = [
+  const dbFieldsBalita = [
     { label: 'Lewati Kolom', value: 'skip' },
     { label: 'NIK (16 Digit)', value: 'nik' },
     { label: 'Nama Balita', value: 'nama' },
@@ -41,6 +52,41 @@ export default function ImportDataPage() {
     { label: 'Tinggi Lahir (cm)', value: 'tb_lahir' },
     { label: 'Anak Ke', value: 'anak_ke' }
   ];
+
+  const dbFieldsLansia = [
+    { label: 'Lewati Kolom', value: 'skip' },
+    { label: 'NIK (16 Digit)', value: 'nik' },
+    { label: 'Nama Lansia', value: 'nama' },
+    { label: 'Tanggal Lahir', value: 'tanggal_lahir' },
+    { label: 'Jenis Kelamin', value: 'jenis_kelamin' },
+    { label: 'Alamat Domisili', value: 'alamat' },
+    { label: 'RT', value: 'rt' },
+    { label: 'Penyakit Bawaan', value: 'penyakit_bawaan' },
+  ];
+
+  const dbFields = importType === 'balita' ? dbFieldsBalita : dbFieldsLansia;
+
+  // Helper: bersihkan dan normalisasi nilai tanggal dari Excel
+  // Menangani: spasi trailing, format DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD, dan Excel serial number
+  const cleanDate = (val: any): string | null => {
+    if (val === null || val === undefined || val === '') return null;
+    // Excel serial number (angka)
+    if (typeof val === 'number') {
+      const date = new Date(Math.round((val - 25569) * 86400 * 1000));
+      return date.toISOString().split('T')[0];
+    }
+    const str = String(val).trim();
+    if (!str) return null;
+    // YYYY-MM-DD (sudah benar)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+    // DD/MM/YYYY
+    const dmy = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+    // Fallback: coba parse biasa
+    const parsed = new Date(str);
+    if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+    return null;
+  };
 
   // 1. Handle File Select & Load Headers
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,7 +128,7 @@ export default function ImportDataPage() {
       return;
     }
     if (!posyanduId) {
-      alert('Pilih unit Posyandu tujuan impor.');
+      alert(`Pilih unit Posyandu tujuan impor ${importType === 'balita' ? 'balita' : 'lansia'}.`);
       return;
     }
 
@@ -160,6 +206,8 @@ export default function ImportDataPage() {
     let skipped = 0;
     const errors: string[] = [];
 
+    const table = importType === 'balita' ? 'balitas' : 'lansias';
+
     try {
       // 1. Filter out invalid NIKs
       const validItemsToProcess = [];
@@ -176,7 +224,7 @@ export default function ImportDataPage() {
         // 2. Fetch all existing NIKs in bulk (1 query)
         const nikList = validItemsToProcess.map(item => item.nik);
         const { data: existingRecords, error: fetchErr } = await supabase
-          .from('balitas')
+          .from(table)
           .select('nik')
           .in('nik', nikList);
 
@@ -190,44 +238,73 @@ export default function ImportDataPage() {
           if (existingNiks.has(item.nik)) {
             skipped++;
           } else {
-            itemsToInsert.push({
-              posyandu_id: item.posyandu_id,
-              nik: item.nik,
-              nama: item.nama || 'Tanpa Nama',
-              tanggal_lahir: item.tanggal_lahir,
-              jenis_kelamin: item.jenis_kelamin,
-              nama_ortu: item.nama_ortu || 'Ortu',
-              no_hp_ortu: item.no_hp_ortu || null,
-              alamat: item.alamat || 'Alamat tidak diisi',
-              rt: parseInt(item.rt) || 1,
-              bb_lahir: item.bb_lahir ? parseFloat(item.bb_lahir) : null,
-              tb_lahir: item.tb_lahir ? parseFloat(item.tb_lahir) : null,
-              anak_ke: parseInt(item.anak_ke) || 1
-            });
+            if (importType === 'balita') {
+              const tglLahir = cleanDate(item.tanggal_lahir);
+              if (!tglLahir) {
+                errors.push(`Tanggal lahir tidak valid untuk: ${item.nama || 'Tanpa Nama'} (nilai: "${item.tanggal_lahir}")`);
+                skipped++;
+                continue;
+              }
+              itemsToInsert.push({
+                posyandu_id: item.posyandu_id,
+                nik: item.nik,
+                nama: String(item.nama || 'Tanpa Nama').trim(),
+                tanggal_lahir: tglLahir,
+                jenis_kelamin: item.jenis_kelamin,
+                nama_ortu: String(item.nama_ortu || 'Ortu').trim(),
+                no_hp_ortu: item.no_hp_ortu ? String(item.no_hp_ortu).trim() : null,
+                alamat: String(item.alamat || 'Alamat tidak diisi').trim(),
+                rt: parseInt(item.rt) || 1,
+                bb_lahir: item.bb_lahir ? parseFloat(String(item.bb_lahir).replace(',', '.')) : null,
+                tb_lahir: item.tb_lahir ? parseFloat(String(item.tb_lahir).replace(',', '.')) : null,
+                anak_ke: parseInt(item.anak_ke) || 1
+              });
+            } else {
+              const tglLahir = cleanDate(item.tanggal_lahir);
+              if (!tglLahir) {
+                errors.push(`Tanggal lahir tidak valid untuk: ${item.nama || 'Tanpa Nama'} (nilai: "${item.tanggal_lahir}")`);
+                skipped++;
+                continue;
+              }
+              itemsToInsert.push({
+                posyandu_id: item.posyandu_id,
+                nik: item.nik,
+                nama: String(item.nama || 'Tanpa Nama').trim(),
+                tanggal_lahir: tglLahir,
+                jenis_kelamin: item.jenis_kelamin,
+                alamat: item.alamat ? String(item.alamat).trim() : null,
+                rt: item.rt ? parseInt(item.rt) : null,
+                penyakit_bawaan: item.penyakit_bawaan
+                  ? String(item.penyakit_bawaan).split(',').map((s: string) => s.trim()).filter(Boolean)
+                  : []
+              });
+            }
           }
         }
 
-        // 4. Bulk Insert Toddlers if there are any (1 query)
+        // 4. Bulk Insert
         if (itemsToInsert.length > 0) {
-          const { data: insertedBalitas, error: insErr } = await supabase
-            .from('balitas')
+          const { data: insertedData, error: insErr } = await supabase
+            .from(table)
             .insert(itemsToInsert)
             .select('id');
 
           if (insErr) {
-            errors.push(`Gagal menyimpan data bulk balita: ${insErr.message}`);
+            errors.push(`Gagal menyimpan data bulk ${importType}: ${insErr.message}`);
             skipped += itemsToInsert.length;
-          } else if (insertedBalitas && insertedBalitas.length > 0) {
-            inserted += insertedBalitas.length;
+          } else if (insertedData && insertedData.length > 0) {
+            inserted += insertedData.length;
 
-            // 5. Bulk Insert Immunization placeholders (1 query)
-            const immunizationPayloads = insertedBalitas.map(b => ({ balita_id: b.id }));
-            const { error: imErr } = await supabase
-              .from('imunisasi')
-              .insert(immunizationPayloads);
+            // 5. Create imunisasi placeholders for balita only
+            if (importType === 'balita') {
+              const immunizationPayloads = insertedData.map(b => ({ balita_id: b.id }));
+              const { error: imErr } = await supabase
+                .from('imunisasi')
+                .insert(immunizationPayloads);
 
-            if (imErr) {
-              errors.push(`Gagal membuat data imunisasi bulk: ${imErr.message}`);
+              if (imErr) {
+                errors.push(`Gagal membuat data imunisasi bulk: ${imErr.message}`);
+              }
             }
           }
         }
@@ -301,15 +378,57 @@ export default function ImportDataPage() {
             </div>
 
             <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#1e293b' }}>
-              Impor Data Balita e-PPGBM
+              {importType === 'balita' ? 'Impor Data Balita e-PPGBM' : 'Impor Data Lansia'}
             </h3>
-            <p style={{ fontSize: '11px', color: '#64748b', maxWidth: '400px', margin: '0 auto 12px auto' }}>
-              Pilihlah unit Posyandu tujuan dan unggah file Excel (.xlsx) data awal balita Anda untuk disinkronisasikan ke handphone Kader.
+            <p style={{ fontSize: '11px', color: '#64748b', maxWidth: '400px', margin: '0 auto 4px auto' }}>
+              {importType === 'balita'
+                ? 'Pilihlah unit Posyandu tujuan dan unggah file Excel (.xlsx) data awal balita Anda untuk disinkronisasikan ke handphone Kader.'
+                : 'Pilihlah unit Posyandu tujuan dan unggah file Excel (.xlsx) data lansia untuk disinkronisasikan ke database.'}
             </p>
 
+            {/* Import Type Switcher */}
+            <div style={{ display: 'flex', backgroundColor: '#f1f5f9', borderRadius: '12px', padding: '4px', gap: '2px', marginBottom: '4px' }}>
+              <button
+                onClick={() => { setImportType('balita'); setFile(null); setExcelHeaders([]); setExcelRows([]); setMappings({}); }}
+                style={{
+                  padding: '7px 20px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  transition: 'all 0.15s',
+                  backgroundColor: importType === 'balita' ? '#14B8A6' : 'transparent',
+                  color: importType === 'balita' ? '#fff' : '#64748b',
+                  boxShadow: importType === 'balita' ? '0 2px 6px rgba(20,184,166,0.3)' : 'none',
+                }}
+              >
+                Balita
+              </button>
+              <button
+                onClick={() => { setImportType('lansia'); setFile(null); setExcelHeaders([]); setExcelRows([]); setMappings({}); }}
+                style={{
+                  padding: '7px 20px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  transition: 'all 0.15s',
+                  backgroundColor: importType === 'lansia' ? '#6366F1' : 'transparent',
+                  color: importType === 'lansia' ? '#fff' : '#64748b',
+                  boxShadow: importType === 'lansia' ? '0 2px 6px rgba(99,102,241,0.3)' : 'none',
+                }}
+              >
+                Lansia
+              </button>
+            </div>
+
             {/* Select posyandu */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left', width: '280px', margin: '0 auto' }}>
-              <label style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>Unit Posyandu Tujuan Impor</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left', width: '300px', margin: '0 auto' }}>
+              <label style={{ fontSize: '11px', fontWeight: 600, color: '#64748b' }}>
+                {importType === 'balita' ? 'Unit Posyandu Balita Tujuan Impor' : 'Unit Posyandu Lansia Tujuan Impor'}
+              </label>
               <select 
                 className="header-select"
                 value={posyanduId}
@@ -318,9 +437,22 @@ export default function ImportDataPage() {
               >
                 <option value="">Pilih Unit Posyandu...</option>
                 {posyanduList.map(p => (
-                  <option key={p.id} value={p.id}>{p.nama_posyandu} (Desa {p.kelurahan || '-'})</option>
+                  <option key={p.id} value={p.id}>{getSegmentName(p)}</option>
                 ))}
               </select>
+              {posyanduId && (() => {
+                const sel = posyanduList.find(p => p.id === posyanduId);
+                if (!sel) return null;
+                const hasSegment = importType === 'balita'
+                  ? sel.nama_posyandu_balita
+                  : sel.nama_posyandu_lansia;
+                if (!hasSegment) return (
+                  <span style={{ fontSize: '10px', color: '#f59e0b', marginTop: '2px' }}>
+                    ⚠️ Posyandu ini belum memiliki nama segmen {importType} khusus, menggunakan nama ILP utama.
+                  </span>
+                );
+                return null;
+              })()}
             </div>
 
             {/* Input file button */}
@@ -347,7 +479,7 @@ export default function ImportDataPage() {
               onClick={handleRunAIMatcher}
               disabled={loading || !file || !posyanduId}
               className="btn btn-primary"
-              style={{ marginTop: '24px', width: '180px', borderRadius: '12px' }}
+              style={{ marginTop: '24px', width: '200px', borderRadius: '12px', backgroundColor: importType === 'lansia' ? '#6366F1' : undefined, borderColor: importType === 'lansia' ? '#6366F1' : undefined }}
             >
               {loading ? (
                 <>
@@ -373,7 +505,7 @@ export default function ImportDataPage() {
               Pemetaan Kolom dengan AI
             </h3>
             <p style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-              AI telah memetakan kolom di file Anda. Silakan periksa dan sesuaikan jika diperlukan.
+              AI telah memetakan kolom di file Anda ke field database <strong>{importType === 'balita' ? 'Balita' : 'Lansia'}</strong>. Silakan periksa dan sesuaikan jika diperlukan.
             </p>
           </div>
 
@@ -528,7 +660,7 @@ export default function ImportDataPage() {
             >
               <div>
                 <span style={{ fontSize: '10px', color: '#64748b', display: 'block' }}>BERHASIL DISINKRON:</span>
-                <span style={{ fontSize: '18px', fontWeight: 700, color: '#16a34a' }}>{stats.inserted} Balita</span>
+                <span style={{ fontSize: '18px', fontWeight: 700, color: '#16a34a' }}>{stats.inserted} {importType === 'balita' ? 'Balita' : 'Lansia'}</span>
               </div>
               <div>
                 <span style={{ fontSize: '10px', color: '#64748b', display: 'block' }}>DILEWATI (NIK DUPLIKAT):</span>

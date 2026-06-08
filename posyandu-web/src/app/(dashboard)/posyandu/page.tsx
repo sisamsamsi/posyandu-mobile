@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Building2, Plus, RefreshCw, Key, Check, Edit2, Trash2 } from 'lucide-react';
+import { Building2, Plus, RefreshCw, Key, Check, Edit2, Trash2, MapPin, Calendar, Clock, Baby, Users } from 'lucide-react';
 import { useFilters } from '@/context/FilterContext';
 
 interface Posyandu {
@@ -14,6 +14,15 @@ interface Posyandu {
   kecamatan: string | null;
   invite_code: string | null;
   created_at: string;
+  // Sub-division settings
+  nama_posyandu_balita: string | null;
+  alamat_posyandu_balita: string | null;
+  nama_posyandu_lansia: string | null;
+  alamat_posyandu_lansia: string | null;
+  jadwal_balita_tanggal: number | null;
+  jadwal_balita_jam: string | null;
+  jadwal_lansia_tanggal: number | null;
+  jadwal_lansia_jam: string | null;
 }
 
 export default function PosyanduPage() {
@@ -24,13 +33,39 @@ export default function PosyanduPage() {
   const [submitting, setSubmitting] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
-  // Form States
+  // Form States (Main)
   const [namaPosyandu, setNamaPosyandu] = useState('');
-  const [tipePosyandu, setTipePosyandu] = useState('balita');
   const [alamat, setAlamat] = useState('');
   const [kelurahan, setKelurahan] = useState('');
   const [kecamatan, setKecamatan] = useState('Pakualaman');
   const [generatedCode, setGeneratedCode] = useState('');
+
+  // Form States (Balita Sub-Posyandu)
+  const [namaPosyanduBalita, setNamaPosyanduBalita] = useState('');
+  const [alamatBalita, setAlamatBalita] = useState('');
+  const [jadwalBalitaTanggal, setJadwalBalitaTanggal] = useState<number | ''>('');
+  const [jadwalBalitaJam, setJadwalBalitaJam] = useState('08:00');
+
+  // Form States (Lansia Sub-Posyandu)
+  const [namaPosyanduLansia, setNamaPosyanduLansia] = useState('');
+  const [alamatLansia, setAlamatLansia] = useState('');
+  const [jadwalLansiaTanggal, setJadwalLansiaTanggal] = useState<number | ''>('');
+  const [jadwalLansiaJam, setJadwalLansiaJam] = useState('09:00');
+
+  // Helper helper to handle Main Name change and auto-populate sub-posyandu names
+  const handleNamaPosyanduChange = (val: string) => {
+    setNamaPosyandu(val);
+    
+    // Auto-fill Balita name if it hasn't been modified or is empty
+    if (!namaPosyanduBalita || namaPosyanduBalita === `Posyandu Balita ${namaPosyandu}`) {
+      setNamaPosyanduBalita(val ? `Posyandu Balita ${val}` : '');
+    }
+    
+    // Auto-fill Lansia name if it hasn't been modified or is empty
+    if (!namaPosyanduLansia || namaPosyanduLansia === `Posyandu Lansia ${namaPosyandu}`) {
+      setNamaPosyanduLansia(val ? `Posyandu Lansia ${val}` : '');
+    }
+  };
 
   // Fetch Posyandus from Supabase
   const fetchPosyandus = async () => {
@@ -38,11 +73,11 @@ export default function PosyanduPage() {
       setLoading(true);
       const { data, error } = await supabase
         .from('posyandus')
-        .select('id, nama_posyandu, tipe_posyandu, alamat_lengkap, kelurahan, kecamatan, invite_code, created_at')
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setPosyandus(data || []);
+      setPosyandus((data as Posyandu[]) || []);
     } catch (err: any) {
       console.error('Error fetching posyandus:', err.message);
     } finally {
@@ -69,22 +104,44 @@ export default function PosyanduPage() {
   const handleOpenModal = () => {
     setEditId(null);
     setNamaPosyandu('');
-    setTipePosyandu('balita'); // internal default
     setAlamat('');
     setKelurahan('');
     setKecamatan('Pakualaman');
     setGeneratedCode(generateCode());
+
+    // Clear sub-posyandu fields
+    setNamaPosyanduBalita('');
+    setAlamatBalita('');
+    setJadwalBalitaTanggal('');
+    setJadwalBalitaJam('08:00');
+
+    setNamaPosyanduLansia('');
+    setAlamatLansia('');
+    setJadwalLansiaTanggal('');
+    setJadwalLansiaJam('09:00');
+
     setShowModal(true);
   };
 
   const handleOpenEditModal = (p: Posyandu) => {
     setEditId(p.id);
     setNamaPosyandu(p.nama_posyandu || '');
-    setTipePosyandu(p.tipe_posyandu || 'balita');
     setAlamat(p.alamat_lengkap || '');
     setKelurahan(p.kelurahan || '');
     setKecamatan(p.kecamatan || '');
     setGeneratedCode(p.invite_code || '');
+
+    // Set sub-posyandu fields from DB
+    setNamaPosyanduBalita(p.nama_posyandu_balita || '');
+    setAlamatBalita(p.alamat_posyandu_balita || '');
+    setJadwalBalitaTanggal(p.jadwal_balita_tanggal || '');
+    setJadwalBalitaJam(p.jadwal_balita_jam || '08:00');
+
+    setNamaPosyanduLansia(p.nama_posyandu_lansia || '');
+    setAlamatLansia(p.alamat_posyandu_lansia || '');
+    setJadwalLansiaTanggal(p.jadwal_lansia_tanggal || '');
+    setJadwalLansiaJam(p.jadwal_lansia_jam || '09:00');
+
     setShowModal(true);
   };
 
@@ -119,11 +176,17 @@ export default function PosyanduPage() {
         kabupaten: 'Yogyakarta',
         provinsi: 'DIY',
         invite_code: generatedCode,
-        // Populate both division columns to sync with unified ILP mobile schema
-        nama_posyandu_balita: namaPosyandu.trim(),
-        alamat_posyandu_balita: alamat.trim(),
-        nama_posyandu_lansia: namaPosyandu.trim(),
-        alamat_posyandu_lansia: alamat.trim(),
+        
+        // Populate specific sub-posyandu identities
+        nama_posyandu_balita: namaPosyanduBalita.trim() || `Posyandu Balita ${namaPosyandu.trim()}`,
+        alamat_posyandu_balita: alamatBalita.trim() || alamat.trim(),
+        jadwal_balita_tanggal: jadwalBalitaTanggal === '' ? null : Number(jadwalBalitaTanggal),
+        jadwal_balita_jam: jadwalBalitaJam.trim() || '08:00',
+        
+        nama_posyandu_lansia: namaPosyanduLansia.trim() || `Posyandu Lansia ${namaPosyandu.trim()}`,
+        alamat_posyandu_lansia: alamatLansia.trim() || alamat.trim(),
+        jadwal_lansia_tanggal: jadwalLansiaTanggal === '' ? null : Number(jadwalLansiaTanggal),
+        jadwal_lansia_jam: jadwalLansiaJam.trim() || '09:00',
       };
 
       if (editId) {
@@ -169,7 +232,7 @@ export default function PosyanduPage() {
         </div>
       </div>
 
-      {/* Main Table */}
+      {/* Main Card Grid */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
           Memuat data posyandu...
@@ -179,68 +242,127 @@ export default function PosyanduPage() {
           Belum ada posyandu terdaftar. Silakan klik tombol "Tambah Posyandu" untuk mendaftarkan unit baru.
         </div>
       ) : (
-        <div className="table-container">
-          <table className="custom-table">
-             <thead>
-              <tr>
-                <th>Nama Posyandu</th>
-                <th>Kelurahan / Desa</th>
-                <th>Kecamatan</th>
-                <th>Alamat Lengkap</th>
-                <th>Kode Undangan (Mobile Auth)</th>
-                <th>Tanggal Dibuat</th>
-                <th style={{ width: '150px' }}>Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {posyandus.map((p) => (
-                <tr key={p.id}>
-                  <td style={{ fontWeight: 500, color: '#1e293b' }}>{p.nama_posyandu}</td>
-                  <td>{p.kelurahan || '-'}</td>
-                  <td>{p.kecamatan || '-'}</td>
-                  <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {p.alamat_lengkap || '-'}
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Key size={12} style={{ color: '#14B8A6' }} />
-                      <span style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '12px', color: '#0d9488', backgroundColor: '#f0fdfa', padding: '2px 6px', borderRadius: '8px' }}>
-                        {p.invite_code || '-'}
+        <div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '20px', marginTop: '20px' }}>
+            {posyandus.map((p) => (
+              <div 
+                key={p.id}
+                style={{
+                  backgroundColor: '#fff',
+                  borderRadius: '16px',
+                  border: '1px solid #e2e8f0',
+                  padding: '20px',
+                  boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '14px',
+                  position: 'relative'
+                }}
+              >
+                {/* Card Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <div style={{ padding: '8px', backgroundColor: '#f0fdfa', borderRadius: '12px', color: '#14b8a6' }}>
+                      <Building2 size={20} />
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontWeight: 700, fontSize: '15px', color: '#1e293b' }}>
+                        {p.nama_posyandu}
+                      </h3>
+                      <p style={{ margin: 0, fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                        <MapPin size={12} />
+                        {p.kelurahan || '-'}, {p.kecamatan || '-'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Actions */}
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button 
+                      onClick={() => handleOpenEditModal(p)}
+                      style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '6px', color: '#64748b', borderRadius: '8px', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      title="Ubah"
+                    >
+                      <Edit2 size={13} />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(p.id, p.nama_posyandu)}
+                      style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '6px', color: '#ef4444', borderRadius: '8px', backgroundColor: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      title="Hapus"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Main Address */}
+                <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: '1.5', padding: '8px 12px', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
+                  <span style={{ fontWeight: 600 }}>Alamat ILP:</span> {p.alamat_lengkap || '-'}
+                </p>
+
+                {/* Divider */}
+                <div style={{ borderTop: '1px dashed #e2e8f0', margin: '2px 0' }} />
+
+                {/* Services Section */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {/* Balita Service Card */}
+                  <div style={{ border: '1px solid #ccfbf1', backgroundColor: '#f0fdfa', borderRadius: '12px', padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#14b8a6' }} />
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#0f766e', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Baby size={12} />
+                        {p.nama_posyandu_balita || 'Layanan Balita'}
                       </span>
                     </div>
-                  </td>
-                  <td>{new Date(p.created_at).toLocaleDateString('id-ID')}</td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button 
-                        onClick={() => handleOpenEditModal(p)}
-                        className="btn btn-secondary"
-                        style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', height: '28px' }}
-                      >
-                        <Edit2 size={12} />
-                        <span>Edit</span>
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(p.id, p.nama_posyandu)}
-                        className="btn btn-secondary"
-                        style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', height: '28px', color: '#ef4444', borderColor: '#fee2e2', backgroundColor: '#fef2f2' }}
-                      >
-                        <Trash2 size={12} />
-                        <span>Hapus</span>
-                      </button>
+                    <div style={{ fontSize: '11px', color: '#0d9488', display: 'flex', flexDirection: 'column', gap: '2px', paddingLeft: '12px' }}>
+                      <span>📍 {p.alamat_posyandu_balita || p.alamat_lengkap || '-'}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        📅 Tanggal: <b>{p.jadwal_balita_tanggal || '-'}</b> ({p.jadwal_balita_jam || '08:00'})
+                      </span>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="pagination-container">
+                  </div>
+
+                  {/* Lansia Service Card */}
+                  <div style={{ border: '1px solid #e0e7ff', backgroundColor: '#eef2ff', borderRadius: '12px', padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#4f46e5' }} />
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#3730a3', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Users size={12} />
+                        {p.nama_posyandu_lansia || 'Layanan Lansia'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#4338ca', display: 'flex', flexDirection: 'column', gap: '2px', paddingLeft: '12px' }}>
+                      <span>📍 {p.alamat_posyandu_lansia || p.alamat_lengkap || '-'}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        📅 Tanggal: <b>{p.jadwal_lansia_tanggal || '-'}</b> ({p.jadwal_lansia_jam || '08:00'})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card Footer (Auth Info) */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '8px', borderTop: '1px solid #f1f5f9' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Key size={12} style={{ color: '#14b8a6' }} />
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>Kode Undangan:</span>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '11px', color: '#0d9488', backgroundColor: '#ccfbf1', padding: '1px 6px', borderRadius: '4px' }}>
+                      {p.invite_code || '-'}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '10px', color: '#94a3b8' }}>
+                    {new Date(p.created_at).toLocaleDateString('id-ID')}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="pagination-container" style={{ marginTop: '20px' }}>
             <span>Menampilkan {posyandus.length} unit posyandu</span>
           </div>
         </div>
       )}
 
-      {/* CREATE POSYANDU MODAL */}
+      {/* CREATE/EDIT POSYANDU MODAL */}
       {showModal && (
         <div 
           style={{
@@ -264,92 +386,216 @@ export default function PosyanduPage() {
               borderRadius: '16px',
               border: '1px solid #e2e8f0',
               width: '100%',
-              maxWidth: '440px',
+              maxWidth: '640px',
               boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
-              overflow: 'hidden'
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              maxHeight: '90vh'
             }}
           >
             {/* Modal Header */}
             <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 600, fontSize: '14px', color: '#1e293b' }}>{editId ? 'Ubah Data Posyandu' : 'Mendaftarkan Unit Posyandu Baru'}</span>
+              <span style={{ fontWeight: 600, fontSize: '14px', color: '#1e293b' }}>
+                {editId ? 'Ubah Data Posyandu ILP' : 'Mendaftarkan Unit Posyandu ILP Baru'}
+              </span>
               <button 
                 type="button" 
                 onClick={() => setShowModal(false)}
-                style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '16px', color: '#94a3b8' }}
+                style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '18px', color: '#94a3b8' }}
               >
                 &times;
               </button>
             </div>
 
-            {/* Modal Body */}
-            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {/* Nama Posyandu */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>Nama Posyandu</label>
-                <input 
-                  type="text" 
-                  required 
-                  value={namaPosyandu}
-                  onChange={(e) => setNamaPosyandu(e.target.value)}
-                  placeholder="Contoh: Posyandu Melati 2"
-                  style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '12px' }}
-                />
-              </div>
+            {/* Modal Scrollable Body */}
+            <div style={{ padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '18px', flex: 1 }}>
+              
+              {/* 1. INFORMASI ADMINISTRASI ILP */}
+              <div>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '12px', fontWeight: 700, color: '#0f766e', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  1. Informasi Administrasi Utama ILP
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid #f1f5f9' }}>
+                  {/* Nama Posyandu ILP */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>Nama Posyandu ILP (Nama Padukuhan/Dusun)</label>
+                    <input 
+                      type="text" 
+                      required 
+                      value={namaPosyandu}
+                      onChange={(e) => handleNamaPosyanduChange(e.target.value)}
+                      placeholder="Contoh: Semboja RW 02"
+                      style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '8px' }}
+                    />
+                  </div>
 
-              {/* Info Layanan Primer */}
-              <div style={{ 
-                padding: '10px 12px', 
-                backgroundColor: '#f8fafc', 
-                border: '1px solid #e2e8f0', 
-                borderRadius: '12px',
-                fontSize: '11px',
-                color: '#475569',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '2px'
-              }}>
-                <span style={{ fontWeight: 600, color: '#1e293b' }}>Layanan Terintegrasi (ILP)</span>
-                <span>Unit Posyandu baru akan didaftarkan sebagai unit terintegrasi yang melayani Balita (Tumbuh Kembang) & Lansia (Degeneratif) sekaligus.</span>
-              </div>
+                  {/* Kelurahan & Kecamatan */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>Kelurahan / Desa</label>
+                      <input 
+                        type="text" 
+                        required 
+                        value={kelurahan}
+                        onChange={(e) => setKelurahan(e.target.value)}
+                        placeholder="Nama kelurahan/desa..."
+                        style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '8px' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>Kecamatan</label>
+                      <input 
+                        type="text" 
+                        required 
+                        value={kecamatan}
+                        onChange={(e) => setKecamatan(e.target.value)}
+                        style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '8px' }}
+                      />
+                    </div>
+                  </div>
 
-              {/* Kelurahan & Kecamatan */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>Kelurahan / Desa</label>
-                  <input 
-                    type="text" 
-                    required 
-                    value={kelurahan}
-                    onChange={(e) => setKelurahan(e.target.value)}
-                    placeholder="Nama kelurahan/desa..."
-                    style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '12px' }}
-                  />
+                  {/* Alamat Lengkap Utama */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>Alamat Lengkap Utama</label>
+                    <textarea 
+                      value={alamat}
+                      onChange={(e) => setAlamat(e.target.value)}
+                      placeholder="Nama dusun, RT/RW, nomor lokasi..."
+                      rows={2}
+                      style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '8px', resize: 'none' }}
+                    />
+                  </div>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>Kecamatan</label>
-                  <input 
-                    type="text" 
-                    required 
-                    value={kecamatan}
-                    onChange={(e) => setKecamatan(e.target.value)}
-                    style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '12px' }}
-                  />
+              </div>
+
+              {/* 2. PELAYANAN BALITA */}
+              <div>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '12px', fontWeight: 700, color: '#0f766e', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Baby size={14} />
+                  2. Detail Sub-Posyandu Balita
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: '#f0fdfa', padding: '14px', borderRadius: '12px', border: '1px solid #ccfbf1' }}>
+                  {/* Nama Posyandu Balita */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#0f766e' }}>Nama Fisik Posyandu Balita</label>
+                    <input 
+                      type="text" 
+                      required 
+                      value={namaPosyanduBalita}
+                      onChange={(e) => setNamaPosyanduBalita(e.target.value)}
+                      placeholder="Contoh: Posyandu Balita Singkong"
+                      style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #ccfbf1', borderRadius: '8px', backgroundColor: '#fff' }}
+                    />
+                  </div>
+
+                  {/* Alamat Posyandu Balita */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#0f766e' }}>Alamat / Lokasi Layanan Balita</label>
+                    <input 
+                      type="text" 
+                      value={alamatBalita}
+                      onChange={(e) => setAlamatBalita(e.target.value)}
+                      placeholder="Contoh: Kediaman Bu RW, RT 01 (Biarkan kosong untuk samakan dengan alamat utama)"
+                      style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #ccfbf1', borderRadius: '8px', backgroundColor: '#fff' }}
+                    />
+                  </div>
+
+                  {/* Jadwal Balita */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: 600, color: '#0f766e' }}>Setiap Tanggal (1-31)</label>
+                      <input 
+                        type="number" 
+                        min={1}
+                        max={31}
+                        value={jadwalBalitaTanggal}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setJadwalBalitaTanggal(val === '' ? '' : Math.min(31, Math.max(1, Number(val))));
+                        }}
+                        placeholder="Contoh: 10"
+                        style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #ccfbf1', borderRadius: '8px', backgroundColor: '#fff' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: 600, color: '#0f766e' }}>Jam Pelayanan</label>
+                      <input 
+                        type="text" 
+                        value={jadwalBalitaJam}
+                        onChange={(e) => setJadwalBalitaJam(e.target.value)}
+                        placeholder="Contoh: 08:00 - 11:00"
+                        style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #ccfbf1', borderRadius: '8px', backgroundColor: '#fff' }}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Alamat Lengkap */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>Alamat Lengkap</label>
-                <textarea 
-                  value={alamat}
-                  onChange={(e) => setAlamat(e.target.value)}
-                  placeholder="Nama dusun, RT/RW, nomor lokasi..."
-                  rows={2}
-                  style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '12px', resize: 'none' }}
-                />
+              {/* 3. PELAYANAN LANSIA */}
+              <div>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '12px', fontWeight: 700, color: '#3730a3', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Users size={14} />
+                  3. Detail Sub-Posyandu Lansia
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: '#eef2ff', padding: '14px', borderRadius: '12px', border: '1px solid #e0e7ff' }}>
+                  {/* Nama Posyandu Lansia */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#3730a3' }}>Nama Fisik Posyandu Lansia</label>
+                    <input 
+                      type="text" 
+                      required 
+                      value={namaPosyanduLansia}
+                      onChange={(e) => setNamaPosyanduLansia(e.target.value)}
+                      placeholder="Contoh: Posyandu Lansia Sehat Sejahtera"
+                      style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e0e7ff', borderRadius: '8px', backgroundColor: '#fff' }}
+                    />
+                  </div>
+
+                  {/* Alamat Posyandu Lansia */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#3730a3' }}>Alamat / Lokasi Layanan Lansia</label>
+                    <input 
+                      type="text" 
+                      value={alamatLansia}
+                      onChange={(e) => setAlamatLansia(e.target.value)}
+                      placeholder="Contoh: Balai RW, RT 02 (Biarkan kosong untuk samakan dengan alamat utama)"
+                      style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e0e7ff', borderRadius: '8px', backgroundColor: '#fff' }}
+                    />
+                  </div>
+
+                  {/* Jadwal Lansia */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: 600, color: '#3730a3' }}>Setiap Tanggal (1-31)</label>
+                      <input 
+                        type="number" 
+                        min={1}
+                        max={31}
+                        value={jadwalLansiaTanggal}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setJadwalLansiaTanggal(val === '' ? '' : Math.min(31, Math.max(1, Number(val))));
+                        }}
+                        placeholder="Contoh: 22"
+                        style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e0e7ff', borderRadius: '8px', backgroundColor: '#fff' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: 600, color: '#3730a3' }}>Jam Pelayanan</label>
+                      <input 
+                        type="text" 
+                        value={jadwalLansiaJam}
+                        onChange={(e) => setJadwalLansiaJam(e.target.value)}
+                        placeholder="Contoh: 09:00 - selesai"
+                        style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e0e7ff', borderRadius: '8px', backgroundColor: '#fff' }}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Generated Kode Ketua Card */}
+              {/* 4. KODE KETUA DIHASILKAN */}
               <div 
                 style={{
                   padding: '12px',
@@ -362,16 +608,17 @@ export default function PosyanduPage() {
                 }}
               >
                 <div>
-                  <span style={{ fontSize: '10px', color: '#0f766e', fontWeight: 500, display: 'block' }}>KODE KETUA DIHASILKAN (MOBILE SIGNUP):</span>
+                  <span style={{ fontSize: '10px', color: '#0f766e', fontWeight: 600, display: 'block' }}>KODE AKSES KADER DIHASILKAN (SIGNUP MOBILE):</span>
                   <span style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '2px', color: '#14B8A6', fontFamily: 'monospace' }}>
                     {generatedCode}
                   </span>
                 </div>
-                <div style={{ color: '#14B8A6', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 500 }}>
+                <div style={{ color: '#14B8A6', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 600 }}>
                   <Check size={14} />
-                  <span>Siap Pakai</span>
+                  <span>Siap Digunakan</span>
                 </div>
               </div>
+
             </div>
 
             {/* Modal Footer */}
@@ -397,3 +644,4 @@ export default function PosyanduPage() {
     </div>
   );
 }
+

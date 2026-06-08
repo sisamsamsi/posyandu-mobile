@@ -14,7 +14,7 @@ interface Balita {
   tanggal_lahir: string;
   posyandu_id: string | null;
   nama_ortu: string;
-  posyandu?: { nama_posyandu: string; kelurahan: string };
+  posyandu?: { nama_posyandu: string; nama_posyandu_balita: string | null; kelurahan: string };
   // Latest weight & height
   penimbangans?: Array<{
     berat_badan: number;
@@ -79,7 +79,7 @@ export default function BalitaPage() {
         .from('balitas')
         .select(`
           id, nik, nama, jenis_kelamin, tanggal_lahir, anak_ke, nama_ortu, no_hp_ortu, alamat, rt, posyandu_id, bb_lahir, tb_lahir,
-          posyandu:posyandus(nama_posyandu, kelurahan),
+          posyandu:posyandus(nama_posyandu, nama_posyandu_balita, kelurahan),
           penimbangans(berat_badan, tinggi_badan, status_bb_u, zscore_bb_u, status_tb_u, zscore_tb_u, status_bb_tb, zscore_bb_tb)
         `);
 
@@ -137,7 +137,7 @@ export default function BalitaPage() {
     const matchesSearch = (
       b.nama.toLowerCase().includes(q) ||
       b.nik.includes(q) ||
-      (b.posyandu?.nama_posyandu || '').toLowerCase().includes(q)
+      (b.posyandu?.nama_posyandu_balita || b.posyandu?.nama_posyandu || '').toLowerCase().includes(q)
     );
 
     if (!matchesSearch) return false;
@@ -259,12 +259,12 @@ export default function BalitaPage() {
       if (!editId) {
         const { data: existing } = await supabase
           .from('balitas')
-          .select('id, nama, posyandus(nama_posyandu)')
+          .select('id, nama, posyandus(nama_posyandu, nama_posyandu_balita)')
           .eq('nik', nik)
           .maybeSingle();
 
         if (existing) {
-          throw new Error(`Balita dengan NIK ini sudah terdaftar atas nama ${existing.nama} di ${(existing as any).posyandus?.nama_posyandu || 'Posyandu'}`);
+          throw new Error(`Balita dengan NIK ini sudah terdaftar atas nama ${existing.nama} di ${(existing as any).posyandus?.nama_posyandu_balita || (existing as any).posyandus?.nama_posyandu || 'Posyandu'}`);
         }
       }
 
@@ -410,7 +410,7 @@ export default function BalitaPage() {
                     <td style={{ fontWeight: 500, color: '#1e293b' }}>{b.nama}</td>
                     <td>{b.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'}</td>
                     <td>{ageMonths} bln</td>
-                    <td>{b.posyandu?.nama_posyandu || '-'}</td>
+                    <td>{b.posyandu?.nama_posyandu_balita || b.posyandu?.nama_posyandu || '-'}</td>
                     <td>{latestMeas ? latestMeas.berat_badan : '-'}</td>
                     <td>{latestMeas ? latestMeas.tinggi_badan : '-'}</td>
                     <td style={{ color: latestMeas?.zscore_bb_u && latestMeas.zscore_bb_u < -2 ? '#ef4444' : 'inherit' }}>
