@@ -7,16 +7,16 @@ const supabase = createClient(
 );
 
 async function checkColumns() {
-  console.log('Testing specific columns on posyandus...');
+  console.log('Testing puskesmas_settings table...');
   const { data, error } = await supabase
-    .from('posyandus')
-    .select('tipe_posyandu, kode_ketua')
+    .from('puskesmas_settings')
+    .select('*')
     .limit(1);
 
   if (error) {
-    console.log('Columns do not exist. Error:', error.message);
+    console.log('puskesmas_settings table does not exist or error:', error.message);
   } else {
-    console.log('Columns tipe_posyandu and kode_ketua EXIST in posyandus table!', data);
+    console.log('puskesmas_settings EXISTS! Data:', data);
   }
 }
 
