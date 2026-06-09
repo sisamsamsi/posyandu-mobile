@@ -1,211 +1,421 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
-import { Brain, Sparkles } from 'lucide-react';
-import SubmenuPlaceholder from '@/components/layout/SubmenuPlaceholder';
+import {
+  Brain, Sparkles, ChevronDown, ChevronUp,
+  MessageSquare, FileText, CalendarDays, User,
+} from 'lucide-react';
+import SubmenuPlaceholder, { StatItem } from '@/components/layout/SubmenuPlaceholder';
 
-interface PenyuluhanAI {
+/* ─── types ──────────────────────────────────────────── */
+interface PenyuluhanRow {
   id: string;
-  balita_nama: string;
   tanggal: string;
-  topik: string;
-  status_gizi: string;
+  created_at: string;
+  pertanyaan: string[];
+  jawaban: string[];
   rekomendasi: string;
+  balita_id: string;
+  balita_nama: string;
+  balita_lahir: string;
+  posyandu_id: string;
+  kelurahan: string;
+  /* dari penimbangan terbaru */
+  status_bb_u: string | null;
+  status_tb_u: string | null;
+  status_bb_tb: string | null;
+  berat_badan: number | null;
+  tinggi_badan: number | null;
 }
 
+/* ─── helper ──────────────────────────────────────────── */
+const fmtDate = (s: string) =>
+  new Date(s).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+
+const giziColor = (status: string | null) => {
+  if (!status) return '#94a3b8';
+  const s = status.toLowerCase();
+  if (s.includes('sangat') || s.includes('buruk')) return '#ef4444';
+  if (s.includes('kurang') || s.includes('pendek') || s.includes('kurus')) return '#f59e0b';
+  if (s.includes('lebih') || s.includes('obesitas')) return '#a855f7';
+  return '#22c55e';
+};
+
+const giziLabel = (status_bb_u: string | null, status_tb_u: string | null, status_bb_tb: string | null) => {
+  const parts = [
+    status_bb_u ? `BB/U: ${status_bb_u}` : null,
+    status_tb_u ? `TB/U: ${status_tb_u}` : null,
+    status_bb_tb ? `BB/TB: ${status_bb_tb}` : null,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(' · ') : 'Belum Ada Data Penimbangan';
+};
+
+/* ─── expandable row component ────────────────────────── */
+function PenyuluhanCard({ item }: { item: PenyuluhanRow }) {
+  const [open, setOpen] = useState(false);
+
+  const dominantStatus = item.status_tb_u || item.status_bb_u || item.status_bb_tb;
+  const color = giziColor(dominantStatus);
+
+  return (
+    <div style={{
+      border: '1px solid #e2e8f0',
+      borderRadius: '12px',
+      overflow: 'hidden',
+      background: '#fff',
+    }}>
+      {/* ── header row ── */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1.6fr 1fr 1.8fr 1fr auto',
+          alignItems: 'center',
+          gap: '12px',
+          padding: '12px 16px',
+          cursor: 'pointer',
+          background: open ? '#f8fafc' : '#fff',
+          transition: 'background 0.15s',
+        }}
+        onClick={() => setOpen(p => !p)}
+      >
+        {/* nama */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{
+            width: '32px', height: '32px', borderRadius: '50%',
+            background: '#f0fdfa', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <User size={14} color="#14b8a6" />
+          </div>
+          <span style={{ fontWeight: 600, fontSize: '13px', color: '#0f172a' }}>
+            {item.balita_nama}
+          </span>
+        </div>
+
+        {/* tanggal */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#64748b' }}>
+          <CalendarDays size={12} />
+          {fmtDate(item.tanggal || item.created_at)}
+        </div>
+
+        {/* status gizi */}
+        <div style={{ fontSize: '11px' }}>
+          <span style={{
+            display: 'inline-block',
+            padding: '2px 8px',
+            borderRadius: '99px',
+            background: color + '18',
+            color,
+            fontWeight: 600,
+            border: `1px solid ${color}40`,
+          }}>
+            {giziLabel(item.status_bb_u, item.status_tb_u, item.status_bb_tb)}
+          </span>
+        </div>
+
+        {/* sesi Q&A */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#64748b' }}>
+          <MessageSquare size={12} />
+          {item.pertanyaan.length} pertanyaan
+        </div>
+
+        {/* expand */}
+        <div style={{ color: '#94a3b8' }}>
+          {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </div>
+      </div>
+
+      {/* ── detail panel ── */}
+      {open && (
+        <div style={{
+          borderTop: '1px solid #f1f5f9',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '0',
+        }}>
+          {/* Q&A Transcript */}
+          <div style={{ padding: '16px', borderRight: '1px solid #f1f5f9' }}>
+            <p style={{
+              fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
+              letterSpacing: '0.6px', color: '#64748b', marginBottom: '12px', marginTop: 0,
+            }}>
+              📋 Transkrip Wawancara Kader
+            </p>
+            {item.pertanyaan.length === 0 ? (
+              <p style={{ fontSize: '12px', color: '#94a3b8' }}>Tidak ada data wawancara.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {item.pertanyaan.map((q, i) => (
+                  <div key={i} style={{ fontSize: '12px' }}>
+                    <p style={{ margin: 0, color: '#475569', fontWeight: 600 }}>
+                      T: {q}
+                    </p>
+                    <p style={{
+                      margin: '4px 0 0 0', color: '#1e293b',
+                      background: '#f8fafc', padding: '6px 10px',
+                      borderRadius: '8px', fontStyle: 'italic',
+                    }}>
+                      J: {item.jawaban[i] || '—'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* AI Recommendation */}
+          <div style={{ padding: '16px' }}>
+            <p style={{
+              fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
+              letterSpacing: '0.6px', color: '#64748b', marginBottom: '12px', marginTop: 0,
+            }}>
+              <Sparkles size={11} style={{ display: 'inline', marginRight: '4px', color: '#eab308' }} />
+              Rekomendasi AI
+            </p>
+
+            {/* Nutritional context strip */}
+            {(item.berat_badan || item.tinggi_badan) && (
+              <div style={{
+                background: '#f0fdfa', border: '1px solid #ccfbf1',
+                borderRadius: '8px', padding: '8px 12px', marginBottom: '12px',
+                fontSize: '12px', color: '#0d9488', display: 'flex', gap: '16px',
+              }}>
+                {item.berat_badan && <span>⚖️ {item.berat_badan} kg</span>}
+                {item.tinggi_badan && <span>📏 {item.tinggi_badan} cm</span>}
+              </div>
+            )}
+
+            <div style={{
+              fontSize: '12.5px', color: '#334155', lineHeight: '1.7',
+              whiteSpace: 'pre-wrap',
+            }}>
+              {item.rekomendasi || 'Tidak ada rekomendasi tercatat.'}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── main page ───────────────────────────────────────── */
 export default function PenyuluhanAIPage() {
   const { selectedDesa, selectedPosyanduId, loading: filtersLoading } = useFilters();
-  const [data, setData] = useState<PenyuluhanAI[]>([]);
+  const [data, setData] = useState<PenyuluhanRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
-
-  const calculateAgeMonths = (dobStr: string) => {
-    const dob = new Date(dobStr);
-    const today = new Date();
-    let months = (today.getFullYear() - dob.getFullYear()) * 12;
-    months -= dob.getMonth();
-    months += today.getMonth();
-    return months <= 0 ? 0 : months;
-  };
+  const itemsPerPage = 20;
 
   useEffect(() => {
     async function fetchData() {
       try {
         setLoading(true);
-        // Fetch balitas and their weighings to simulate or fetch real penyuluhans
-        const { data: balitas, error } = await supabase
-          .from('balitas')
-          .select(`
-            id, nama, tanggal_lahir, posyandu_id,
-            posyandu:posyandus(kelurahan),
-            penimbangans(status_bb_tb, status_tb_u, tanggal)
-          `);
 
+        /* 1. Fetch semua sesi penyuluhan dari tabel nyata */
+        let query = supabase
+          .from('penyuluhans')
+          .select(`
+            id, tanggal, created_at, pertanyaan, jawaban, rekomendasi,
+            balita:balitas(
+              id, nama, tanggal_lahir, posyandu_id,
+              posyandu:posyandus(kelurahan),
+              penimbangans(
+                berat_badan, tinggi_badan,
+                status_bb_u, status_tb_u, status_bb_tb, tanggal
+              )
+            )
+          `)
+          .order('created_at', { ascending: false });
+
+        const { data: raw, error } = await query;
         if (error) throw error;
 
-        // Filter out balitas aged >= 60 months
-        const activeBalitas = (balitas || []).filter(b => calculateAgeMonths(b.tanggal_lahir) < 60);
+        /* 2. Flatten & ambil penimbangan terbaru per balita */
+        const rows: PenyuluhanRow[] = (raw || []).map((r: any) => {
+          const balita = Array.isArray(r.balita) ? r.balita[0] : r.balita;
+          const posyandu = Array.isArray(balita?.posyandu) ? balita?.posyandu[0] : balita?.posyandu;
+          const penimbangans: any[] = balita?.penimbangans || [];
 
-        // Generate recommendations based on nutritional status
-        let list: PenyuluhanAI[] = [];
-        activeBalitas.forEach((b, idx) => {
-          const sorted = (b.penimbangans || []).sort(
+          // Ambil penimbangan terbaru
+          const latest = penimbangans.sort(
             (a: any, b: any) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
-          );
-          const latest = sorted[0];
-          
-          if (latest) {
-            const stNode = latest.status_tb_u || 'Normal';
-            const sgNode = latest.status_bb_tb || 'Gizi Baik';
-            
-            let topik = 'Pemenuhan Protein Hewani';
-            let rekomendasi = 'Berikan telur, ikan, atau hati ayam minimal 1 butir/hari. Lanjutkan ASI hingga 2 tahun.';
-            
-            if (stNode.toLowerCase().includes('pendek') || stNode.toLowerCase().includes('stunting')) {
-              topik = 'Intervensi Stunting & Nutrisi Makro';
-              rekomendasi = 'Tingkatkan asupan zat besi, zink, dan asam amino esensial. Jadwalkan kontrol rutin dengan Puskesmas.';
-            } else if (sgNode.toLowerCase().includes('wasting') || sgNode.toLowerCase().includes('kurang')) {
-              topik = 'Pemberian PMT Pemulihan';
-              rekomendasi = 'Berikan makanan padat energi (PMT biskuit/lokal) di bawah pengawasan kader Posyandu.';
-            } else {
-              topik = 'Stimulasi Motorik & Imunisasi Lanjutan';
-              rekomendasi = 'Pertahankan pemberian makanan seimbang 3x sehari. Pastikan jadwal imunisasi dasar lengkap terpenuhi.';
-            }
+          )[0] ?? null;
 
-            list.push({
-              id: `${b.id}-${idx}`,
-              balita_nama: b.nama,
-              tanggal: latest.tanggal || new Date().toISOString().split('T')[0],
-              topik,
-              status_gizi: `TB/U: ${stNode}, BB/TB: ${sgNode}`,
-              rekomendasi
-            });
-          }
+          return {
+            id: r.id,
+            tanggal: r.tanggal,
+            created_at: r.created_at,
+            pertanyaan: r.pertanyaan || [],
+            jawaban: r.jawaban || [],
+            rekomendasi: r.rekomendasi || '',
+            balita_id: balita?.id ?? '',
+            balita_nama: balita?.nama ?? 'Tidak Diketahui',
+            balita_lahir: balita?.tanggal_lahir ?? '',
+            posyandu_id: balita?.posyandu_id ?? '',
+            kelurahan: posyandu?.kelurahan ?? '',
+            status_bb_u: latest?.status_bb_u ?? null,
+            status_tb_u: latest?.status_tb_u ?? null,
+            status_bb_tb: latest?.status_bb_tb ?? null,
+            berat_badan: latest?.berat_badan ?? null,
+            tinggi_badan: latest?.tinggi_badan ?? null,
+          };
         });
 
-        // Filter list
+        /* 3. Apply header filters */
+        let filtered = rows;
         if (selectedDesa !== 'all') {
-          list = list.filter((_, idx) => {
-            const bal = activeBalitas[idx]?.posyandu;
-            return (bal as any)?.kelurahan === selectedDesa;
-          });
+          filtered = filtered.filter(r => r.kelurahan === selectedDesa);
         }
         if (selectedPosyanduId !== 'all') {
-          list = list.filter((_, idx) => {
-            const bal = activeBalitas[idx]?.posyandu_id;
-            return bal === selectedPosyanduId;
-          });
+          filtered = filtered.filter(r => r.posyandu_id === selectedPosyanduId);
         }
 
-        setData(list);
+        setData(filtered);
         setCurrentPage(1);
       } catch (err) {
-        console.error('Error loading penyuluhan AI:', err);
+        console.error('Error loading penyuluhan:', err);
       } finally {
         setLoading(false);
       }
     }
 
-    if (!filtersLoading) {
-      fetchData();
-    }
+    if (!filtersLoading) fetchData();
   }, [selectedDesa, selectedPosyanduId, filtersLoading]);
 
-  const discussionPoints = [
-    'Integrasi Model Bahasa Besar (LLM) untuk generator materi penyuluhan kustom berdasarkan profil gizi balita bersangkutan.',
-    'Penyediaan portal materi edukasi audio-visual gratis untuk orang tua yang dapat dibagikan langsung via pesan singkat WhatsApp.',
-    'Sistem evaluasi pemahaman materi penyuluhan oleh orang tua menggunakan kuis mini/survey singkat pasca posyandu.'
-  ];
+  /* ── search filter ── */
+  const filtered = useMemo(() =>
+    search.trim()
+      ? data.filter(d => d.balita_nama.toLowerCase().includes(search.toLowerCase()))
+      : data,
+    [data, search]
+  );
 
-  // Pagination calculations
-  const totalPages = Math.ceil(data.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = Math.min(startIndex + itemsPerPage, data.length);
-  const paginatedData = data.slice(startIndex, endIndex);
+  /* ── stats ── */
+  const stats = useMemo((): StatItem[] => {
+    const stunting = data.filter(d =>
+      d.status_tb_u?.toLowerCase().includes('pendek') ||
+      d.status_bb_u?.toLowerCase().includes('kurang')
+    ).length;
+    const normal   = data.filter(d => !d.status_tb_u?.toLowerCase().includes('pendek') &&
+      !d.status_bb_u?.toLowerCase().includes('kurang')).length;
+    // Unique balitas
+    const uniqueBalita = new Set(data.map(d => d.balita_id)).size;
+    return [
+      { label: 'Total Sesi',            value: data.length,   color: 'neutral' },
+      { label: 'Balita Unik',           value: uniqueBalita,  color: 'primary' },
+      { label: 'Sesi Balita Berisiko',  value: stunting,      color: 'danger'  },
+      { label: 'Sesi Balita Normal',    value: normal,        color: 'success' },
+    ];
+  }, [data]);
+
+  /* ── pagination ── */
+  const totalPages  = Math.ceil(filtered.length / itemsPerPage);
+  const startIndex  = (currentPage - 1) * itemsPerPage;
+  const paginatedData = filtered.slice(startIndex, startIndex + itemsPerPage);
 
   return (
     <SubmenuPlaceholder
-      title="Penyuluhan AI Balita"
+      title="Rekap Penyuluhan AI"
       parentTitle="Balita"
-      description="Sistem Asisten AI untuk penyusunan rekomendasi materi penyuluhan gizi dan panduan pemberian makanan bayi dan anak (PMBA) kustom berdasarkan data pemeriksaan balita."
       icon={Brain}
-      discussionPoints={discussionPoints}
+      loading={loading}
+      stats={stats}
+      sectionTitle="Riwayat Sesi Wawancara Kader"
     >
+      {/* search bar */}
+      <div style={{ marginBottom: '14px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <input
+          value={search}
+          onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
+          placeholder="Cari nama balita..."
+          style={{
+            flex: 1, maxWidth: '320px',
+            padding: '8px 12px', fontSize: '13px',
+            border: '1px solid #e2e8f0', borderRadius: '8px',
+            outline: 'none', color: '#1e293b',
+          }}
+        />
+        {search && (
+          <button
+            onClick={() => setSearch('')}
+            style={{ fontSize: '12px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer' }}
+          >
+            Reset
+          </button>
+        )}
+        <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+          {filtered.length} sesi ditemukan
+        </span>
+      </div>
+
       {loading ? (
         <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-          Membuat penyuluhan berbasis AI...
+          Memuat data penyuluhan dari mobile...
         </div>
-      ) : data.length === 0 ? (
-        <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-          Belum ada rekomendasi penyuluhan. Silakan masukkan data penimbangan balita terlebih dahulu.
+      ) : filtered.length === 0 ? (
+        <div style={{
+          padding: '32px 24px', textAlign: 'center',
+          border: '1px dashed #e2e8f0', borderRadius: '12px',
+          color: 'var(--text-muted)',
+        }}>
+          <FileText size={32} style={{ margin: '0 auto 8px', display: 'block', opacity: 0.4 }} />
+          <p style={{ margin: 0, fontWeight: 600 }}>Belum ada sesi penyuluhan</p>
+          <p style={{ margin: '4px 0 0', fontSize: '12px' }}>
+            Data akan muncul setelah kader menyelesaikan wawancara AI di aplikasi mobile.
+          </p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div className="table-container">
-            <table className="custom-table">
-              <thead>
-                <tr>
-                  <th>Nama Balita</th>
-                  <th>Status Pertumbuhan</th>
-                  <th>Topik Rekomendasi</th>
-                  <th>Rencana Tindak Lanjut & Rekomendasi AI</th>
-                  <th>Tanggal Rekomendasi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedData.map((item) => (
-                  <tr key={item.id}>
-                    <td style={{ fontWeight: 500 }}>{item.balita_nama}</td>
-                    <td style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{item.status_gizi}</td>
-                    <td style={{ fontWeight: 600, color: 'var(--color-primary)' }}>{item.topik}</td>
-                    <td style={{ whiteSpace: 'normal', maxWidth: '320px' }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                        <Sparkles size={12} style={{ color: '#eab308', marginTop: '2px', flexShrink: 0 }} />
-                        <span>{item.rekomendasi}</span>
-                      </div>
-                    </td>
-                    <td>
-                      {new Date(item.tanggal).toLocaleDateString('id-ID', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric'
-                      })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {/* column header */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1.6fr 1fr 1.8fr 1fr auto',
+            gap: '12px',
+            padding: '6px 16px',
+            fontSize: '11px',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.6px',
+            color: '#94a3b8',
+          }}>
+            <span>Nama Balita</span>
+            <span>Tanggal Sesi</span>
+            <span>Status Gizi Terkini</span>
+            <span>Sesi</span>
+            <span></span>
           </div>
+
+          {paginatedData.map(item => (
+            <PenyuluhanCard key={item.id} item={item} />
+          ))}
+
+          {/* pagination */}
           {totalPages > 1 && (
-            <div className="pagination-container">
-              <span>Menampilkan {startIndex + 1}-{endIndex} dari {data.length} data</span>
+            <div className="pagination-container" style={{ marginTop: '8px' }}>
+              <span>
+                Menampilkan {startIndex + 1}–{Math.min(startIndex + itemsPerPage, filtered.length)} dari {filtered.length} sesi
+              </span>
               <div className="pagination-pages">
-                <button 
-                  className="pagination-btn" 
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                <button
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
                   disabled={currentPage === 1}
-                >
-                  &lt;
-                </button>
+                >&lt;</button>
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                  <button 
-                    key={page} 
+                  <button
+                    key={page}
                     className={`pagination-btn ${currentPage === page ? 'active' : ''}`}
                     onClick={() => setCurrentPage(page)}
-                  >
-                    {page}
-                  </button>
+                  >{page}</button>
                 ))}
-                <button 
-                  className="pagination-btn" 
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                <button
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
                   disabled={currentPage === totalPages}
-                >
-                  &gt;
-                </button>
+                >&gt;</button>
               </div>
             </div>
           )}

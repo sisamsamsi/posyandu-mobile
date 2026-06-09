@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
 import { AlertCircle, ShieldCheck } from 'lucide-react';
-import SubmenuPlaceholder from '@/components/layout/SubmenuPlaceholder';
+import SubmenuPlaceholder, { StatItem } from '@/components/layout/SubmenuPlaceholder';
 
 interface PosyanduBermasalahRecord {
   id: string;
@@ -21,7 +21,7 @@ export default function PosyanduBermasalahPage() {
   const [data, setData] = useState<PosyanduBermasalahRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 15;
 
   const calculateAgeMonths = (dobStr: string) => {
     const dob = new Date(dobStr);
@@ -140,11 +140,12 @@ export default function PosyanduBermasalahPage() {
     }
   }, [selectedDesa, selectedPosyanduId, filtersLoading]);
 
-  const discussionPoints = [
-    'Integrasi monitoring konektivitas tablet/HP kader posyandu untuk mendeteksi kendala akses internet di lapangan.',
-    'Pemberian pesan pengingat (notifikasi telegram/whatsapp) otomatis kepada kepala dusun/ketua RW jika posyandu di wilayahnya terlambat mengunggah data.',
-    'Sistem survei kendala kader (kuisioner internal cepat) untuk mengetahui apakah masalah disebabkan oleh alat timbang rusak atau kekurangan kader.'
-  ];
+  const stats = useMemo((): StatItem[] => [
+    { label: 'Total Bermasalah', value: data.length, color: 'neutral' },
+    { label: 'Tinggi', value: data.filter(d => d.tingkat_urgensi === 'Tinggi').length, color: 'danger' },
+    { label: 'Sedang', value: data.filter(d => d.tingkat_urgensi === 'Sedang').length, color: 'warning' },
+    { label: 'Paling Kritis', value: data.filter(d => d.tingkat_urgensi === 'Tinggi').length, color: 'danger' },
+  ], [data]);
 
   // Pagination calculations
   const totalPages = Math.ceil(data.length / itemsPerPage);
@@ -154,11 +155,12 @@ export default function PosyanduBermasalahPage() {
 
   return (
     <SubmenuPlaceholder
-      title="Analisis Posyandu Bermasalah (AI)"
-      parentTitle="Analisis AI"
-      description="Sistem deteksi dini anomali operasional posyandu untuk mengidentifikasi unit pelayanan yang tidak aktif, terlambat menginput data bulanan, atau memiliki tingkat partisipasi yang rendah."
+      title="Pemantauan Posyandu"
+      parentTitle="Analitik Wilayah"
       icon={AlertCircle}
-      discussionPoints={discussionPoints}
+      loading={loading}
+      stats={stats}
+      sectionTitle="Hasil Analisis"
     >
       {loading ? (
         <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>

@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
 import { Calendar } from 'lucide-react';
-import SubmenuPlaceholder from '@/components/layout/SubmenuPlaceholder';
+import SubmenuPlaceholder, { ActionItem, StatItem } from '@/components/layout/SubmenuPlaceholder';
 
 interface KehadiranData {
   id: string;
@@ -23,7 +23,7 @@ export default function KehadiranPage() {
   const [data, setData] = useState<KehadiranData[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 15;
 
   const calculateAgeMonths = (dobStr: string) => {
     const dob = new Date(dobStr);
@@ -114,11 +114,28 @@ export default function KehadiranPage() {
     }
   }, [selectedDesa, selectedPosyanduId, filtersLoading]);
 
-  const discussionPoints = [
-    'Integrasi form scan QR Code / kartu RFID peserta Posyandu di meja pendaftaran untuk pencatatan kehadiran otomatis.',
-    'Sistem generate notifikasi WhatsApp otomatis bagi orang tua balita atau keluarga lansia yang terdeteksi tidak hadir 2 kali berturut-turut.',
-    'Penyusunan dashboard rekapitulasi pelaporan bulanan (F1-F5) yang terintegrasi dengan portal dinas kesehatan kabupaten.'
-  ];
+  const stats = useMemo((): StatItem[] => [
+    { label: 'Total Posyandu', value: data.length, color: 'neutral' },
+    { label: 'Kehadiran Baik (≥80%)', value: data.filter(d => d.persentase >= 80).length, color: 'success' },
+    { label: 'Cukup (60–79%)', value: data.filter(d => d.persentase >= 60 && d.persentase < 80).length, color: 'warning' },
+    { label: 'Perlu Perhatian (<60%)', value: data.filter(d => d.persentase < 60).length, color: 'danger' },
+  ], [data]);
+
+  const actionItems = useMemo((): ActionItem[] | undefined => {
+    if (data.length === 0) return undefined;
+    return [...data]
+      .sort((a, b) => a.persentase - b.persentase)
+      .slice(0, 3)
+      .map(d => {
+        const total = d.total_balita + d.total_lansia;
+        const hadir = d.hadir_balita + d.hadir_lansia;
+        return {
+          nama: `${d.nama_posyandu} — ${d.kelurahan}`,
+          keterangan: `${hadir}/${total} peserta (${d.persentase}%)`,
+          urgensi: d.persentase < 60 ? 'tinggi' as const : 'sedang' as const,
+        };
+      });
+  }, [data]);
 
   // Pagination calculations
   const totalPages = Math.ceil(data.length / itemsPerPage);
@@ -130,9 +147,11 @@ export default function KehadiranPage() {
     <SubmenuPlaceholder
       title="Kehadiran & Pelaporan"
       parentTitle="Posyandu"
-      description="Kelola tingkat kehadiran peserta posyandu (balita & lansia) serta pelaporan berkala hasil kegiatan posyandu ke Puskesmas secara terintegrasi."
       icon={Calendar}
-      discussionPoints={discussionPoints}
+      loading={loading}
+      stats={stats}
+      sectionTitle="Rekap Kehadiran per Posyandu"
+      actionItems={actionItems}
     >
       {loading ? (
         <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>

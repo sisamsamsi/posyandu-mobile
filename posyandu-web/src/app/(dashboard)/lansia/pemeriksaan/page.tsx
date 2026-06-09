@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
 import { Heart, Calendar } from 'lucide-react';
-import SubmenuPlaceholder from '@/components/layout/SubmenuPlaceholder';
+import SubmenuPlaceholder, { StatItem } from '@/components/layout/SubmenuPlaceholder';
 
 interface PemeriksaanLansiaRecord {
   id: string;
@@ -21,7 +21,7 @@ export default function PemeriksaanLansiaPage() {
   const [data, setData] = useState<PemeriksaanLansiaRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 15;
 
   useEffect(() => {
     async function fetchData() {
@@ -76,11 +76,39 @@ export default function PemeriksaanLansiaPage() {
     }
   }, [selectedDesa, selectedPosyanduId, filtersLoading]);
 
-  const discussionPoints = [
-    'Grafik tren parameter kesehatan (Tekanan Darah, Gula Darah, Kolesterol) per pasien lansia untuk melacak efektivitas terapi obat.',
-    'Pencatatan riwayat alergi obat dan keluhan klinis harian pada rekam medis digital lansia.',
-    'Fitur integrasi rujukan pasien ke Program Rujuk Balik (PRB) BPJS untuk mempermudah akses obat kronis.'
-  ];
+  const stats = useMemo((): StatItem[] => {
+    const hipertensi = data.filter(d => {
+      if (!d.tekanan_darah) return false;
+      const sis = parseInt(d.tekanan_darah.split('/')[0]);
+      return sis >= 140;
+    }).length;
+    const gulaTinggi = data.filter(d => d.gula_darah && d.gula_darah >= 200).length;
+    const kolesterolTinggi = data.filter(d => d.kolesterol && d.kolesterol >= 200).length;
+    return [
+      { label: 'Total Pemeriksaan', value: data.length, color: 'neutral' },
+      { label: 'Hipertensi (TD≥140)', value: hipertensi, color: 'danger' },
+      { label: 'Gula Tinggi (≥200)', value: gulaTinggi, color: 'warning' },
+      { label: 'Kolesterol Tinggi (≥200)', value: kolesterolTinggi, color: 'warning' },
+    ];
+  }, [data]);
+
+  const insightText = useMemo(() => {
+    if (data.length === 0) return undefined;
+    const hipertensi = data.filter(d => {
+      if (!d.tekanan_darah) return false;
+      const sis = parseInt(d.tekanan_darah.split('/')[0]);
+      return sis >= 140;
+    }).length;
+    const gulaTinggi = data.filter(d => d.gula_darah && d.gula_darah >= 200).length;
+    const multiRisiko = data.filter(d => {
+      let count = 0;
+      if (d.tekanan_darah && parseInt(d.tekanan_darah.split('/')[0]) >= 140) count++;
+      if (d.gula_darah && d.gula_darah >= 200) count++;
+      if (d.kolesterol && d.kolesterol >= 200) count++;
+      return count >= 2;
+    }).length;
+    return `Dari **${data.length} pemeriksaan** tercatat, **${hipertensi} lansia** terdeteksi hipertensi (sistolik ≥140 mmHg). **${gulaTinggi} lansia** memiliki kadar gula darah di atas normal. Pemantauan rutin direkomendasikan untuk **${multiRisiko} lansia** dengan multi-risiko.`;
+  }, [data]);
 
   // Pagination calculations
   const totalPages = Math.ceil(data.length / itemsPerPage);
@@ -92,9 +120,11 @@ export default function PemeriksaanLansiaPage() {
     <SubmenuPlaceholder
       title="Pemeriksaan Kesehatan Lansia"
       parentTitle="Lansia"
-      description="Pencatatan dan analisis berkala parameter kesehatan utama lansia meliputi tekanan darah, kadar gula darah sewaktu (GDS), kolesterol, dan asam urat."
       icon={Heart}
-      discussionPoints={discussionPoints}
+      loading={loading}
+      stats={stats}
+      sectionTitle="Riwayat Pemeriksaan Kesehatan"
+      insightText={insightText}
     >
       {loading ? (
         <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>

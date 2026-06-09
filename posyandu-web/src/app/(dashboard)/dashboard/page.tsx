@@ -65,6 +65,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState({
     totalBalita: 0,
     kehadiran: 0,
+    keberhasilan: 0,
     stunting: 0,
     wasting: 0,
     totalLansia: 0,
@@ -201,9 +202,20 @@ export default function Dashboard() {
           if (p.asam_urat > limitAsamUrat) asamUratCount++;
         });
 
+        const goodGrowthCount = monthlyPenimbangans.filter(p => {
+          const bbU = (p.status_bb_u || '').toLowerCase();
+          const tbU = (p.status_tb_u || '').toLowerCase();
+          const bbTb = (p.status_bb_tb || '').toLowerCase();
+
+          return bbU.includes('normal') && tbU.includes('normal') && (bbTb.includes('baik') || bbTb.includes('normal'));
+        }).length;
+
+        const keberhasilan = totalBalita > 0 ? Math.round((goodGrowthCount / totalBalita) * 100) : 0;
+
         setStats({
           totalBalita,
           kehadiran,
+          keberhasilan,
           stunting: stuntingCount,
           wasting: wastingCount,
           totalLansia,
@@ -510,8 +522,9 @@ export default function Dashboard() {
 
       {/* 2. CARD METRICS (BALITA VS LANSIA) */}
       {toggleMode === 'balita' ? (
-        <div className="grid-cards-4">
-          {/* Card 1: Total Balita */}
+        <>
+          <div className="grid-cards-4">
+            {/* Card 1: Total Balita */}
           <div className="card metric-card">
             <div className="metric-card-title">
               <Baby size={14} style={{ color: '#14B8A6' }} />
@@ -547,6 +560,29 @@ export default function Dashboard() {
             <div className="metric-card-value">{stats.wasting}</div>
           </div>
         </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '18px', marginTop: '18px' }}>
+          <div className="card metric-card" style={{ padding: '18px', minHeight: '116px' }}>
+            <div className="metric-card-title" style={{ marginBottom: '10px' }}>
+              <Users size={14} style={{ color: '#2563eb' }} />
+              <span>Partisipasi Masyarakat</span>
+            </div>
+            <div className="metric-card-value" style={{ marginBottom: '8px' }}>{stats.kehadiran}%</div>
+            <div style={{ fontSize: '12px', color: '#64748b', lineHeight: 1.45 }}>
+              Target minimal 85%. Menggambarkan keaktifan warga datang ke Posyandu.
+            </div>
+          </div>
+          <div className="card metric-card" style={{ padding: '18px', minHeight: '116px' }}>
+            <div className="metric-card-title" style={{ marginBottom: '10px' }}>
+              <TrendingUp size={14} style={{ color: '#16a34a' }} />
+              <span>Keberhasilan Program</span>
+            </div>
+            <div className="metric-card-value" style={{ marginBottom: '8px' }}>{stats.keberhasilan}%</div>
+            <div style={{ fontSize: '12px', color: '#64748b', lineHeight: 1.45 }}>
+              Target minimal 88%. Indikator kesehatan balita yang tumbuh baik.
+            </div>
+          </div>
+        </div>
+        </>
       ) : (
         <div className="grid-cards-4">
           {/* Card 1: Total Lansia */}

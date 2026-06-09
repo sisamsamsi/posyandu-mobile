@@ -31,8 +31,11 @@ export default function Sidebar({
   const [adminName, setAdminName] = useState(propAdminName || 'Dr. Anisa Putri');
   const [puskesmasName, setPuskesmasName] = useState(propPuskesmasName || 'Puskesmas Pondok I');
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
+
     if (propAdminName || propPuskesmasName) return;
 
     const updateProfile = () => {
@@ -73,7 +76,7 @@ export default function Sidebar({
         { name: 'Data Balita', path: '/balita' },
         { name: 'Status Gizi', path: '/balita/status-gizi' },
         { name: 'Penimbangan', path: '/balita/penimbangan' },
-        { name: 'Penyuluhan AI', path: '/balita/penyuluhan' },
+        { name: 'Rekomendasi Penyuluhan', path: '/balita/penyuluhan' },
         { name: 'Risiko Tinggi', path: '/balita/risiko-tinggi' }
       ]
     },
@@ -88,7 +91,7 @@ export default function Sidebar({
       ]
     },
     { 
-      name: 'Analisa AI', 
+      name: 'Analitik Wilayah', 
       icon: BrainCircuit,
       submenus: [
         { name: 'Ringkasan Wilayah', path: '/analisa-ai' },
@@ -96,7 +99,7 @@ export default function Sidebar({
         { name: 'Risiko Lansia', path: '/analisa-ai/risiko-lansia' },
         { name: 'Tren & Prediksi', path: '/analisa-ai/tren-prediksi' },
         { name: 'Prioritas Intervensi', path: '/analisa-ai/prioritas-intervensi' },
-        { name: 'Posyandu Bermasalah', path: '/analisa-ai/posyandu-bermasalah' },
+        { name: 'Pemantauan Posyandu', path: '/analisa-ai/posyandu-bermasalah' },
         { name: 'Deteksi Anomali', path: '/analisa-ai/deteksi-anomali' },
         { name: 'Rekomendasi Penyuluhan', path: '/analisa-ai/rekomendasi-penyuluhan' }
       ]
@@ -225,8 +228,8 @@ export default function Sidebar({
           className="profile-avatar"
         />
         <div className="profile-info" style={{ flex: 1 }}>
-          <span className="profile-name" title={adminName}>{adminName}</span>
-          <span className="profile-role" title={puskesmasName}>{puskesmasName}</span>
+          <span className="profile-name" title={adminName}>{isMounted ? adminName : ''}</span>
+          <span className="profile-role" title={puskesmasName}>{isMounted ? puskesmasName : ''}</span>
         </div>
         <button 
           onClick={handleSignOut}

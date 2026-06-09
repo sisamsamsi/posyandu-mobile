@@ -1,16 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
 import { AlertTriangle, ShieldAlert } from 'lucide-react';
-import SubmenuPlaceholder from '@/components/layout/SubmenuPlaceholder';
+import SubmenuPlaceholder, { ActionItem, StatItem } from '@/components/layout/SubmenuPlaceholder';
 
 interface RisikoBalitaRecord {
   id: string;
   nama: string;
   tanggal_lahir: string;
   ortu: string;
+  posyandu_nama: string;
   faktor_risiko: string[];
   status_gizi: string;
 }
@@ -20,7 +21,7 @@ export default function RisikoTinggiPage() {
   const [data, setData] = useState<RisikoBalitaRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 15;
 
   const calculateAgeMonths = (dobStr: string) => {
     const dob = new Date(dobStr);
@@ -41,10 +42,13 @@ export default function RisikoTinggiPage() {
             id, nama, tanggal_lahir, nama_ortu, posyandu_id,
             posyandu:posyandus(nama_posyandu, kelurahan),
             penimbangans(status_bb_u, status_tb_u, status_bb_tb, tanggal),
-            imunisasi(jenis_imunisasi)
+            imunisasi(hb0_date, bcg_date, penta_1_date, penta_2_date, penta_3_date, ipv_1_date, ipv_2_date, ipv_3_date, pcv_1_date, pcv_2_date, pcv_3_date, rv_1_date, rv_2_date, rv_3_date, mr_date, je_date, booster_penta_date, booster_mr_date)
           `);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error fetching high-risk balitas', error);
+          throw new Error(error.message || JSON.stringify(error));
+        }
 
         // Filter out balitas aged >= 60 months
         const activeBalitas = (balitas || []).filter(b => calculateAgeMonths(b.tanggal_lahir) < 60);
@@ -85,8 +89,17 @@ export default function RisikoTinggiPage() {
             factors.push(`Underweight (${latest.status_bb_u})`);
           }
 
-          // Check if immunization count is low (e.g. less than 2)
-          const imuCount = b.imunisasi?.length || 0;
+          // Check immunization completeness by counting filled vaccine date fields
+          const imuRecord = Array.isArray(b.imunisasi) ? b.imunisasi[0] : b.imunisasi;
+          const imuFields = [
+            'hb0_date', 'bcg_date', 'penta_1_date', 'penta_2_date', 'penta_3_date',
+            'ipv_1_date', 'ipv_2_date', 'ipv_3_date', 'pcv_1_date', 'pcv_2_date',
+            'pcv_3_date', 'rv_1_date', 'rv_2_date', 'rv_3_date', 'mr_date', 'je_date',
+            'booster_penta_date', 'booster_mr_date'
+          ];
+          const imuCount = imuRecord
+            ? imuFields.filter(f => !!(imuRecord as any)[f]).length
+            : 0;
           if (imuCount < 2) {
             factors.push('Imunisasi Dasar Belum Lengkap');
           }
@@ -98,6 +111,7 @@ export default function RisikoTinggiPage() {
               nama: b.nama,
               tanggal_lahir: b.tanggal_lahir,
               ortu: b.nama_ortu || 'Tidak Ada Data',
+              posyandu_nama: (b.posyandu as any)?.nama_posyandu || 'Posyandu',
               faktor_risiko: factors,
               status_gizi: latest ? `TB/U: ${latest.status_tb_u || '-'}, BB/TB: ${latest.status_bb_tb || '-'}` : 'Belum Ditimbang'
             });
@@ -133,11 +147,24 @@ export default function RisikoTinggiPage() {
     }
   }, [selectedDesa, selectedPosyanduId, filtersLoading]);
 
-  const discussionPoints = [
-    'Sistem penandaan (flagging) otomatis status risiko tinggi langsung di antarmuka rekam medis ketika berat/tinggi menyimpang ekstrem.',
-    'Pemicu (triggers) rujukan cepat otomatis ke Puskesmas/RSUD dengan transfer ringkasan medis digital terenskripsi.',
-    'Program pendampingan intensif bagi keluarga balita risiko tinggi oleh kader penanggung jawab khusus (Kader Pendamping Keluarga).'
-  ];
+  const stats = useMemo((): StatItem[] => [
+    { label: 'Total Berisiko', value: data.length, color: 'danger' },
+    { label: 'Stunting', value: data.filter(d => d.faktor_risiko.some(f => f.includes('Stunting'))).length, color: 'danger' },
+    { label: 'Wasting', value: data.filter(d => d.faktor_risiko.some(f => f.includes('Wasting'))).length, color: 'warning' },
+    { label: 'Imunisasi Tidak Lengkap', value: data.filter(d => d.faktor_risiko.some(f => f.includes('Imunisasi'))).length, color: 'warning' },
+  ], [data]);
+
+  const actionItems = useMemo((): ActionItem[] | undefined => {
+    if (data.length === 0) return undefined;
+    return [...data]
+      .sort((a, b) => b.faktor_risiko.length - a.faktor_risiko.length)
+      .slice(0, 3)
+      .map(d => ({
+        nama: `${d.nama} — ${d.posyandu_nama}`,
+        keterangan: d.faktor_risiko.join(' + '),
+        urgensi: d.faktor_risiko.length >= 2 ? 'tinggi' as const : 'sedang' as const,
+      }));
+  }, [data]);
 
   // Pagination calculations
   const totalPages = Math.ceil(data.length / itemsPerPage);
@@ -149,9 +176,11 @@ export default function RisikoTinggiPage() {
     <SubmenuPlaceholder
       title="Balita Risiko Tinggi"
       parentTitle="Balita"
-      description="Daftar balita teridentifikasi memiliki faktor risiko tumbuh kembang kritis seperti stunting berat, wasting ekstrem, gizi buruk, atau riwayat imunisasi dasar tidak lengkap."
       icon={AlertTriangle}
-      discussionPoints={discussionPoints}
+      loading={loading}
+      stats={stats}
+      sectionTitle="Daftar Balita Berisiko"
+      actionItems={actionItems}
     >
       {loading ? (
         <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>

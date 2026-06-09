@@ -17,8 +17,10 @@ export default function Header() {
   } = useFilters();
 
   const [puskesmasName, setPuskesmasName] = useState('Puskesmas Pondok I');
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
     const updateProfile = () => {
       const saved = localStorage.getItem('simpul_sehat_puskesmas_profile');
       if (saved) {
@@ -71,8 +73,8 @@ export default function Header() {
         title = 'Data Lansia';
         break;
       case 'analisa-ai':
-        breadcrumbs += ' > Analisa AI';
-        title = 'Analisa AI & Chat Copilot';
+        breadcrumbs += ' > Analitik Wilayah';
+        title = 'Analitik Wilayah';
         break;
       case 'laporan':
         breadcrumbs += ' > Laporan';
@@ -158,7 +160,7 @@ export default function Header() {
           }}
         >
           <Building2 size={14} style={{ color: '#14B8A6' }} />
-          <span>{puskesmasName}</span>
+          <span>{isMounted ? puskesmasName : ''}</span>
         </div>
 
         {/* Notification Bell with Badge */}

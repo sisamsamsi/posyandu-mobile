@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
 import { TrendingUp } from 'lucide-react';
-import SubmenuPlaceholder from '@/components/layout/SubmenuPlaceholder';
+import SubmenuPlaceholder, { StatItem } from '@/components/layout/SubmenuPlaceholder';
 
 interface TrendRecord {
   bulan: string;
@@ -20,7 +20,7 @@ export default function TrenPrediksiPage() {
   const [data, setData] = useState<TrendRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 15;
 
   const calculateAgeMonths = (dobStr: string) => {
     const dob = new Date(dobStr);
@@ -157,11 +157,16 @@ export default function TrenPrediksiPage() {
     }
   }, [selectedDesa, selectedPosyanduId, filtersLoading]);
 
-  const discussionPoints = [
-    'Model peramalan ARIMA / Prophet untuk memprediksi lonjakan angka stunting musiman berdasarkan faktor iklim dan ketahanan pangan lokal.',
-    'Peringatan dini (Early Warning System) jika tren kunjungan balita ke posyandu menurun 3 bulan berturut-turut.',
-    'Prediksi kebutuhan logistik PMT dan vitamin A untuk 6 bulan ke depan agar menghindari stok kosong.'
-  ];
+  const stats = useMemo((): StatItem[] => {
+    const realData = data.filter(d => !d.bulan.toLowerCase().includes('prediksi'));
+    const last = realData[realData.length - 1];
+    return [
+      { label: 'Total Bulan Data', value: realData.length, color: 'neutral' },
+      { label: 'Kunjungan Terakhir', value: last ? last.balita_timbang + last.lansia_periksa : 0, color: 'primary' },
+      { label: 'Stunting Terakhir', value: last?.stunting_count ?? 0, color: 'danger' },
+      { label: 'Tren Arah', value: last?.status_tren ?? '—', color: 'warning' },
+    ];
+  }, [data]);
 
   // Pagination calculations
   const totalPages = Math.ceil(data.length / itemsPerPage);
@@ -171,11 +176,12 @@ export default function TrenPrediksiPage() {
 
   return (
     <SubmenuPlaceholder
-      title="Tren & Prediksi AI"
-      parentTitle="Analisis AI"
-      description="Analisis deret waktu (time-series forecasting) untuk mendeteksi tren kunjungan posyandu dan prediksi prevalensi stunting/PTM pada bulan-bulan berikutnya."
+      title="Tren & Prediksi"
+      parentTitle="Analitik Wilayah"
       icon={TrendingUp}
-      discussionPoints={discussionPoints}
+      loading={loading}
+      stats={stats}
+      sectionTitle="Hasil Analisis"
     >
       {loading ? (
         <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>

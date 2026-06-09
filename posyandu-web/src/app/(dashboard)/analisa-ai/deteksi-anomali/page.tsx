@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
 import { ShieldAlert, CheckCircle2 } from 'lucide-react';
-import SubmenuPlaceholder from '@/components/layout/SubmenuPlaceholder';
+import SubmenuPlaceholder, { StatItem } from '@/components/layout/SubmenuPlaceholder';
 
 interface AnomaliRecord {
   id: string;
@@ -20,7 +20,7 @@ export default function DeteksiAnomaliPage() {
   const [data, setData] = useState<AnomaliRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 15;
 
   const calculateAgeMonths = (dobStr: string) => {
     const dob = new Date(dobStr);
@@ -185,11 +185,19 @@ export default function DeteksiAnomaliPage() {
     }
   }, [selectedDesa, selectedPosyanduId, filtersLoading]);
 
-  const discussionPoints = [
-    'Logika validasi waktu nyata (real-time error checking) saat input di aplikasi Android kader (mencegah data salah kirim).',
-    'Integrasi notifikasi revisi data bagi kader koordinator posyandu jika terdeteksi data janggal.',
-    'Penyusunan aturan kepatuhan audit data kesehatan bulanan (Data Cleansing & Validation Report) otomatis.'
-  ];
+  const stats = useMemo((): StatItem[] => {
+    const now = new Date();
+    const bulanIni = data.filter(d => {
+      const t = new Date(d.tanggal);
+      return t.getMonth() === now.getMonth() && t.getFullYear() === now.getFullYear();
+    }).length;
+    return [
+      { label: 'Total Anomali', value: data.length, color: 'neutral' },
+      { label: 'Perlu Konfirmasi', value: data.filter(d => d.status === 'Perlu Konfirmasi').length, color: 'warning' },
+      { label: 'Terkonfirmasi', value: data.filter(d => d.status === 'Telah Dikonfirmasi').length, color: 'success' },
+      { label: 'Bulan Ini', value: bulanIni, color: 'danger' },
+    ];
+  }, [data]);
 
   // Pagination calculations
   const totalPages = Math.ceil(data.length / itemsPerPage);
@@ -199,11 +207,12 @@ export default function DeteksiAnomaliPage() {
 
   return (
     <SubmenuPlaceholder
-      title="Deteksi Anomali Data (AI)"
-      parentTitle="Analisis AI"
-      description="Pemantauan integritas data rekam medis secara cerdas untuk menyaring kesalahan pengetikan (human error) kader seperti tinggi/berat badan menyimpang ekstrim."
+      title="Deteksi Anomali"
+      parentTitle="Analitik Wilayah"
       icon={ShieldAlert}
-      discussionPoints={discussionPoints}
+      loading={loading}
+      stats={stats}
+      sectionTitle="Hasil Analisis"
     >
       {loading ? (
         <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>

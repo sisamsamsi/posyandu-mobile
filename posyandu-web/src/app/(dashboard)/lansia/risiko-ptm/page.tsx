@@ -1,14 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
 import { ShieldAlert, Heart } from 'lucide-react';
-import SubmenuPlaceholder from '@/components/layout/SubmenuPlaceholder';
+import SubmenuPlaceholder, { ActionItem, StatItem } from '@/components/layout/SubmenuPlaceholder';
 
 interface RisikoPTMRecord {
   id: string;
   nama: string;
+  posyandu_nama: string;
   jenis_kelamin: string;
   tekanan_darah: string | null;
   gula_darah: number | null;
@@ -22,7 +23,7 @@ export default function RisikoPTMPage() {
   const [data, setData] = useState<RisikoPTMRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 15;
 
   useEffect(() => {
     async function fetchData() {
@@ -95,6 +96,7 @@ export default function RisikoPTMPage() {
             list.push({
               id: r.lansia.id,
               nama: r.lansia.nama,
+              posyandu_nama: r.lansia.posyandu?.nama_posyandu || 'Posyandu',
               jenis_kelamin: r.lansia.jenis_kelamin,
               tekanan_darah: r.tekanan_darah,
               gula_darah: r.gula_darah,
@@ -134,11 +136,24 @@ export default function RisikoPTMPage() {
     }
   }, [selectedDesa, selectedPosyanduId, filtersLoading]);
 
-  const discussionPoints = [
-    'Sistem deteksi dini PTM (Skrining PTM FR) yang terintegrasi dengan kuesioner kebiasaan merokok, aktivitas fisik, dan riwayat keluarga.',
-    'Penyusunan jadwal kontrol rutin bulanan otomatis dan integrasi resep obat PRB (Program Rujuk Balik) bagi lansia penderita PTM.',
-    'Fitur peta sebaran kasus PTM wilayah kelurahan untuk intervensi terfokus (misal: penyuluhan pola makan sehat di posyandu dengan prevalensi tinggi).'
-  ];
+  const stats = useMemo((): StatItem[] => [
+    { label: 'Risiko Tinggi (≥2)', value: data.filter(d => d.kategori === 'Tinggi').length, color: 'danger' },
+    { label: 'Hipertensi', value: data.filter(d => d.faktor_risiko.some(f => f.includes('Hipertensi'))).length, color: 'danger' },
+    { label: 'Diabetes (GDS)', value: data.filter(d => d.faktor_risiko.some(f => f.includes('Diabetes'))).length, color: 'warning' },
+    { label: 'Multi-Risiko (≥3)', value: data.filter(d => d.faktor_risiko.length >= 3).length, color: 'danger' },
+  ], [data]);
+
+  const actionItems = useMemo((): ActionItem[] | undefined => {
+    if (data.length === 0) return undefined;
+    return [...data]
+      .sort((a, b) => b.faktor_risiko.length - a.faktor_risiko.length)
+      .slice(0, 3)
+      .map(d => ({
+        nama: `${d.nama} — ${d.posyandu_nama}`,
+        keterangan: d.faktor_risiko.join(' + '),
+        urgensi: d.faktor_risiko.length >= 2 ? 'tinggi' as const : 'sedang' as const,
+      }));
+  }, [data]);
 
   // Pagination calculations
   const totalPages = Math.ceil(data.length / itemsPerPage);
@@ -150,9 +165,11 @@ export default function RisikoPTMPage() {
     <SubmenuPlaceholder
       title="Risiko PTM Lansia"
       parentTitle="Lansia"
-      description="Layanan identifikasi dini Penyakit Tidak Menular (PTM) pada lansia seperti Hipertensi, Diabetes Mellitus, Penyakit Jantung Koroner, dan Kolesterol tinggi berdasarkan pemeriksaan berkala."
       icon={ShieldAlert}
-      discussionPoints={discussionPoints}
+      loading={loading}
+      stats={stats}
+      sectionTitle="Daftar Lansia Berisiko PTM"
+      actionItems={actionItems}
     >
       {loading ? (
         <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>

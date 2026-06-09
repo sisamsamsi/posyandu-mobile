@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
 import { BrainCircuit } from 'lucide-react';
-import SubmenuPlaceholder from '@/components/layout/SubmenuPlaceholder';
+import SubmenuPlaceholder, { StatItem } from '@/components/layout/SubmenuPlaceholder';
 
 interface RiskLansiaPredictRecord {
   id: string;
@@ -20,7 +20,7 @@ export default function AnalisisRisikoLansiaPage() {
   const [data, setData] = useState<RiskLansiaPredictRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 15;
 
   useEffect(() => {
     async function fetchData() {
@@ -123,11 +123,12 @@ export default function AnalisisRisikoLansiaPage() {
     }
   }, [selectedDesa, selectedPosyanduId, filtersLoading]);
 
-  const discussionPoints = [
-    'Model komputasi Framingham Heart Study untuk estimasi persentase risiko stroke/jantung koroner lansia dalam 10 tahun.',
-    'Pemberian kartu kontrol obat mandiri digital dengan alarm kepatuhan minum obat terintegrasi WhatsApp keluarga.',
-    'Integrasi rujukan preemptive langsung dari dasbor dokter puskesmas untuk kasus lansia berskor risiko >75%.'
-  ];
+  const stats = useMemo((): StatItem[] => [
+    { label: 'Total Berisiko', value: data.length, color: 'neutral' },
+    { label: 'Risiko Tinggi', value: data.filter(d => d.prediksi_komplikasi.toLowerCase().includes('tinggi')).length, color: 'danger' },
+    { label: 'Risiko Sedang', value: data.filter(d => d.prediksi_komplikasi.toLowerCase().includes('sedang')).length, color: 'warning' },
+    { label: 'Multi-Risiko', value: data.filter(d => d.skor_risiko >= 50).length, color: 'danger' },
+  ], [data]);
 
   // Pagination calculations
   const totalPages = Math.ceil(data.length / itemsPerPage);
@@ -137,11 +138,12 @@ export default function AnalisisRisikoLansiaPage() {
 
   return (
     <SubmenuPlaceholder
-      title="Analisis Risiko Lansia (AI)"
-      parentTitle="Analisis AI"
-      description="Prediksi dini risiko penyakit kardiovaskular, stroke, dan komplikasi diabetes mellitus pada lansia menggunakan algoritma klasifikasi klinis cerdas berbasis biomarkers."
+      title="Risiko Lansia"
+      parentTitle="Analitik Wilayah"
       icon={BrainCircuit}
-      discussionPoints={discussionPoints}
+      loading={loading}
+      stats={stats}
+      sectionTitle="Hasil Analisis"
     >
       {loading ? (
         <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>

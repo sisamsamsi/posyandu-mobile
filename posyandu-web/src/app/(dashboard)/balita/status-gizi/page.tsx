@@ -1,16 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
 import { Baby } from 'lucide-react';
-import SubmenuPlaceholder from '@/components/layout/SubmenuPlaceholder';
+import SubmenuPlaceholder, { ActionItem, StatItem } from '@/components/layout/SubmenuPlaceholder';
 
 interface StatusGiziData {
   id: string;
   nama: string;
   jenis_kelamin: string;
   tanggal_lahir: string;
+  posyandu_nama: string;
   berat: number | null;
   tinggi: number | null;
   status_bb_u: string | null;
@@ -23,7 +24,7 @@ export default function StatusGiziPage() {
   const [data, setData] = useState<StatusGiziData[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 15;
 
   const calculateAgeMonths = (dobStr: string) => {
     const dob = new Date(dobStr);
@@ -58,11 +59,13 @@ export default function StatusGiziPage() {
           );
           const latest = sorted[0] || null;
 
+          const posy = (b as any).posyandu;
           return {
             id: b.id,
             nama: b.nama,
             jenis_kelamin: b.jenis_kelamin,
             tanggal_lahir: b.tanggal_lahir,
+            posyandu_nama: posy?.nama_posyandu || 'Posyandu',
             berat: latest ? latest.berat_badan : null,
             tinggi: latest ? latest.tinggi_badan : null,
             status_bb_u: latest ? latest.status_bb_u : 'Belum Ditimbang',
@@ -99,11 +102,36 @@ export default function StatusGiziPage() {
     }
   }, [selectedDesa, selectedPosyanduId, filtersLoading]);
 
-  const discussionPoints = [
-    'Integrasi grafik pertumbuhan WHO Z-Score interaktif (TB/U, BB/U, BB/TB) pada profil anak untuk pemantauan tren gizi secara realtime.',
-    'Deteksi dini malnutrisi (wasting/stunting) menggunakan algoritma klasifikasi WHO terotomatisasi saat bidan menginput hasil timbang.',
-    'Pemberian rekomendasi menu PMT (Pemberian Makanan Tambahan) lokal berbasis kecerdasan buatan disesuaikan dengan jenis defisiensi gizi anak.'
-  ];
+  const stats = useMemo((): StatItem[] => [
+    { label: 'Total Aktif (<60 bln)', value: data.length, color: 'neutral' },
+    { label: 'Sudah Ditimbang', value: data.filter(d => d.status_tb_u !== 'Belum Ditimbang').length, color: 'primary' },
+    { label: 'Stunting (TB/U↓)', value: data.filter(d => d.status_tb_u?.toLowerCase().includes('pendek')).length, color: 'danger' },
+    { label: 'Wasting (BB/TB↓)', value: data.filter(d => {
+      const s = d.status_bb_tb?.toLowerCase() || '';
+      return s.includes('wasting') || s.includes('kurus') || s.includes('buruk');
+    }).length, color: 'warning' },
+  ], [data]);
+
+  const actionItems = useMemo((): ActionItem[] | undefined => {
+    if (data.length === 0) return undefined;
+    const scored = data.map(d => {
+      const factors: string[] = [];
+      if (d.status_tb_u?.toLowerCase().includes('pendek')) factors.push('Stunting');
+      const bb = d.status_bb_tb?.toLowerCase() || '';
+      if (bb.includes('wasting') || bb.includes('kurus') || bb.includes('buruk')) factors.push('Wasting');
+      if (d.status_tb_u === 'Belum Ditimbang') factors.push('Belum ditimbang');
+      return { ...d, factors };
+    }).filter(d => d.factors.length > 0)
+      .sort((a, b) => b.factors.length - a.factors.length)
+      .slice(0, 3);
+
+    if (scored.length === 0) return undefined;
+    return scored.map(d => ({
+      nama: `${d.nama} — ${d.posyandu_nama}`,
+      keterangan: d.factors.join(' + '),
+      urgensi: d.factors.length >= 2 ? 'tinggi' as const : 'sedang' as const,
+    }));
+  }, [data]);
 
   const getBadgeClass = (status: string | null) => {
     if (!status) return 'badge-info';
@@ -130,9 +158,11 @@ export default function StatusGiziPage() {
     <SubmenuPlaceholder
       title="Status Gizi Balita"
       parentTitle="Balita"
-      description="Analisis status pertumbuhan gizi balita berdasarkan parameter berat badan menurut umur (BB/U), tinggi badan menurut umur (TB/U), dan berat badan menurut tinggi badan (BB/TB) berdasar standar WHO."
       icon={Baby}
-      discussionPoints={discussionPoints}
+      loading={loading}
+      stats={stats}
+      sectionTitle="Daftar Status Gizi Balita"
+      actionItems={actionItems}
     >
       {loading ? (
         <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>

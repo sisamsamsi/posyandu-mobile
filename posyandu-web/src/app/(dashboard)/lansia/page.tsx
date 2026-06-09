@@ -37,6 +37,7 @@ export default function LansiaPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [selectedLansiaIds, setSelectedLansiaIds] = useState<string[]>([]);
   
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
@@ -156,6 +157,55 @@ export default function LansiaPage() {
       return page !== '...' || self[index - 1] !== '...';
     });
   };
+
+  const toggleSelectLansia = (id: string) => {
+    setSelectedLansiaIds((prev) =>
+      prev.includes(id) ? prev.filter((selectedId) => selectedId !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllLansias = () => {
+    const currentPageIds = paginatedData.map((l) => l.id);
+    const allSelected = currentPageIds.every((id) => selectedLansiaIds.includes(id));
+    if (allSelected) {
+      setSelectedLansiaIds((prev) => prev.filter((id) => !currentPageIds.includes(id)));
+    } else {
+      setSelectedLansiaIds((prev) => Array.from(new Set([...prev, ...currentPageIds])));
+    }
+  };
+
+  const clearLansiaSelection = () => setSelectedLansiaIds([]);
+
+  const handleBulkDeleteLansias = async () => {
+    if (selectedLansiaIds.length === 0) return;
+
+    if (!window.confirm(`Apakah Anda yakin ingin menghapus ${selectedLansiaIds.length} data lansia terpilih? Semua data pemeriksaan mereka juga akan terhapus.`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await supabase.from('pemeriksaan_lansias').delete().in('lansia_id', selectedLansiaIds);
+      const { error } = await supabase.from('lansias').delete().in('id', selectedLansiaIds);
+      if (error) throw error;
+      clearLansiaSelection();
+      fetchLansias();
+    } catch (err: any) {
+      alert('Gagal menghapus lansia terpilih: ' + (err?.message || JSON.stringify(err)));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    setSelectedLansiaIds((prev) => {
+      const nextSelected = prev.filter((id) => filteredData.some((l) => l.id === id));
+      if (nextSelected.length === prev.length && nextSelected.every((id, index) => id === prev[index])) {
+        return prev;
+      }
+      return nextSelected;
+    });
+  }, [filteredData]);
 
   // Calculate age
   const calculateAge = (dobStr: string) => {
@@ -330,6 +380,13 @@ export default function LansiaPage() {
           <table className="custom-table">
             <thead>
               <tr>
+                <th style={{ width: '48px', textAlign: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={paginatedData.length > 0 && paginatedData.every((l) => selectedLansiaIds.includes(l.id))}
+                    onChange={toggleSelectAllLansias}
+                  />
+                </th>
                 <th>No</th>
                 <th>Nama Lansia</th>
                 <th>NIK</th>
@@ -350,6 +407,13 @@ export default function LansiaPage() {
                 
                 return (
                   <tr key={l.id}>
+                    <td style={{ textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedLansiaIds.includes(l.id)}
+                        onChange={() => toggleSelectLansia(l.id)}
+                      />
+                    </td>
                     <td>{startIndex + index + 1}</td>
                     <td style={{ fontWeight: 500, color: '#1e293b' }}>{l.nama}</td>
                     <td style={{ fontFamily: 'monospace' }}>{l.nik}</td>

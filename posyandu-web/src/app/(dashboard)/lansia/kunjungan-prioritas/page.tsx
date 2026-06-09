@@ -1,14 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
 import { MapPin, ShieldAlert } from 'lucide-react';
-import SubmenuPlaceholder from '@/components/layout/SubmenuPlaceholder';
+import SubmenuPlaceholder, { ActionItem, StatItem } from '@/components/layout/SubmenuPlaceholder';
 
 interface KunjunganPrioritasRecord {
   id: string;
   nama: string;
+  posyandu_nama: string;
   alamat: string;
   hari_sejak_periksa: number;
   tanggal_terakhir: string | null;
@@ -20,7 +21,7 @@ export default function KunjunganPrioritasPage() {
   const [data, setData] = useState<KunjunganPrioritasRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 15;
 
   useEffect(() => {
     async function fetchData() {
@@ -83,6 +84,7 @@ export default function KunjunganPrioritasPage() {
             list.push({
               id: l.id,
               nama: l.nama,
+              posyandu_nama: (l.posyandu as any)?.nama_posyandu || 'Posyandu',
               alamat: l.alamat || 'Tidak ada alamat',
               hari_sejak_periksa: diffDays,
               tanggal_terakhir: latest ? latest.tanggal_periksa : null,
@@ -120,11 +122,24 @@ export default function KunjunganPrioritasPage() {
     }
   }, [selectedDesa, selectedPosyanduId, filtersLoading]);
 
-  const discussionPoints = [
-    'Sistem perutean kunjungan kader (kombinasi Google Maps API) untuk merencanakan rute kunjungan rumah lansia paling efisien.',
-    'Pencatatan rekam medis kunjungan rumah (Home Care Log) secara luring menggunakan aplikasi mobile yang tersinkron otomatis.',
-    'Integrasi notifikasi bagi bidan koordinator untuk kasus kritis yang memerlukan kunjungan dokter Puskesmas.'
-  ];
+  const stats = useMemo((): StatItem[] => [
+    { label: 'Butuh Kunjungan', value: data.length, color: 'danger' },
+    { label: 'Absen >60 Hari', value: data.filter(d => d.hari_sejak_periksa > 60 && d.hari_sejak_periksa < 999).length, color: 'warning' },
+    { label: 'Kondisi Kritis', value: data.filter(d => d.alasan_prioritas.toLowerCase().includes('kritis')).length, color: 'danger' },
+    { label: 'Belum Pernah Periksa', value: data.filter(d => d.hari_sejak_periksa === 999).length, color: 'danger' },
+  ], [data]);
+
+  const actionItems = useMemo((): ActionItem[] | undefined => {
+    if (data.length === 0) return undefined;
+    return [...data]
+      .sort((a, b) => b.hari_sejak_periksa - a.hari_sejak_periksa)
+      .slice(0, 3)
+      .map(d => ({
+        nama: `${d.nama} — ${d.posyandu_nama}`,
+        keterangan: d.alasan_prioritas,
+        urgensi: d.hari_sejak_periksa >= 90 || d.alasan_prioritas.toLowerCase().includes('kritis') ? 'tinggi' as const : 'sedang' as const,
+      }));
+  }, [data]);
 
   // Pagination calculations
   const totalPages = Math.ceil(data.length / itemsPerPage);
@@ -136,9 +151,11 @@ export default function KunjunganPrioritasPage() {
     <SubmenuPlaceholder
       title="Kunjungan Prioritas Lansia"
       parentTitle="Lansia"
-      description="Daftar lansia dengan kondisi risiko tinggi (absen pemeriksaan bulanan > 2 kali berturut-turut, atau kondisi klinis tidak stabil) yang direkomendasikan untuk kunjungan rumah (Home Visit) oleh kader posyandu."
       icon={MapPin}
-      discussionPoints={discussionPoints}
+      loading={loading}
+      stats={stats}
+      sectionTitle="Daftar Lansia Prioritas Kunjungan"
+      actionItems={actionItems}
     >
       {loading ? (
         <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>

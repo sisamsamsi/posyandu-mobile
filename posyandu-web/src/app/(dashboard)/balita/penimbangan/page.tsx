@@ -1,20 +1,30 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
 import { Activity, Calendar } from 'lucide-react';
-import SubmenuPlaceholder from '@/components/layout/SubmenuPlaceholder';
+import SubmenuPlaceholder, { StatItem } from '@/components/layout/SubmenuPlaceholder';
 
 interface PenimbanganRecord {
   id: string;
   balita_nama: string;
+  posyandu_nama: string;
   tanggal: string;
   berat_badan: number;
   tinggi_badan: number;
-  cara_ukur: string | null;
+  cara_ukur: string;
   status_bb_u: string | null;
   status_tb_u: string | null;
+}
+
+function deriveCaraUkur(tanggalLahir: string, tanggalUkur: string): string {
+  const dob = new Date(tanggalLahir);
+  const ukur = new Date(tanggalUkur);
+  let months = (ukur.getFullYear() - dob.getFullYear()) * 12;
+  months -= dob.getMonth();
+  months += ukur.getMonth();
+  return months < 24 ? 'Terlentang (PB)' : 'Berdiri (TB)';
 }
 
 export default function PenimbanganPage() {
@@ -22,7 +32,7 @@ export default function PenimbanganPage() {
   const [data, setData] = useState<PenimbanganRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 15;
 
   const calculateAgeMonths = (dobStr: string) => {
     const dob = new Date(dobStr);
@@ -41,12 +51,14 @@ export default function PenimbanganPage() {
         const { data: records, error } = await supabase
           .from('penimbangans')
           .select(`
-            id, tanggal, berat_badan, tinggi_badan, cara_ukur, status_bb_u, status_tb_u,
-            balita:balitas(nama, tanggal_lahir, posyandu_id, posyandu:posyandus(kelurahan))
+            id, tanggal, berat_badan, tinggi_badan, status_bb_u, status_tb_u,
+            balita:balitas(nama, tanggal_lahir, posyandu_id, posyandu:posyandus(nama_posyandu, kelurahan))
           `)
           .order('tanggal', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+          throw new Error(error.message || error.code || 'Gagal memuat penimbangans');
+        }
 
         // Filter out penimbangans belonging to balitas aged >= 60 months
         const activeRecords = (records || []).filter(r => {
@@ -55,35 +67,35 @@ export default function PenimbanganPage() {
           return calculateAgeMonths(dob) < 60;
         });
 
-        let formatted: PenimbanganRecord[] = activeRecords.map(r => ({
-          id: r.id,
-          balita_nama: (r.balita as any)?.nama || 'Anak',
-          tanggal: r.tanggal,
-          berat_badan: r.berat_badan,
-          tinggi_badan: r.tinggi_badan,
-          cara_ukur: r.cara_ukur || 'Berdiri',
-          status_bb_u: r.status_bb_u,
-          status_tb_u: r.status_tb_u
-        }));
-
-        // Apply global filters
+        let filteredRecords = activeRecords;
         if (selectedDesa !== 'all') {
-          formatted = formatted.filter((_, idx) => {
-            const bal = activeRecords[idx]?.balita;
-            return (bal as any)?.posyandu?.kelurahan === selectedDesa;
-          });
+          filteredRecords = filteredRecords.filter(r => (r.balita as any)?.posyandu?.kelurahan === selectedDesa);
         }
         if (selectedPosyanduId !== 'all') {
-          formatted = formatted.filter((_, idx) => {
-            const bal = activeRecords[idx]?.balita;
-            return (bal as any)?.posyandu_id === selectedPosyanduId;
-          });
+          filteredRecords = filteredRecords.filter(r => (r.balita as any)?.posyandu_id === selectedPosyanduId);
         }
+
+        const formatted: PenimbanganRecord[] = filteredRecords.map(r => {
+          const bal = r.balita as any;
+          const tanggalLahir = bal?.tanggal_lahir || '';
+          return {
+            id: r.id,
+            balita_nama: bal?.nama || 'Anak',
+            posyandu_nama: bal?.posyandu?.nama_posyandu || 'Posyandu',
+            tanggal: r.tanggal,
+            berat_badan: r.berat_badan,
+            tinggi_badan: r.tinggi_badan,
+            cara_ukur: tanggalLahir ? deriveCaraUkur(tanggalLahir, r.tanggal) : '—',
+            status_bb_u: r.status_bb_u,
+            status_tb_u: r.status_tb_u,
+          };
+        });
 
         setData(formatted);
         setCurrentPage(1);
       } catch (err) {
-        console.error('Error fetching penimbangans:', err);
+        const msg = err instanceof Error ? err.message : JSON.stringify(err);
+        console.error('Error fetching penimbangans:', msg);
       } finally {
         setLoading(false);
       }
@@ -94,11 +106,44 @@ export default function PenimbanganPage() {
     }
   }, [selectedDesa, selectedPosyanduId, filtersLoading]);
 
-  const discussionPoints = [
-    'Integrasi dengan alat ukur timbangan digital pintar (Bluetooth Weight Scale) untuk pengisian otomatis tanpa input manual.',
-    'Validasi logis rentang berat/tinggi badan saat entri data (pencegahan salah ketik: misal berat 100kg pada bayi).',
-    'Fitur ekspor data timbang bulanan berformat Excel standard SIGIZI TERPADU untuk pelaporan nasional.'
-  ];
+  const now = new Date();
+  const bulanIni = now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+
+  const stats = useMemo((): StatItem[] => {
+    const bulanIniCount = data.filter(r => {
+      const d = new Date(r.tanggal);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }).length;
+    const kurangBuruk = data.filter(r => {
+      const s = r.status_bb_u?.toLowerCase() || '';
+      return s.includes('kurang') || s.includes('buruk');
+    }).length;
+    const normal = data.filter(r => r.status_bb_u?.toLowerCase().includes('normal')).length;
+    return [
+      { label: 'Total Record', value: data.length, color: 'neutral' },
+      { label: 'Bulan Ini', value: bulanIniCount, color: 'primary' },
+      { label: 'Status Kurang/Buruk', value: kurangBuruk, color: 'warning' },
+      { label: 'Status Normal', value: normal, color: 'success' },
+    ];
+  }, [data]);
+
+  const insightText = useMemo(() => {
+    if (data.length === 0) return undefined;
+    const bulanIniRecords = data.filter(r => {
+      const d = new Date(r.tanggal);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+    const kurangCount = bulanIniRecords.filter(r => {
+      const s = r.status_bb_u?.toLowerCase() || '';
+      return s.includes('kurang') || s.includes('buruk');
+    }).length;
+    const posyCounts: Record<string, number> = {};
+    bulanIniRecords.forEach(r => {
+      posyCounts[r.posyandu_nama] = (posyCounts[r.posyandu_nama] || 0) + 1;
+    });
+    const topPosy = Object.entries(posyCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
+    return `Tercatat **${bulanIniRecords.length} penimbangan** pada bulan ${bulanIni}. **${kurangCount} anak** menunjukkan status BB/U di bawah normal. Penimbangan terbanyak dilakukan di **${topPosy}**.`;
+  }, [data]);
 
   // Pagination calculations
   const totalPages = Math.ceil(data.length / itemsPerPage);
@@ -110,9 +155,11 @@ export default function PenimbanganPage() {
     <SubmenuPlaceholder
       title="Riwayat Penimbangan & Pengukuran"
       parentTitle="Balita"
-      description="Catatan riwayat berat badan, tinggi/panjang badan, lingkar kepala, dan cara pengukuran balita pada setiap kunjungan bulanan posyandu."
       icon={Activity}
-      discussionPoints={discussionPoints}
+      loading={loading}
+      stats={stats}
+      sectionTitle="Riwayat Penimbangan Terbaru"
+      insightText={insightText}
     >
       {loading ? (
         <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>

@@ -49,6 +49,7 @@ export default function BalitaPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [selectedBalitaIds, setSelectedBalitaIds] = useState<string[]>([]);
   
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
@@ -183,6 +184,56 @@ export default function BalitaPage() {
       return page !== '...' || self[index - 1] !== '...';
     });
   };
+
+  const toggleSelectBalita = (id: string) => {
+    setSelectedBalitaIds((prev) =>
+      prev.includes(id) ? prev.filter((selectedId) => selectedId !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllBalitas = () => {
+    const currentPageIds = paginatedData.map((b) => b.id);
+    const allSelected = currentPageIds.every((id) => selectedBalitaIds.includes(id));
+    if (allSelected) {
+      setSelectedBalitaIds((prev) => prev.filter((id) => !currentPageIds.includes(id)));
+    } else {
+      setSelectedBalitaIds((prev) => Array.from(new Set([...prev, ...currentPageIds])));
+    }
+  };
+
+  const clearBalitaSelection = () => setSelectedBalitaIds([]);
+
+  const handleBulkDeleteBalitas = async () => {
+    if (selectedBalitaIds.length === 0) return;
+
+    if (!window.confirm(`Apakah Anda yakin ingin menghapus ${selectedBalitaIds.length} data balita terpilih? Semua data penimbangan dan imunisasi mereka juga akan terhapus.`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await supabase.from('penimbangans').delete().in('balita_id', selectedBalitaIds);
+      await supabase.from('imunisasi').delete().in('balita_id', selectedBalitaIds);
+      const { error } = await supabase.from('balitas').delete().in('id', selectedBalitaIds);
+      if (error) throw error;
+      clearBalitaSelection();
+      fetchBalitas();
+    } catch (err: any) {
+      alert('Gagal menghapus balita terpilih: ' + (err?.message || JSON.stringify(err)));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    setSelectedBalitaIds((prev) => {
+      const nextSelected = prev.filter((id) => filteredData.some((b) => b.id === id));
+      if (nextSelected.length === prev.length && nextSelected.every((id, index) => id === prev[index])) {
+        return prev;
+      }
+      return nextSelected;
+    });
+  }, [filteredData]);
 
   const handleOpenModal = () => {
     setEditId(null);
@@ -358,6 +409,15 @@ export default function BalitaPage() {
         </div>
       </div>
 
+      {selectedBalitaIds.length > 0 && (
+        <div className="bulk-action-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', margin: '18px 0' }}>
+          <span>{selectedBalitaIds.length} balita dipilih</span>
+          <button onClick={handleBulkDeleteBalitas} className="btn btn-danger" type="button">
+            Hapus Terpilih
+          </button>
+        </div>
+      )}
+
       {/* 2. MAIN DATA TABLE */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
@@ -372,6 +432,13 @@ export default function BalitaPage() {
           <table className="custom-table">
             <thead>
               <tr>
+                <th style={{ width: '48px', textAlign: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={paginatedData.length > 0 && paginatedData.every((b) => selectedBalitaIds.includes(b.id))}
+                    onChange={toggleSelectAllBalitas}
+                  />
+                </th>
                 <th>No</th>
                 <th>Nama Balita</th>
                 <th>JK</th>
@@ -406,6 +473,13 @@ export default function BalitaPage() {
 
                 return (
                   <tr key={b.id}>
+                    <td style={{ textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedBalitaIds.includes(b.id)}
+                        onChange={() => toggleSelectBalita(b.id)}
+                      />
+                    </td>
                     <td>{startIndex + index + 1}</td>
                     <td style={{ fontWeight: 500, color: '#1e293b' }}>{b.nama}</td>
                     <td>{b.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'}</td>

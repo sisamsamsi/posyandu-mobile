@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
 import { BrainCircuit, TrendingDown } from 'lucide-react';
-import SubmenuPlaceholder from '@/components/layout/SubmenuPlaceholder';
+import SubmenuPlaceholder, { StatItem } from '@/components/layout/SubmenuPlaceholder';
 
 interface RiskBalitaPredictRecord {
   id: string;
@@ -20,7 +20,7 @@ export default function AnalisisRisikoBalitaPage() {
   const [data, setData] = useState<RiskBalitaPredictRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 15;
 
   const calculateAgeMonths = (dobStr: string) => {
     const dob = new Date(dobStr);
@@ -130,11 +130,12 @@ export default function AnalisisRisikoBalitaPage() {
     }
   }, [selectedDesa, selectedPosyanduId, filtersLoading]);
 
-  const discussionPoints = [
-    'Model Predictive Analytics menggunakan Random Forest untuk memperkirakan kemungkinan stunting 3 bulan ke depan.',
-    'Fitur simulasi intervensi protein tambahan untuk melihat pengaruh estimasi kenaikan Z-Score TB/U.',
-    'Integrasi parameter eksternal seperti ketersediaan air bersih dan sanitasi rumah tangga dalam perhitungan skor risiko.'
-  ];
+  const stats = useMemo((): StatItem[] => [
+    { label: 'Total Berisiko', value: data.length, color: 'neutral' },
+    { label: 'Risiko Tinggi', value: data.filter(d => d.risiko_stunting.toLowerCase().includes('tinggi')).length, color: 'danger' },
+    { label: 'Risiko Sedang', value: data.filter(d => d.risiko_stunting.toLowerCase().includes('sedang')).length, color: 'warning' },
+    { label: 'Risiko Rendah', value: data.filter(d => d.risiko_stunting.toLowerCase().includes('rendah')).length, color: 'success' },
+  ], [data]);
 
   // Pagination calculations
   const totalPages = Math.ceil(data.length / itemsPerPage);
@@ -144,11 +145,12 @@ export default function AnalisisRisikoBalitaPage() {
 
   return (
     <SubmenuPlaceholder
-      title="Analisis Risiko Balita (AI)"
-      parentTitle="Analisis AI"
-      description="Sistem deteksi dini stunting dan kegagalan tumbuh kembang (weight faltering) menggunakan model prediktif berbasis machine learning terhadap histori grafik pertumbuhan balita."
+      title="Risiko Balita"
+      parentTitle="Analitik Wilayah"
       icon={BrainCircuit}
-      discussionPoints={discussionPoints}
+      loading={loading}
+      stats={stats}
+      sectionTitle="Hasil Analisis"
     >
       {loading ? (
         <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
