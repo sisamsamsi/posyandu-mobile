@@ -196,7 +196,7 @@ export default function TabLayout() {
             <View style={styles.modalHeader}>
               <View>
                 <Text style={styles.modalTitle}>Layanan Posyandu</Text>
-                <Text style={styles.modalSubtitle}>Aksi Cepat Kader AYOMI</Text>
+                <Text style={styles.modalSubtitle}>Aksi Cepat Kader SIMPUL SEHAT</Text>
               </View>
               <TouchableOpacity 
                 style={styles.closeBtnContainer} 

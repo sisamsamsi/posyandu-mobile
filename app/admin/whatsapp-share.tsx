@@ -211,7 +211,7 @@ export default function WhatsAppShareScreen() {
           <ArrowLeft size={22} color="#1E293B" />
         </TouchableOpacity>
         <View>
-          <Text style={styles.headerTitle}>AYOMI Share</Text>
+          <Text style={styles.headerTitle}>SIMPUL SEHAT Share</Text>
           <Text style={styles.headerSub}>Komunikasi Digital Sanctuary</Text>
         </View>
       </View>

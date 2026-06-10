@@ -90,21 +90,11 @@ export default function LoginPage() {
               backgroundColor: '#f0fdfa', // Teal 50
               color: '#14B8A6', // Teal 600
               marginBottom: '16px',
-              border: '1px solid #ccfbf1'
+              border: '1px solid #ccfbf1',
+              overflow: 'hidden'
             }}
           >
-            <svg 
-              width="28" 
-              height="28" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2.5" 
-              strokeLinecap="round" 
-              strokeLinejoin="round"
-            >
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-            </svg>
+            <img src="/simpulsehat-logo.svg" alt="SIMPUL SEHAT" style={{ width: 28, height: 28 }} />
           </div>
           <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#0f172a', margin: '0 0 6px 0', letterSpacing: '-0.5px' }}>
             SIMPUL SEHAT

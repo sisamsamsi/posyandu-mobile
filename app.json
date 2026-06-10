@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "AYOMI",
+    "name": "SIMPUL SEHAT",
     "slug": "posyandu-mobile",
     "owner": "samsi_wahyudi",
     "scheme": "posyandu-mobile",
@@ -10,10 +10,10 @@
     ],
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/ayomi-icon.png",
+    "icon": "./assets/simpulsehat-icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/ayomi-splash.png",
+      "image": "./assets/simpulsehat-splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#FFFFFF"
     },
@@ -24,13 +24,13 @@
     "android": {
       "package": "com.posyandu.mobile",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/ayomi-adaptive-icon.png",
+        "foregroundImage": "./assets/simpulsehat-adaptive-icon.png",
         "backgroundColor": "#0D9488"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/simpulsehat-favicon.png"
     },
     "updates": {
       "url": "https://u.expo.dev/ec27093a-a127-479c-adae-98674e5846a6",

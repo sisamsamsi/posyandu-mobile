@@ -193,7 +193,7 @@ export default function ReportsScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.v2HeaderSection}>
            <Text style={styles.description}>
-             AYOMI Export — Hasilkan laporan PDF bulanan untuk {isLansia ? 'Lansia' : 'Balita'} mencakup data pemeriksaan dan ringkasan indikator secara otomatis.
+             SIMPUL SEHAT Export — Hasilkan laporan PDF bulanan untuk {isLansia ? 'Lansia' : 'Balita'} mencakup data pemeriksaan dan ringkasan indikator secara otomatis.
            </Text>
         </View>
 

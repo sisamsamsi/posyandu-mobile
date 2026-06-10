@@ -171,7 +171,7 @@ export default function ImportDataScreen() {
           <ArrowLeft size={22} color="#1E293B" />
         </TouchableOpacity>
         <View>
-          <Text style={styles.headerTitle}>AYOMI Import</Text>
+          <Text style={styles.headerTitle}>SIMPUL SEHAT Import</Text>
           <Text style={styles.headerSub}>Sinkronisasi Data Excel</Text>
         </View>
       </View>

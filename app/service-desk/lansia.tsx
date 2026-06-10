@@ -430,7 +430,7 @@ export default function LansiaServiceDesk() {
         <View style={styles.header}>
            <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={24} color="#1E293B" /></TouchableOpacity>
            <Image 
-             source={require('../../assets/images/logo.png')} 
+             source={require('../../assets/simpulsehat-logo.png')} 
              style={{ width: 160, height: 55, marginLeft: 16 }} 
              resizeMode="contain" 
            />

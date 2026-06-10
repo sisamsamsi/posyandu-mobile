@@ -690,7 +690,7 @@ export default function DashboardScreen() {
         {/* ============================= */}
         <View style={styles.footer}>
           <View style={[styles.footerDivider, { backgroundColor: '#E2E8F0' }]} />
-          <Text style={styles.footerText}>AYOMI v2.0 — Rawat Tumbuhnya, Jaga Tuanya</Text>
+          <Text style={styles.footerText}>SIMPUL SEHAT v2.0</Text>
         </View>
       </ScrollView>
 
@@ -769,7 +769,7 @@ export default function DashboardScreen() {
               <Sparkles size={32} color="#0D9488" />
             </View>
             
-            <Text style={styles.otaTitle}>Pembaruan Sistem AYOMI</Text>
+            <Text style={styles.otaTitle}>Pembaruan Sistem SIMPUL SEHAT</Text>
             <Text style={styles.otaSubtitle}>
               Versi terbaru telah siap! Pembaruan ini mencakup perbaikan klinis penting & enkripsi tenant baru.
             </Text>

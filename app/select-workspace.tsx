@@ -81,7 +81,7 @@ export default function SelectWorkspaceScreen() {
         <View style={styles.header}>
           <View style={styles.logoImageContainer}>
             <Image 
-              source={require('../assets/images/logo.png')} 
+              source={require('../assets/simpulsehat-logo.png')} 
               style={styles.logoImage} 
               resizeMode="contain" 
             />

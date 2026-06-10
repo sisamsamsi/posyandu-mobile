@@ -137,19 +137,7 @@ export default function Sidebar({
     <aside className="sidebar">
       {/* Brand Logo Section */}
       <div className="sidebar-brand">
-        <svg 
-          width="28" 
-          height="28" 
-          viewBox="0 0 24 24" 
-          fill="none" 
-          stroke="currentColor" 
-          strokeWidth="2.5" 
-          strokeLinecap="round" 
-          strokeLinejoin="round" 
-          style={{ color: '#ffffff' }}
-        >
-          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-        </svg>
+        <img src="/simpulsehat-logo-white.svg" alt="SIMPUL SEHAT" style={{ width: 36, height: 36, marginRight: 12 }} />
         <div>
           <span className="sidebar-logo-text" style={{ display: 'block', fontWeight: 600 }}>
             SIMPUL SEHAT
