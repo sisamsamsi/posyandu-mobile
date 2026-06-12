@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFilters } from '@/context/FilterContext';
 import { supabase } from '@/lib/supabase';
+import { maskNik } from '@/lib/utils';
 import { Search, Plus, Eye, Edit, Trash2, User, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Lansia {
@@ -39,6 +40,11 @@ export default function LansiaPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [selectedLansiaIds, setSelectedLansiaIds] = useState<string[]>([]);
   
+  // Filter States
+  const [genderFilter, setGenderFilter] = useState<'all' | 'Laki-laki' | 'Perempuan'>('all');
+  const [ageGroupFilter, setAgeGroupFilter] = useState<string>('all');
+  const [comorbidityFilter, setComorbidityFilter] = useState<string>('all');
+
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -117,17 +123,43 @@ export default function LansiaPage() {
   // Handle Search & Filter in UI
   const filteredData = lansias.filter(l => {
     const q = searchQuery.toLowerCase();
-    return (
+    const matchesSearch = (
       l.nama.toLowerCase().includes(q) ||
       l.nik.includes(q) ||
       (l.posyandu?.nama_posyandu_lansia || l.posyandu?.nama_posyandu || '').toLowerCase().includes(q)
     );
+
+    if (!matchesSearch) return false;
+
+    // Filter by Gender
+    if (genderFilter !== 'all' && l.jenis_kelamin !== genderFilter) return false;
+
+    // Filter by Age Group
+    const age = calculateAge(l.tanggal_lahir);
+    if (ageGroupFilter !== 'all') {
+      if (ageGroupFilter === 'pra-lansia') {
+        if (age < 45 || age > 59) return false;
+      } else if (ageGroupFilter === 'lansia-muda') {
+        if (age < 60 || age > 69) return false;
+      } else if (ageGroupFilter === 'lansia-tua') {
+        if (age < 70) return false;
+      }
+    }
+
+    // Filter by Comorbidity
+    if (comorbidityFilter !== 'all') {
+      if (!l.penyakit_bawaan || !l.penyakit_bawaan.some(p => p.toLowerCase().includes(comorbidityFilter.toLowerCase()))) {
+        return false;
+      }
+    }
+
+    return true;
   });
 
   // Reset to page 1 when filters or search terms change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedDesa, selectedPosyanduId]);
+  }, [searchQuery, selectedDesa, selectedPosyanduId, genderFilter, ageGroupFilter, comorbidityFilter]);
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -345,9 +377,9 @@ export default function LansiaPage() {
   return (
     <div>
       {/* SEARCH & FILTER BAR */}
-      <div className="filter-bar">
-        <div style={{ display: 'flex', gap: '8px', flex: 1 }}>
-          <div className="search-input-wrapper">
+      <div className="filter-bar" style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'stretch' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="search-input-wrapper" style={{ flex: 1, minWidth: '200px' }}>
             <Search size={14} className="search-icon" />
             <input 
               type="text" 
@@ -357,12 +389,56 @@ export default function LansiaPage() {
               placeholder="Cari Nama / NIK / Posyandu..." 
             />
           </div>
+          <div>
+            <button onClick={handleOpenModal} className="btn btn-primary" type="button">
+              <Plus size={14} />
+              <span>Tambah Lansia</span>
+            </button>
+          </div>
         </div>
-        <div>
-          <button onClick={handleOpenModal} className="btn btn-primary">
-            <Plus size={14} />
-            <span>Tambah Lansia</span>
-          </button>
+
+        {/* Clinical Filters Row */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
+          {/* Gender Filter */}
+          <select 
+            className="header-select"
+            value={genderFilter}
+            onChange={(e) => setGenderFilter(e.target.value as any)}
+            style={{ minWidth: '120px' }}
+          >
+            <option value="all">Semua Jenis Kelamin</option>
+            <option value="Laki-laki">Laki-laki</option>
+            <option value="Perempuan">Perempuan</option>
+          </select>
+
+          {/* Age Group Filter */}
+          <select 
+            className="header-select"
+            value={ageGroupFilter}
+            onChange={(e) => setAgeGroupFilter(e.target.value)}
+            style={{ minWidth: '140px' }}
+          >
+            <option value="all">Semua Kelompok Usia</option>
+            <option value="pra-lansia">Pra-Lansia (45-59 Thn)</option>
+            <option value="lansia-muda">Lansia Muda (60-69 Thn)</option>
+            <option value="lansia-tua">Lansia Tua (70+ Thn)</option>
+          </select>
+
+          {/* Comorbidity Filter */}
+          <select 
+            className="header-select"
+            value={comorbidityFilter}
+            onChange={(e) => setComorbidityFilter(e.target.value)}
+            style={{ minWidth: '140px' }}
+          >
+            <option value="all">Semua Penyakit Bawaan</option>
+            <option value="hipertensi">Hipertensi</option>
+            <option value="diabetes">Diabetes</option>
+            <option value="asam urat">Asam Urat</option>
+            <option value="kolesterol">Kolesterol</option>
+            <option value="jantung">Jantung</option>
+            <option value="asma">Asma</option>
+          </select>
         </div>
       </div>
 
@@ -416,7 +492,7 @@ export default function LansiaPage() {
                     </td>
                     <td>{startIndex + index + 1}</td>
                     <td style={{ fontWeight: 500, color: '#1e293b' }}>{l.nama}</td>
-                    <td style={{ fontFamily: 'monospace' }}>{l.nik}</td>
+                    <td style={{ fontFamily: 'monospace' }}>{maskNik(l.nik)}</td>
                     <td>{l.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'}</td>
                     <td>{age} thn</td>
                     <td>{l.posyandu?.nama_posyandu_lansia || l.posyandu?.nama_posyandu || '-'}</td>

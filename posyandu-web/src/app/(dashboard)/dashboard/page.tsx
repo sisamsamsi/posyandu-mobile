@@ -71,7 +71,9 @@ export default function Dashboard() {
     totalLansia: 0,
     lansiaKehadiran: 0,
     hipertensi: 0,
-    diabetes: 0
+    diabetes: 0,
+    newBalita: 0,
+    newLansia: 0
   });
   const [anomalies, setAnomalies] = useState<any[]>([]);
 
@@ -127,8 +129,8 @@ export default function Dashboard() {
 
         // Query balitas and lansias in these posyandus
         const [balitasRes, lansiasRes] = await Promise.all([
-          supabase.from('balitas').select('id, jenis_kelamin, posyandu_id, tanggal_lahir').in('posyandu_id', safePosyanduIds),
-          supabase.from('lansias').select('id, jenis_kelamin, posyandu_id').in('posyandu_id', safePosyanduIds)
+          supabase.from('balitas').select('id, nama, jenis_kelamin, posyandu_id, tanggal_lahir, created_at, posyandu:posyandus(nama_posyandu, kelurahan), penimbangans(id, tanggal, berat_badan, tinggi_badan)').in('posyandu_id', safePosyanduIds),
+          supabase.from('lansias').select('id, nama, jenis_kelamin, posyandu_id, created_at, posyandu:posyandus(nama_posyandu, kelurahan), pemeriksaan_lansias(id, tanggal_periksa, tekanan_darah, gula_darah, kolesterol)').in('posyandu_id', safePosyanduIds)
         ]);
 
         const allBalitas = balitasRes.data || [];
@@ -149,8 +151,14 @@ export default function Dashboard() {
         const safeBalitaIds = activeBalitaIds.length > 0 ? activeBalitaIds : ['00000000-0000-0000-0000-000000000000'];
         const safeLansiaIds = activeLansiaIds.length > 0 ? activeLansiaIds : ['00000000-0000-0000-0000-000000000000'];
 
-        // Fetch monthly weighings and checks
-        const [penimbangansRes, pemeriksaanRes] = await Promise.all([
+        const prevMonthNum = monthNum === 1 ? 12 : monthNum - 1;
+        const prevYear = monthNum === 1 ? year - 1 : year;
+        const prevStartDate = `${prevYear}-${String(prevMonthNum).padStart(2, '0')}-01`;
+        const prevLastDay = new Date(prevYear, prevMonthNum, 0).getDate();
+        const prevEndDate = `${prevYear}-${String(prevMonthNum).padStart(2, '0')}-${String(prevLastDay).padStart(2, '0')}`;
+
+        // Fetch monthly weighings, checks, and previous month's weighings
+        const [penimbangansRes, pemeriksaanRes, prevPenimbangansRes] = await Promise.all([
           supabase.from('penimbangans')
             .select('*')
             .in('balita_id', safeBalitaIds)
@@ -160,11 +168,18 @@ export default function Dashboard() {
             .select('*, lansia:lansias(jenis_kelamin)')
             .in('lansia_id', safeLansiaIds)
             .gte('tanggal_periksa', startDate)
-            .lte('tanggal_periksa', endDate)
+            .lte('tanggal_periksa', endDate),
+          supabase.from('penimbangans')
+            .select('balita_id, berat_badan, tanggal')
+            .in('balita_id', safeBalitaIds)
+            .gte('tanggal', prevStartDate)
+            .lte('tanggal', prevEndDate)
+            .order('tanggal', { ascending: false })
         ]);
 
         const monthlyPenimbangans = penimbangansRes.data || [];
         const monthlyPemeriksaans = pemeriksaanRes.data || [];
+        const prevPenimbangans = prevPenimbangansRes.data || [];
 
         const totalBalita = activeBalitas.length;
         const totalLansia = activeLansias.length;
@@ -202,15 +217,45 @@ export default function Dashboard() {
           if (p.asam_urat > limitAsamUrat) asamUratCount++;
         });
 
-        const goodGrowthCount = monthlyPenimbangans.filter(p => {
-          const bbU = (p.status_bb_u || '').toLowerCase();
-          const tbU = (p.status_tb_u || '').toLowerCase();
-          const bbTb = (p.status_bb_tb || '').toLowerCase();
+        // Map to get latest visit for each child in the previous month
+        const prevWeightMap = new Map<string, number>();
+        prevPenimbangans.forEach(pv => {
+          if (!prevWeightMap.has(pv.balita_id)) {
+            prevWeightMap.set(pv.balita_id, pv.berat_badan);
+          }
+        });
 
-          return bbU.includes('normal') && tbU.includes('normal') && (bbTb.includes('baik') || bbTb.includes('normal'));
+        // Unique set of weighed children in current month
+        const uniqueCurrentWeighed = new Set(monthlyPenimbangans.map(p => p.balita_id));
+        const dCount = uniqueCurrentWeighed.size;
+
+        let n = 0;
+        // Map to get latest current month weighing for each balita
+        const currentWeightMap = new Map<string, number>();
+        monthlyPenimbangans.forEach(p => {
+          if (!currentWeightMap.has(p.balita_id)) {
+            currentWeightMap.set(p.balita_id, p.berat_badan);
+          }
+        });
+
+        for (const [balitaId, curWeight] of currentWeightMap.entries()) {
+          const prevWeight = prevWeightMap.get(balitaId);
+          if (prevWeight !== undefined && curWeight > prevWeight) {
+            n++;
+          }
+        }
+
+        const keberhasilan = dCount > 0 ? Math.round((n / dCount) * 100) : 0;
+
+        const newBalita = activeBalitas.filter(b => {
+          const createdDate = new Date(b.created_at);
+          return (createdDate.getMonth() + 1) === monthNum && createdDate.getFullYear() === year;
         }).length;
 
-        const keberhasilan = totalBalita > 0 ? Math.round((goodGrowthCount / totalBalita) * 100) : 0;
+        const newLansia = activeLansias.filter(l => {
+          const createdDate = new Date(l.created_at);
+          return (createdDate.getMonth() + 1) === monthNum && createdDate.getFullYear() === year;
+        }).length;
 
         setStats({
           totalBalita,
@@ -221,7 +266,9 @@ export default function Dashboard() {
           totalLansia,
           lansiaKehadiran,
           hipertensi: hipertensiCount,
-          diabetes: diabetesCount
+          diabetes: diabetesCount,
+          newBalita,
+          newLansia
         });
 
         // Compute BB/U distribution
@@ -430,14 +477,143 @@ export default function Dashboard() {
           .select('*')
           .order('tanggal_data', { ascending: false });
 
+        const scanResults: any[] = [];
+
+        // 1. Scan active Balita penimbangans for anomalies (only the latest weighing)
+        activeBalitas.forEach((b: any) => {
+          const sorted = (b.penimbangans || []).sort(
+            (x: any, y: any) => new Date(x.tanggal).getTime() - new Date(y.tanggal).getTime()
+          );
+
+          if (sorted.length > 0) {
+            const lastP = sorted[sorted.length - 1];
+
+            // Check: Extreme high weight (> 40kg for balita)
+            if (lastP.berat_badan > 40) {
+              scanResults.push({
+                id: `dyn-b-w-${lastP.id}`,
+                tanggal_data: lastP.tanggal,
+                tipe_kategori: 'balita',
+                nama_subjek: b.nama,
+                indikator_anomali: 'Berat Badan Ekstrim',
+                deskripsi_anomali: `Input berat badan tidak wajar pada penimbangan terakhir: ${lastP.berat_badan} kg untuk balita.`,
+                nama_posyandu: b.posyandu?.nama_posyandu || 'Posyandu',
+                status_verifikasi: 'perlu_koreksi'
+              });
+            }
+
+            // Check: Weight velocity drop (dropped more than 1.5kg compared to previous)
+            if (sorted.length > 1) {
+              const prev = sorted[sorted.length - 2];
+              const diffW = lastP.berat_badan - prev.berat_badan;
+              if (diffW < -1.5) {
+                scanResults.push({
+                  id: `dyn-b-vd-${lastP.id}`,
+                  tanggal_data: lastP.tanggal,
+                  tipe_kategori: 'balita',
+                  nama_subjek: b.nama,
+                  indikator_anomali: 'Berat Badan Turun Drastis',
+                  deskripsi_anomali: `Penurunan berat badan drastis pada penimbangan terakhir: turun ${Math.abs(diffW).toFixed(1)} kg dari bulan sebelumnya (${prev.berat_badan} kg → ${lastP.berat_badan} kg).`,
+                  nama_posyandu: b.posyandu?.nama_posyandu || 'Posyandu',
+                  status_verifikasi: 'perlu_koreksi'
+                });
+              }
+
+              // Check: Height (TB) shrinking (decreased compared to previous)
+              if (lastP.tinggi_badan && prev.tinggi_badan && lastP.tinggi_badan < prev.tinggi_badan) {
+                scanResults.push({
+                  id: `dyn-b-ts-${lastP.id}`,
+                  tanggal_data: lastP.tanggal,
+                  tipe_kategori: 'balita',
+                  nama_subjek: b.nama,
+                  indikator_anomali: 'Tinggi Badan Menyusut',
+                  deskripsi_anomali: `Tinggi badan menyusut pada penimbangan terakhir: ${prev.tinggi_badan} cm → ${lastP.tinggi_badan} cm (tidak wajar untuk balita tumbuh).`,
+                  nama_posyandu: b.posyandu?.nama_posyandu || 'Posyandu',
+                  status_verifikasi: 'perlu_koreksi'
+                });
+              }
+            }
+          }
+        });
+
+        // 2. Scan Lansia checkups for anomalies (only the latest examination)
+        activeLansias.forEach((l: any) => {
+          const sortedPm = (l.pemeriksaan_lansias || []).sort(
+            (x: any, y: any) => new Date(x.tanggal_periksa).getTime() - new Date(y.tanggal_periksa).getTime()
+          );
+
+          if (sortedPm.length > 0) {
+            const lastPm = sortedPm[sortedPm.length - 1];
+
+            if (lastPm.gula_darah && lastPm.gula_darah > 500) {
+              scanResults.push({
+                id: `dyn-l-s-${lastPm.id}`,
+                tanggal_data: lastPm.tanggal_periksa,
+                tipe_kategori: 'lansia',
+                nama_subjek: l.nama,
+                indikator_anomali: 'Gula Darah Ekstrim',
+                deskripsi_anomali: `Kadar gula darah sangat ekstrim pada pemeriksaan terakhir: ${lastPm.gula_darah} mg/dL.`,
+                nama_posyandu: l.posyandu?.nama_posyandu || 'Posyandu',
+                status_verifikasi: 'perlu_koreksi'
+              });
+            }
+
+            if (lastPm.tekanan_darah) {
+              const systolic = parseInt(lastPm.tekanan_darah.split('/')[0]);
+              if (systolic > 240) {
+                scanResults.push({
+                  id: `dyn-l-bp-${lastPm.id}`,
+                  tanggal_data: lastPm.tanggal_periksa,
+                  tipe_kategori: 'lansia',
+                  nama_subjek: l.nama,
+                  indikator_anomali: 'Tekanan Darah Ekstrim',
+                  deskripsi_anomali: `Tekanan darah sistolik ekstrim pada pemeriksaan terakhir: ${lastPm.tekanan_darah} mmHg.`,
+                  nama_posyandu: l.posyandu?.nama_posyandu || 'Posyandu',
+                  status_verifikasi: 'perlu_koreksi'
+                });
+              }
+            }
+          }
+        });
+
+        // Combine DB anomalies with scanned ones
+        let combinedAnomalies = [...scanResults];
+
         if (dbAnomalies) {
-          setAnomalies(dbAnomalies);
+          dbAnomalies.forEach(dbItem => {
+            // Check if this subject already has a scanned anomaly
+            const exists = combinedAnomalies.some(item => item.nama_subjek === dbItem.nama_subjek && item.tipe_kategori === dbItem.tipe_kategori);
+            if (!exists) {
+              combinedAnomalies.push({
+                id: dbItem.id,
+                tanggal_data: dbItem.tanggal_data || dbItem.created_at,
+                tipe_kategori: dbItem.tipe_kategori,
+                nama_subjek: dbItem.nama_subjek,
+                indikator_anomali: dbItem.indikator_anomali || 'Anomali Data',
+                deskripsi_anomali: dbItem.deskripsi_anomali,
+                nama_posyandu: dbItem.nama_posyandu || 'Posyandu',
+                status_verifikasi: dbItem.status_verifikasi || 'perlu_konfirmasi'
+              });
+            }
+          });
         }
+
+        // Deduplicate and keep only the latest anomaly per subject
+        const latestAnomaliesMap = new Map<string, any>();
+        combinedAnomalies.forEach(item => {
+          const key = `${item.tipe_kategori}-${item.nama_subjek}`;
+          const existing = latestAnomaliesMap.get(key);
+          if (!existing || new Date(item.tanggal_data).getTime() > new Date(existing.tanggal_data).getTime()) {
+            latestAnomaliesMap.set(key, item);
+          }
+        });
+
+        setAnomalies(Array.from(latestAnomaliesMap.values()));
       } catch (err) {
         console.warn('Could not load stats from DB:', err);
       }
     }
-    
+
     if (mounted && !filtersLoading) {
       fetchRealStats();
     }
@@ -530,7 +706,14 @@ export default function Dashboard() {
               <Baby size={14} style={{ color: '#14B8A6' }} />
               <span>Total Balita</span>
             </div>
-            <div className="metric-card-value">{stats.totalBalita.toLocaleString('id-ID')}</div>
+            <div className="metric-card-value" style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+              {stats.totalBalita.toLocaleString('id-ID')}
+              {stats.newBalita > 0 && (
+                <span style={{ fontSize: '11px', fontWeight: 600, color: '#10b981' }} title="Pendaftaran Baru Bulan Ini">
+                  (+{stats.newBalita} baru)
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Card 2: Kehadiran */}
@@ -591,7 +774,14 @@ export default function Dashboard() {
               <User size={14} style={{ color: '#14B8A6' }} />
               <span>Total Lansia</span>
             </div>
-            <div className="metric-card-value">{stats.totalLansia.toLocaleString('id-ID')}</div>
+            <div className="metric-card-value" style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+              {stats.totalLansia.toLocaleString('id-ID')}
+              {stats.newLansia > 0 && (
+                <span style={{ fontSize: '11px', fontWeight: 600, color: '#10b981' }} title="Pendaftaran Baru Bulan Ini">
+                  (+{stats.newLansia} baru)
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Card 2: Pemeriksaan */}

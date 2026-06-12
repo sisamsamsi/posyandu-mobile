@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
 import { AlertCircle, ShieldCheck } from 'lucide-react';
 import SubmenuPlaceholder, { StatItem } from '@/components/layout/SubmenuPlaceholder';
+import AIInsightBox from '@/components/ui/AIInsightBox';
 
 interface PosyanduBermasalahRecord {
   id: string;
@@ -147,6 +148,18 @@ export default function PosyanduBermasalahPage() {
     { label: 'Paling Kritis', value: data.filter(d => d.tingkat_urgensi === 'Tinggi').length, color: 'danger' },
   ], [data]);
 
+  const insightData = useMemo(() => {
+    if (data.length === 0) return {};
+    return {
+      total_posyandu_bermasalah: data.length,
+      urgensi_tinggi: data.filter(d => d.tingkat_urgensi === 'Tinggi').length,
+      urgensi_sedang: data.filter(d => d.tingkat_urgensi === 'Sedang').length,
+      masalah_paling_sering: data.some(d => d.masalah_utama.toLowerCase().includes('keterlambatan'))
+        ? 'Keterlambatan input data bulanan'
+        : 'Data registrasi balita kosong'
+    };
+  }, [data]);
+
   // Pagination calculations
   const totalPages = Math.ceil(data.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -186,6 +199,12 @@ export default function PosyanduBermasalahPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <AIInsightBox
+            konteks="Pemantauan Posyandu Bermasalah"
+            bulan="Bulan Berjalan"
+            filter={selectedPosyanduId === 'all' ? (selectedDesa === 'all' ? 'Semua Kalurahan' : `Kalurahan ${selectedDesa}`) : `Posyandu Terpilih`}
+            data={insightData}
+          />
           <div className="table-container">
             <table className="custom-table">
               <thead>

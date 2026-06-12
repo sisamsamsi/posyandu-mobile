@@ -25,7 +25,7 @@
       "package": "com.posyandu.mobile",
       "adaptiveIcon": {
         "foregroundImage": "./assets/simpulsehat-adaptive-icon.png",
-        "backgroundColor": "#0D9488"
+        "backgroundColor": "#FFFFFF"
       },
       "predictiveBackGestureEnabled": false
     },

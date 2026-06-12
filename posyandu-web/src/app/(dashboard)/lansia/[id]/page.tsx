@@ -3,6 +3,7 @@
 import React, { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { maskNik } from '@/lib/utils';
 import { ArrowLeft, Edit, User, ShieldAlert } from 'lucide-react';
 import { useFilters } from '@/context/FilterContext';
 
@@ -169,7 +170,7 @@ export default function LansiaDetailPage({ params }: PageProps) {
           <div className="profile-details-list">
             <div className="profile-details-item">
               <span className="profile-details-label">NIK:</span>
-              <span className="profile-details-val" style={{ fontFamily: 'monospace' }}>{lansia.nik}</span>
+              <span className="profile-details-val" style={{ fontFamily: 'monospace' }}>{maskNik(lansia.nik)}</span>
             </div>
             <div className="profile-details-item">
               <span className="profile-details-label">Lahir:</span>

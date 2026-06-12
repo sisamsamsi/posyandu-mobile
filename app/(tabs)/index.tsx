@@ -95,6 +95,16 @@ function PressableRow({ icon, label, onPress }: { icon: React.ReactNode; label: 
   );
 }
 
+function getInitials(name: string) {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .map(n => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+}
+
 export default function DashboardScreen() {
   const router = useRouter();
   const { setActiveWorkspace, activePosyanduId, setActivePosyandu, activeWorkspace } = useServiceStore();
@@ -425,10 +435,20 @@ export default function DashboardScreen() {
                 onPress={() => router.push('/settings')}
                 activeOpacity={0.7}
               >
-                <Image 
-                  source={require('../../assets/images/kader_avatar.png')} 
-                  style={styles.profileImage} 
-                />
+                <View style={[
+                  styles.profileImage,
+                  {
+                    backgroundColor: theme.tonal,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    borderColor: theme.primary,
+                    borderWidth: 1.5
+                  }
+                ]}>
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: theme.primary }}>
+                    {getInitials(kaderName)}
+                  </Text>
+                </View>
               </TouchableOpacity>
             </View>
           </View>

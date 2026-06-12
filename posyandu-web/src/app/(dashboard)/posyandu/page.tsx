@@ -32,6 +32,42 @@ export default function PosyanduPage() {
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [userPuskesmasId, setUserPuskesmasId] = useState<string | null>(null);
+  const [wilayahList, setWilayahList] = useState<string[]>([]);
+
+  // Fetch logged-in user's puskesmas_id and wilayah_binaan
+  useEffect(() => {
+    async function loadUserPuskesmasId() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data } = await supabase
+            .from('user_roles')
+            .select(`
+              puskesmas_id,
+              puskesmas:puskesmas(wilayah_binaan)
+            `)
+            .eq('user_id', session.user.id)
+            .single() as any;
+          
+          if (data?.puskesmas_id) {
+            setUserPuskesmasId(data.puskesmas_id);
+            const p = (Array.isArray(data.puskesmas) ? data.puskesmas[0] : data.puskesmas) as any;
+            if (p?.wilayah_binaan) {
+              const list = p.wilayah_binaan
+                .split(',')
+                .map((s: string) => s.trim())
+                .filter(Boolean);
+              setWilayahList(list);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Gagal mengambil puskesmas_id pengguna:', err);
+      }
+    }
+    loadUserPuskesmasId();
+  }, []);
 
   // Form States (Main)
   const [namaPosyandu, setNamaPosyandu] = useState('');
@@ -176,6 +212,7 @@ export default function PosyanduPage() {
         kabupaten: 'Yogyakarta',
         provinsi: 'DIY',
         invite_code: generatedCode,
+        puskesmas_id: userPuskesmasId,
         
         // Populate specific sub-posyandu identities
         nama_posyandu_balita: namaPosyanduBalita.trim() || `Posyandu Balita ${namaPosyandu.trim()}`,
@@ -430,18 +467,37 @@ export default function PosyanduPage() {
                     />
                   </div>
 
-                  {/* Kelurahan & Kecamatan */}
+                   {/* Kelurahan & Kecamatan */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <label style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>Kelurahan / Desa</label>
-                      <input 
-                        type="text" 
-                        required 
-                        value={kelurahan}
-                        onChange={(e) => setKelurahan(e.target.value)}
-                        placeholder="Nama kelurahan/desa..."
-                        style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '8px' }}
-                      />
+                      {wilayahList.length > 0 ? (
+                        <select
+                          required
+                          value={kelurahan}
+                          onChange={(e) => setKelurahan(e.target.value)}
+                          style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '8px', backgroundColor: '#ffffff', color: '#1e293b' }}
+                        >
+                          <option value="">-- Pilih Kalurahan --</option>
+                          {wilayahList.map((w) => (
+                            <option key={w} value={w}>{w}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <input 
+                            type="text" 
+                            required 
+                            value={kelurahan}
+                            onChange={(e) => setKelurahan(e.target.value)}
+                            placeholder="Ketik kelurahan/desa..."
+                            style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #ef4444', borderRadius: '8px', backgroundColor: '#fef2f2' }}
+                          />
+                          <span style={{ fontSize: '9px', color: '#ef4444', lineHeight: '1.2' }}>
+                            Atur Wilayah Kerja di menu Pengaturan terlebih dahulu untuk mengaktifkan pilihan dropdown.
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <label style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>Kecamatan</label>

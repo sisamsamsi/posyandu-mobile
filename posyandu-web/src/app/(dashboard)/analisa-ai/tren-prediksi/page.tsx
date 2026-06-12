@@ -143,6 +143,7 @@ export default function TrenPrediksiPage() {
           ];
         }
 
+        report.reverse();
         setData(report);
         setCurrentPage(1);
       } catch (err) {
@@ -159,7 +160,7 @@ export default function TrenPrediksiPage() {
 
   const stats = useMemo((): StatItem[] => {
     const realData = data.filter(d => !d.bulan.toLowerCase().includes('prediksi'));
-    const last = realData[realData.length - 1];
+    const last = realData[0];
     return [
       { label: 'Total Bulan Data', value: realData.length, color: 'neutral' },
       { label: 'Kunjungan Terakhir', value: last ? last.balita_timbang + last.lansia_periksa : 0, color: 'primary' },

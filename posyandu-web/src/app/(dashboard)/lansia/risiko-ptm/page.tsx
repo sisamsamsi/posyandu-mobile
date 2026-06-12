@@ -3,8 +3,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
-import { ShieldAlert, Heart } from 'lucide-react';
+import { ShieldAlert, Heart, Search } from 'lucide-react';
 import SubmenuPlaceholder, { ActionItem, StatItem } from '@/components/layout/SubmenuPlaceholder';
+import AIInsightBox from '@/components/ui/AIInsightBox';
 
 interface RisikoPTMRecord {
   id: string;
@@ -24,6 +25,10 @@ export default function RisikoPTMPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [riskFilter, setRiskFilter] = useState<'all' | 'Tinggi' | 'Sedang'>('all');
+  const [factorFilter, setFactorFilter] = useState<'all' | 'Hipertensi' | 'Diabetes' | 'Hiperkolesterolemia' | 'Hiperurisemia'>('all');
 
   useEffect(() => {
     async function fetchData() {
@@ -136,16 +141,52 @@ export default function RisikoPTMPage() {
     }
   }, [selectedDesa, selectedPosyanduId, filtersLoading]);
 
+  // Memoized filtered data
+  const filteredData = useMemo(() => {
+    return data.filter(item => {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = item.nama.toLowerCase().includes(q);
+      if (!matchesSearch) return false;
+
+      // Risk category filter
+      if (riskFilter !== 'all' && item.kategori !== riskFilter) return false;
+
+      // Risk factor filter
+      if (factorFilter !== 'all') {
+        const factorKey = factorFilter.toLowerCase();
+        const hasFactor = item.faktor_risiko.some(f => f.toLowerCase().includes(factorKey));
+        if (!hasFactor) return false;
+      }
+
+      return true;
+    });
+  }, [data, searchQuery, riskFilter, factorFilter]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, riskFilter, factorFilter]);
+
   const stats = useMemo((): StatItem[] => [
-    { label: 'Risiko Tinggi (≥2)', value: data.filter(d => d.kategori === 'Tinggi').length, color: 'danger' },
-    { label: 'Hipertensi', value: data.filter(d => d.faktor_risiko.some(f => f.includes('Hipertensi'))).length, color: 'danger' },
-    { label: 'Diabetes (GDS)', value: data.filter(d => d.faktor_risiko.some(f => f.includes('Diabetes'))).length, color: 'warning' },
-    { label: 'Multi-Risiko (≥3)', value: data.filter(d => d.faktor_risiko.length >= 3).length, color: 'danger' },
-  ], [data]);
+    { label: 'Risiko Tinggi (≥2)', value: filteredData.filter(d => d.kategori === 'Tinggi').length, color: 'danger' },
+    { label: 'Hipertensi', value: filteredData.filter(d => d.faktor_risiko.some(f => f.includes('Hipertensi'))).length, color: 'danger' },
+    { label: 'Diabetes (GDS)', value: filteredData.filter(d => d.faktor_risiko.some(f => f.includes('Diabetes'))).length, color: 'warning' },
+    { label: 'Multi-Risiko (≥3)', value: filteredData.filter(d => d.faktor_risiko.length >= 3).length, color: 'danger' },
+  ], [filteredData]);
+
+  const insightData = useMemo(() => {
+    if (filteredData.length === 0) return {};
+    return {
+      lansia_berisiko: filteredData.length,
+      kategori_risiko_tinggi: filteredData.filter(d => d.kategori === 'Tinggi').length,
+      kasus_hipertensi: filteredData.filter(d => d.faktor_risiko.some(f => f.includes('Hipertensi'))).length,
+      kasus_diabetes: filteredData.filter(d => d.faktor_risiko.some(f => f.includes('Diabetes'))).length
+    };
+  }, [filteredData]);
 
   const actionItems = useMemo((): ActionItem[] | undefined => {
-    if (data.length === 0) return undefined;
-    return [...data]
+    if (filteredData.length === 0) return undefined;
+    return [...filteredData]
       .sort((a, b) => b.faktor_risiko.length - a.faktor_risiko.length)
       .slice(0, 3)
       .map(d => ({
@@ -153,13 +194,13 @@ export default function RisikoPTMPage() {
         keterangan: d.faktor_risiko.join(' + '),
         urgensi: d.faktor_risiko.length >= 2 ? 'tinggi' as const : 'sedang' as const,
       }));
-  }, [data]);
+  }, [filteredData]);
 
   // Pagination calculations
-  const totalPages = Math.ceil(data.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = Math.min(startIndex + itemsPerPage, data.length);
-  const paginatedData = data.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + itemsPerPage, filteredData.length);
+  const paginatedData = filteredData.slice(startIndex, endIndex);
 
   return (
     <SubmenuPlaceholder
@@ -195,79 +236,133 @@ export default function RisikoPTMPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div className="table-container">
-            <table className="custom-table">
-              <thead>
-                <tr>
-                  <th>Nama Lansia</th>
-                  <th>Jenis Kelamin</th>
-                  <th>Kategori Risiko</th>
-                  <th>Faktor Risiko Terdeteksi</th>
-                  <th>Tindakan Rekomendasi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedData.map((item) => (
-                  <tr key={item.id}>
-                    <td style={{ fontWeight: 600, color: 'var(--color-danger)' }}>{item.nama}</td>
-                    <td>{item.jenis_kelamin}</td>
-                    <td>
-                      <span 
-                        className={`badge ${
-                          item.kategori === 'Tinggi' ? 'badge-danger' : 'badge-warning'
-                        }`}
-                      >
-                        Risiko {item.kategori}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                        {item.faktor_risiko.map((factor, i) => (
-                          <span key={i} className="badge badge-danger" style={{ fontSize: '10px' }}>
-                            {factor}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td>
-                      <span className="badge badge-info" style={{ cursor: 'pointer' }}>
-                        Rujuk PRB / Edukasi Diet PTM
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {totalPages > 1 && (
-            <div className="pagination-container">
-              <span>Menampilkan {startIndex + 1}-{endIndex} dari {data.length} data</span>
-              <div className="pagination-pages">
-                <button 
-                  className="pagination-btn" 
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
-                  disabled={currentPage === 1}
-                >
-                  &lt;
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                  <button 
-                    key={page} 
-                    className={`pagination-btn ${currentPage === page ? 'active' : ''}`}
-                    onClick={() => setCurrentPage(page)}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <button 
-                  className="pagination-btn" 
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
-                  disabled={currentPage === totalPages}
-                >
-                  &gt;
-                </button>
-              </div>
+          {/* AI INSIGHT BOX */}
+          <AIInsightBox
+            konteks="Risiko PTM Lansia"
+            bulan="Bulan Berjalan"
+            filter={selectedPosyanduId === 'all' ? (selectedDesa === 'all' ? 'Semua Kalurahan' : `Kalurahan ${selectedDesa}`) : `Posyandu Terpilih`}
+            data={insightData}
+          />
+
+          {/* SEARCH & FILTERS BAR */}
+          <div className="filter-bar" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div className="search-input-wrapper" style={{ flex: 1, minWidth: '200px' }}>
+              <Search size={14} className="search-icon" />
+              <input 
+                type="text" 
+                className="search-input"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari Nama Lansia..." 
+              />
             </div>
+
+            <select 
+              className="header-select"
+              value={riskFilter}
+              onChange={(e) => setRiskFilter(e.target.value as any)}
+              style={{ minWidth: '140px' }}
+            >
+              <option value="all">Semua Kategori Risiko</option>
+              <option value="Tinggi">Risiko Tinggi</option>
+              <option value="Sedang">Risiko Sedang</option>
+            </select>
+
+            <select 
+              className="header-select"
+              value={factorFilter}
+              onChange={(e) => setFactorFilter(e.target.value as any)}
+              style={{ minWidth: '160px' }}
+            >
+              <option value="all">Semua Faktor Risiko</option>
+              <option value="Hipertensi">Hipertensi</option>
+              <option value="Diabetes">Diabetes</option>
+              <option value="Hiperkolesterolemia">Hiperkolesterolemia</option>
+              <option value="Hiperurisemia">Asam Urat</option>
+            </select>
+          </div>
+
+          {filteredData.length === 0 ? (
+            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              Tidak ditemukan data risiko PTM yang cocok dengan filter.
+            </div>
+          ) : (
+            <>
+              <div className="table-container">
+                <table className="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Nama Lansia</th>
+                      <th>Jenis Kelamin</th>
+                      <th>Kategori Risiko</th>
+                      <th>Faktor Risiko Terdeteksi</th>
+                      <th>Tindakan Rekomendasi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedData.map((item) => (
+                      <tr key={item.id}>
+                        <td style={{ fontWeight: 600, color: 'var(--color-danger)' }}>{item.nama}</td>
+                        <td>{item.jenis_kelamin}</td>
+                        <td>
+                          <span 
+                            className={`badge ${
+                              item.kategori === 'Tinggi' ? 'badge-danger' : 'badge-warning'
+                            }`}
+                          >
+                            Risiko {item.kategori}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                            {item.faktor_risiko.map((factor, i) => (
+                              <span key={i} className="badge badge-danger" style={{ fontSize: '10px' }}>
+                                {factor}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td>
+                          <span className="badge badge-info" style={{ cursor: 'pointer' }}>
+                            Rujuk PRB / Edukasi Diet PTM
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {totalPages > 1 && (
+                <div className="pagination-container">
+                  <span>Menampilkan {startIndex + 1}-{endIndex} dari {filteredData.length} data</span>
+                  <div className="pagination-pages">
+                    <button 
+                      className="pagination-btn" 
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                      disabled={currentPage === 1}
+                    >
+                      &lt;
+                    </button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                      <button 
+                        key={page} 
+                        className={`pagination-btn ${currentPage === page ? 'active' : ''}`}
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    <button 
+                      className="pagination-btn" 
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                      disabled={currentPage === totalPages}
+                    >
+                      &gt;
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

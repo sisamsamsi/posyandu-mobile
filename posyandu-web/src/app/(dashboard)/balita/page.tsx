@@ -51,6 +51,12 @@ export default function BalitaPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [selectedBalitaIds, setSelectedBalitaIds] = useState<string[]>([]);
   
+  // Filter States
+  const [genderFilter, setGenderFilter] = useState<'all' | 'Laki-laki' | 'Perempuan'>('all');
+  const [bbuFilter, setBbuFilter] = useState<string>('all');
+  const [tbuFilter, setTbuFilter] = useState<string>('all');
+  const [bbtbFilter, setBbtbFilter] = useState<string>('all');
+
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -143,6 +149,41 @@ export default function BalitaPage() {
 
     if (!matchesSearch) return false;
 
+    // Filter by Gender
+    if (genderFilter !== 'all' && b.jenis_kelamin !== genderFilter) return false;
+
+    const latestMeas = b.penimbangans?.[0] || null;
+
+    // Filter by BB/U
+    if (bbuFilter !== 'all') {
+      const status = latestMeas?.status_bb_u || '';
+      if (bbuFilter === 'Belum Ditimbang') {
+        if (latestMeas) return false;
+      } else {
+        if (!status.toLowerCase().includes(bbuFilter.toLowerCase())) return false;
+      }
+    }
+
+    // Filter by TB/U
+    if (tbuFilter !== 'all') {
+      const status = latestMeas?.status_tb_u || '';
+      if (tbuFilter === 'Belum Ditimbang') {
+        if (latestMeas) return false;
+      } else {
+        if (!status.toLowerCase().includes(tbuFilter.toLowerCase())) return false;
+      }
+    }
+
+    // Filter by BB/TB
+    if (bbtbFilter !== 'all') {
+      const status = latestMeas?.status_bb_tb || '';
+      if (bbtbFilter === 'Belum Ditimbang') {
+        if (latestMeas) return false;
+      } else {
+        if (!status.toLowerCase().includes(bbtbFilter.toLowerCase())) return false;
+      }
+    }
+
     const age = calculateAgeMonths(b.tanggal_lahir);
     if (statusFilter === 'aktif') {
       return age < 60;
@@ -154,7 +195,7 @@ export default function BalitaPage() {
   // Reset to page 1 when filters, search terms, or status changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedDesa, selectedPosyanduId, statusFilter]);
+  }, [searchQuery, selectedDesa, selectedPosyanduId, statusFilter, genderFilter, bbuFilter, tbuFilter, bbtbFilter]);
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -370,14 +411,15 @@ export default function BalitaPage() {
   return (
     <div>
       {/* 1. SEARCH & FILTERS BAR */}
-      <div className="filter-bar">
-        <div style={{ display: 'flex', gap: '8px', flex: 1, alignItems: 'center' }}>
+      <div className="filter-bar" style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'stretch' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Toggle Status Balita */}
           <div className="toggle-switch-container" style={{ margin: 0, height: '34px' }}>
             <button 
               className={`toggle-btn ${statusFilter === 'aktif' ? 'active' : ''}`}
               onClick={() => setStatusFilter('aktif')}
               style={{ fontSize: '11px', padding: '0 12px' }}
+              type="button"
             >
               Aktif (&lt; 5 Thn)
             </button>
@@ -385,12 +427,13 @@ export default function BalitaPage() {
               className={`toggle-btn ${statusFilter === 'lulus' ? 'active' : ''}`}
               onClick={() => setStatusFilter('lulus')}
               style={{ fontSize: '11px', padding: '0 12px' }}
+              type="button"
             >
               Lulus (&ge; 5 Thn)
             </button>
           </div>
 
-          <div className="search-input-wrapper" style={{ flex: 1 }}>
+          <div className="search-input-wrapper" style={{ flex: 1, minWidth: '200px' }}>
             <Search size={14} className="search-icon" />
             <input 
               type="text" 
@@ -400,12 +443,75 @@ export default function BalitaPage() {
               placeholder="Cari Nama / NIK / Posyandu..." 
             />
           </div>
+          
+          <div>
+            <button onClick={handleOpenModal} className="btn btn-primary" type="button">
+              <Plus size={14} />
+              <span>Tambah Balita</span>
+            </button>
+          </div>
         </div>
-        <div>
-          <button onClick={handleOpenModal} className="btn btn-primary">
-            <Plus size={14} />
-            <span>Tambah Balita</span>
-          </button>
+
+        {/* Clinical Filters Row */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
+          {/* Gender Filter */}
+          <select 
+            className="header-select"
+            value={genderFilter}
+            onChange={(e) => setGenderFilter(e.target.value as any)}
+            style={{ minWidth: '120px' }}
+          >
+            <option value="all">Semua Jenis Kelamin</option>
+            <option value="Laki-laki">Laki-laki</option>
+            <option value="Perempuan">Perempuan</option>
+          </select>
+
+          {/* BB/U Filter */}
+          <select 
+            className="header-select"
+            value={bbuFilter}
+            onChange={(e) => setBbuFilter(e.target.value)}
+            style={{ minWidth: '140px' }}
+          >
+            <option value="all">Semua Status BB/U</option>
+            <option value="Normal">BB Normal</option>
+            <option value="Sangat Kurang">BB Sangat Kurang</option>
+            <option value="Kurang">BB Kurang</option>
+            <option value="Risiko Lebih">Risiko BB Lebih</option>
+            <option value="Belum Ditimbang">Belum Ditimbang</option>
+          </select>
+
+          {/* TB/U Filter */}
+          <select 
+            className="header-select"
+            value={tbuFilter}
+            onChange={(e) => setTbuFilter(e.target.value)}
+            style={{ minWidth: '140px' }}
+          >
+            <option value="all">Semua Status TB/U</option>
+            <option value="Normal">Tinggi Normal</option>
+            <option value="Sangat Pendek">Sangat Pendek (Severely Stunted)</option>
+            <option value="Pendek">Pendek (Stunted)</option>
+            <option value="Tinggi">Tinggi</option>
+            <option value="Belum Ditimbang">Belum Ditimbang</option>
+          </select>
+
+          {/* BB/TB Filter */}
+          <select 
+            className="header-select"
+            value={bbtbFilter}
+            onChange={(e) => setBbtbFilter(e.target.value)}
+            style={{ minWidth: '140px' }}
+          >
+            <option value="all">Semua Status BB/TB</option>
+            <option value="Gizi Baik">Gizi Baik (Normal)</option>
+            <option value="Gizi Buruk">Gizi Buruk (Severely Wasted)</option>
+            <option value="Gizi Kurang">Gizi Kurang (Wasted)</option>
+            <option value="Risiko Gizi Lebih">Risiko Gizi Lebih</option>
+            <option value="Gizi Lebih">Gizi Lebih</option>
+            <option value="Obesitas">Obesitas</option>
+            <option value="Belum Ditimbang">Belum Ditimbang</option>
+          </select>
         </div>
       </div>
 

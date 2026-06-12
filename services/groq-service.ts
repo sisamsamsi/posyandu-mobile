@@ -41,6 +41,8 @@ export class GroqService {
   }
 
   private static async callGroq(messages: any[], isJsonResponse = false): Promise<string> {
+    // === NONAKTIFKAN SEMENTARA: GROQ SERVICE ===
+    /*
     const apiKey = this.getApiKey();
     const useEdgeFunction = process.env.EXPO_PUBLIC_USE_EDGE_FUNCTION === 'true' || !apiKey;
 
@@ -83,6 +85,76 @@ export class GroqService {
     } catch (e: any) {
       console.error('Failed to call Groq API:', e);
       throw new Error(e.message || 'Gagal terhubung dengan layanan AI Groq.');
+    }
+    */
+    // ============================================
+
+    // === AKTIFKAN: GEMINI SERVICE ===
+    try {
+      const geminiApiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
+      if (!geminiApiKey) {
+        throw new Error('API Key Gemini tidak dikonfigurasi di env.');
+      }
+      
+      // Extract system prompt if present
+      const systemMessage = messages.find(m => m.role === 'system');
+      const systemInstruction = systemMessage ? {
+        parts: [{ text: systemMessage.content }]
+      } : undefined;
+
+      // Filter out system message from contents
+      const chatMessages = messages.filter(m => m.role !== 'system');
+
+      // Map roles: 'assistant' -> 'model', 'user' -> 'user'
+      const contents = chatMessages.map(m => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }]
+      }));
+
+      const body: any = {
+        contents,
+        generationConfig: {
+          temperature: 0.5,
+          responseMimeType: isJsonResponse ? "application/json" : undefined
+        }
+      };
+
+      if (systemInstruction) {
+        body.systemInstruction = systemInstruction;
+      }
+
+      // Menggunakan gemini-2.5-flash untuk peningkatan kecepatan (low-latency)
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`;
+
+      // Batasi waktu request agar tidak menggantung selamanya (timeout 8 detik)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Gemini API error:', errorText);
+        throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+      }
+
+      const json = await response.json();
+      return json.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    } catch (e: any) {
+      console.error('Failed to call Gemini API:', e);
+      if (e.name === 'AbortError') {
+        throw new Error('Timeout koneksi ke layanan AI Gemini.');
+      }
+      throw new Error(e.message || 'Gagal terhubung dengan layanan AI Gemini.');
     }
   }
 

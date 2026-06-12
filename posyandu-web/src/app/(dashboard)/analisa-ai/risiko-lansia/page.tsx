@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
-import { BrainCircuit } from 'lucide-react';
+import { BrainCircuit, Search } from 'lucide-react';
 import SubmenuPlaceholder, { StatItem } from '@/components/layout/SubmenuPlaceholder';
 
 interface RiskLansiaPredictRecord {
@@ -21,6 +21,9 @@ export default function AnalisisRisikoLansiaPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [riskFilter, setRiskFilter] = useState<'all' | 'Tinggi' | 'Sedang' | 'Rendah'>('all');
 
   useEffect(() => {
     async function fetchData() {
@@ -123,18 +126,42 @@ export default function AnalisisRisikoLansiaPage() {
     }
   }, [selectedDesa, selectedPosyanduId, filtersLoading]);
 
+  // Memoized filtered data
+  const filteredData = useMemo(() => {
+    return data.filter(item => {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = item.nama.toLowerCase().includes(q);
+      if (!matchesSearch) return false;
+
+      // Risk level filter
+      if (riskFilter !== 'all') {
+        const itemRisk = item.prediksi_komplikasi.toLowerCase();
+        if (riskFilter === 'Tinggi' && !itemRisk.includes('tinggi')) return false;
+        if (riskFilter === 'Sedang' && !itemRisk.includes('sedang')) return false;
+        if (riskFilter === 'Rendah' && !itemRisk.includes('rendah')) return false;
+      }
+
+      return true;
+    });
+  }, [data, searchQuery, riskFilter]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, riskFilter]);
+
   const stats = useMemo((): StatItem[] => [
-    { label: 'Total Berisiko', value: data.length, color: 'neutral' },
-    { label: 'Risiko Tinggi', value: data.filter(d => d.prediksi_komplikasi.toLowerCase().includes('tinggi')).length, color: 'danger' },
-    { label: 'Risiko Sedang', value: data.filter(d => d.prediksi_komplikasi.toLowerCase().includes('sedang')).length, color: 'warning' },
-    { label: 'Multi-Risiko', value: data.filter(d => d.skor_risiko >= 50).length, color: 'danger' },
-  ], [data]);
+    { label: 'Total Berisiko', value: filteredData.length, color: 'neutral' },
+    { label: 'Risiko Tinggi', value: filteredData.filter(d => d.prediksi_komplikasi.toLowerCase().includes('tinggi')).length, color: 'danger' },
+    { label: 'Risiko Sedang', value: filteredData.filter(d => d.prediksi_komplikasi.toLowerCase().includes('sedang')).length, color: 'warning' },
+    { label: 'Multi-Risiko', value: filteredData.filter(d => d.skor_risiko >= 50).length, color: 'danger' },
+  ], [filteredData]);
 
   // Pagination calculations
-  const totalPages = Math.ceil(data.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = Math.min(startIndex + itemsPerPage, data.length);
-  const paginatedData = data.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + itemsPerPage, filteredData.length);
+  const paginatedData = filteredData.slice(startIndex, endIndex);
 
   return (
     <SubmenuPlaceholder
@@ -155,85 +182,119 @@ export default function AnalisisRisikoLansiaPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div className="table-container">
-            <table className="custom-table">
-              <thead>
-                <tr>
-                  <th>Nama Lansia</th>
-                  <th>Tekanan Darah</th>
-                  <th>Gula Darah (mg/dL)</th>
-                  <th>Prediksi Risiko Komplikasi (AI)</th>
-                  <th>Skor Probabilitas Risiko</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedData.map((item) => (
-                  <tr key={item.id}>
-                    <td style={{ fontWeight: 500 }}>{item.nama}</td>
-                    <td>{item.tensi} mmHg</td>
-                    <td>{item.gds || '-'}</td>
-                    <td>
-                      <span 
-                        className={`badge ${
-                          item.prediksi_komplikasi.includes('Tinggi') 
-                            ? 'badge-danger' 
-                            : item.prediksi_komplikasi.includes('Sedang') 
-                            ? 'badge-warning' 
-                            : 'badge-success'
-                        }`}
-                      >
-                        {item.prediksi_komplikasi}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ flex: 1, backgroundColor: '#e2e8f0', height: '6px', borderRadius: '3px', width: '60px' }}>
-                          <div 
-                            style={{ 
-                              width: `${item.skor_risiko}%`, 
-                              backgroundColor: item.skor_risiko >= 60 ? 'var(--color-danger)' : item.skor_risiko >= 30 ? 'var(--color-warning)' : 'var(--color-success)', 
-                              height: '60%', 
-                              borderRadius: '3px' 
-                            }} 
-                          />
-                        </div>
-                        <span style={{ fontSize: '11px', fontWeight: 600 }}>{item.skor_risiko}%</span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {totalPages > 1 && (
-            <div className="pagination-container">
-              <span>Menampilkan {startIndex + 1}-{endIndex} dari {data.length} data</span>
-              <div className="pagination-pages">
-                <button 
-                  className="pagination-btn" 
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
-                  disabled={currentPage === 1}
-                >
-                  &lt;
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                  <button 
-                    key={page} 
-                    className={`pagination-btn ${currentPage === page ? 'active' : ''}`}
-                    onClick={() => setCurrentPage(page)}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <button 
-                  className="pagination-btn" 
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
-                  disabled={currentPage === totalPages}
-                >
-                  &gt;
-                </button>
-              </div>
+          {/* SEARCH & FILTERS BAR */}
+          <div className="filter-bar" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div className="search-input-wrapper" style={{ flex: 1, minWidth: '200px' }}>
+              <Search size={14} className="search-icon" />
+              <input 
+                type="text" 
+                className="search-input"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari Nama Lansia..." 
+              />
             </div>
+
+            <select 
+              className="header-select"
+              value={riskFilter}
+              onChange={(e) => setRiskFilter(e.target.value as any)}
+              style={{ minWidth: '160px' }}
+            >
+              <option value="all">Semua Kategori Risiko</option>
+              <option value="Tinggi">Risiko Tinggi</option>
+              <option value="Sedang">Risiko Sedang</option>
+              <option value="Rendah">Risiko Rendah</option>
+            </select>
+          </div>
+
+          {filteredData.length === 0 ? (
+            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              Tidak ditemukan hasil analisis risiko lansia yang cocok dengan filter.
+            </div>
+          ) : (
+            <>
+              <div className="table-container">
+                <table className="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Nama Lansia</th>
+                      <th>Tekanan Darah</th>
+                      <th>Gula Darah (mg/dL)</th>
+                      <th>Prediksi Risiko Komplikasi (AI)</th>
+                      <th>Skor Probabilitas Risiko</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedData.map((item) => (
+                      <tr key={item.id}>
+                        <td style={{ fontWeight: 500 }}>{item.nama}</td>
+                        <td>{item.tensi} mmHg</td>
+                        <td>{item.gds || '-'}</td>
+                        <td>
+                          <span 
+                            className={`badge ${
+                              item.prediksi_komplikasi.includes('Tinggi') 
+                                ? 'badge-danger' 
+                                : item.prediksi_komplikasi.includes('Sedang') 
+                                ? 'badge-warning' 
+                                : 'badge-success'
+                            }`}
+                          >
+                            {item.prediksi_komplikasi}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ flex: 1, backgroundColor: '#e2e8f0', height: '6px', borderRadius: '3px', width: '60px' }}>
+                              <div 
+                                style={{ 
+                                  width: `${item.skor_risiko}%`, 
+                                  backgroundColor: item.skor_risiko >= 60 ? 'var(--color-danger)' : item.skor_risiko >= 30 ? 'var(--color-warning)' : 'var(--color-success)', 
+                                  height: '60%', 
+                                  borderRadius: '3px' 
+                                }} 
+                              />
+                            </div>
+                            <span style={{ fontSize: '11px', fontWeight: 600 }}>{item.skor_risiko}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {totalPages > 1 && (
+                <div className="pagination-container">
+                  <span>Menampilkan {startIndex + 1}-{endIndex} dari {filteredData.length} data</span>
+                  <div className="pagination-pages">
+                    <button 
+                      className="pagination-btn" 
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                      disabled={currentPage === 1}
+                    >
+                      &lt;
+                    </button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                      <button 
+                        key={page} 
+                        className={`pagination-btn ${currentPage === page ? 'active' : ''}`}
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    <button 
+                      className="pagination-btn" 
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                      disabled={currentPage === totalPages}
+                    >
+                      &gt;
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

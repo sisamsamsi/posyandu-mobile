@@ -477,9 +477,9 @@ export default function SettingsScreen() {
                   <Text style={styles.infoLabel}>Database</Text>
                   <Text style={styles.infoValue}>Supabase (PostgreSQL)</Text>
                 </View>
-                <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.infoLabel}>Filosofi</Text>
-                  <Text style={styles.infoValue}>Rawat Tumbuhnya, Jaga Tuanya</Text>
+                <View style={[styles.infoRow, { borderBottomWidth: 0, flexDirection: 'column', alignItems: 'flex-start', gap: 6 }]}>
+                  <Text style={styles.infoLabel}>Filosofi / Tagline</Text>
+                  <Text style={[styles.infoValue, { textAlign: 'left', lineHeight: 20 }]}>Sistem Informasi Masyarakat untuk Pemantauan dan Layanan Kesehatan Terpadu</Text>
                 </View>
 
                 {posyandu?.invite_code && (

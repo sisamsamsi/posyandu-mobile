@@ -69,83 +69,114 @@ export default function DeteksiAnomaliPage() {
         logs.forEach(log => {
           scanResults.push({
             id: log.id,
-            tanggal: log.created_at || new Date().toISOString(),
-            jenis_data: log.jenis_data || 'Balita',
+            tanggal: log.tanggal_data || log.created_at || new Date().toISOString(),
+            jenis_data: log.tipe_kategori === 'lansia' ? 'Lansia' : 'Balita',
             nama_subjek: log.nama_subjek || 'Tidak Dikenal',
-            deskripsi: log.deskripsi || 'Nilai input di luar batas normal',
-            status: log.status || 'Perlu Konfirmasi'
+            deskripsi: log.deskripsi_anomali || 'Nilai input di luar batas normal',
+            status: log.status_verifikasi === 'valid' ? 'Telah Dikonfirmasi' : 'Perlu Konfirmasi'
           });
         });
 
-        // 2. Scan active Balita penimbangans for anomalies
+        // 2. Scan active Balita penimbangans for anomalies (only the latest weighing)
         activeBalitas.forEach(b => {
           const sorted = (b.penimbangans || []).sort(
             (x: any, y: any) => new Date(x.tanggal).getTime() - new Date(y.tanggal).getTime()
           );
 
-          sorted.forEach((p: any, idx: number) => {
+          if (sorted.length > 0) {
+            const lastP = sorted[sorted.length - 1];
+
             // Check: Extreme high weight (> 40kg for balita)
-            if (p.berat_badan > 40) {
+            if (lastP.berat_badan > 40) {
               scanResults.push({
-                id: `dyn-b-w-${p.id}`,
-                tanggal: p.tanggal,
+                id: `dyn-b-w-${lastP.id}`,
+                tanggal: lastP.tanggal,
                 jenis_data: 'Balita',
                 nama_subjek: b.nama,
-                deskripsi: `Input berat badan tidak wajar: ${p.berat_badan} kg untuk balita.`,
+                deskripsi: `Input berat badan tidak wajar pada penimbangan terakhir: ${lastP.berat_badan} kg untuk balita.`,
                 status: 'Perlu Konfirmasi'
               });
             }
 
-            // Check: Weight velocity drop (dropped more than 3kg)
-            if (idx > 0) {
-              const prev = sorted[idx - 1];
-              const diffW = p.berat_badan - prev.berat_badan;
-              if (diffW < -3) {
+            // Check: Weight velocity drop (dropped more than 1.5kg compared to previous)
+            if (sorted.length > 1) {
+              const prev = sorted[sorted.length - 2];
+              const diffW = lastP.berat_badan - prev.berat_badan;
+              if (diffW < -1.5) {
                 scanResults.push({
-                  id: `dyn-b-vd-${p.id}`,
-                  tanggal: p.tanggal,
+                  id: `dyn-b-vd-${lastP.id}`,
+                  tanggal: lastP.tanggal,
                   jenis_data: 'Balita',
                   nama_subjek: b.nama,
-                  deskripsi: `Penurunan berat badan drastis: turun ${Math.abs(diffW).toFixed(1)} kg dari bulan sebelumnya (${prev.berat_badan} kg → ${p.berat_badan} kg).`,
+                  deskripsi: `Penurunan berat badan drastis pada penimbangan terakhir: turun ${Math.abs(diffW).toFixed(1)} kg dari bulan sebelumnya (${prev.berat_badan} kg → ${lastP.berat_badan} kg).`,
+                  status: 'Perlu Konfirmasi'
+                });
+              }
+
+              // Check: Height (TB) shrinking (decreased compared to previous)
+              if (lastP.tinggi_badan && prev.tinggi_badan && lastP.tinggi_badan < prev.tinggi_badan) {
+                scanResults.push({
+                  id: `dyn-b-ts-${lastP.id}`,
+                  tanggal: lastP.tanggal,
+                  jenis_data: 'Balita',
+                  nama_subjek: b.nama,
+                  deskripsi: `Tinggi badan menyusut pada penimbangan terakhir: ${prev.tinggi_badan} cm → ${lastP.tinggi_badan} cm (tidak wajar untuk balita tumbuh).`,
                   status: 'Perlu Konfirmasi'
                 });
               }
             }
-          });
+          }
         });
 
-        // 3. Scan Lansia checkups for anomalies
+        // 3. Scan Lansia checkups for anomalies (only the latest examination)
         (lansias || []).forEach(l => {
-          (l.pemeriksaan_lansias || []).forEach((pm: any) => {
-            if (pm.gula_darah && pm.gula_darah > 500) {
+          const sortedPm = (l.pemeriksaan_lansias || []).sort(
+            (x: any, y: any) => new Date(x.tanggal_periksa).getTime() - new Date(y.tanggal_periksa).getTime()
+          );
+
+          if (sortedPm.length > 0) {
+            const lastPm = sortedPm[sortedPm.length - 1];
+
+            if (lastPm.gula_darah && lastPm.gula_darah > 500) {
               scanResults.push({
-                id: `dyn-l-s-${pm.id}`,
-                tanggal: pm.tanggal_periksa,
+                id: `dyn-l-s-${lastPm.id}`,
+                tanggal: lastPm.tanggal_periksa,
                 jenis_data: 'Lansia',
                 nama_subjek: l.nama,
-                deskripsi: `Kadar gula darah sangat ekstrim: ${pm.gula_darah} mg/dL (kemungkinan salah ketik angka nol tambahan).`,
+                deskripsi: `Kadar gula darah sangat ekstrim pada pemeriksaan terakhir: ${lastPm.gula_darah} mg/dL (kemungkinan salah ketik angka nol tambahan).`,
                 status: 'Perlu Konfirmasi'
               });
             }
 
-            if (pm.tekanan_darah) {
-              const systolic = parseInt(pm.tekanan_darah.split('/')[0]);
+            if (lastPm.tekanan_darah) {
+              const systolic = parseInt(lastPm.tekanan_darah.split('/')[0]);
               if (systolic > 240) {
                 scanResults.push({
-                  id: `dyn-l-bp-${pm.id}`,
-                  tanggal: pm.tanggal_periksa,
+                  id: `dyn-l-bp-${lastPm.id}`,
+                  tanggal: lastPm.tanggal_periksa,
                   jenis_data: 'Lansia',
                   nama_subjek: l.nama,
-                  deskripsi: `Tekanan darah sistolik ekstrim: ${pm.tekanan_darah} mmHg.`,
+                  deskripsi: `Tekanan darah sistolik ekstrim pada pemeriksaan terakhir: ${lastPm.tekanan_darah} mmHg.`,
                   status: 'Perlu Konfirmasi'
                 });
               }
             }
-          });
+          }
         });
 
+        // Keep only the latest measurement record for each subject
+        const latestAnomaliesMap = new Map<string, AnomaliRecord>();
+        scanResults.forEach(item => {
+          const key = `${item.jenis_data}-${item.nama_subjek}`;
+          const existing = latestAnomaliesMap.get(key);
+          if (!existing || new Date(item.tanggal).getTime() > new Date(existing.tanggal).getTime()) {
+            latestAnomaliesMap.set(key, item);
+          }
+        });
+        const latestAnomalies = Array.from(latestAnomaliesMap.values());
+
         // Apply filters
-        let filtered = scanResults;
+        let filtered = latestAnomalies;
         if (selectedDesa !== 'all') {
           filtered = filtered.filter(item => {
             const bMatch = activeBalitas.find(b => b.nama === item.nama_subjek);

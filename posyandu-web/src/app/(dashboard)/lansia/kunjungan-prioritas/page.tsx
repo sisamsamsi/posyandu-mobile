@@ -3,8 +3,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
-import { MapPin, ShieldAlert } from 'lucide-react';
+import { MapPin, ShieldAlert, Search } from 'lucide-react';
 import SubmenuPlaceholder, { ActionItem, StatItem } from '@/components/layout/SubmenuPlaceholder';
+import AIInsightBox from '@/components/ui/AIInsightBox';
 
 interface KunjunganPrioritasRecord {
   id: string;
@@ -22,6 +23,9 @@ export default function KunjunganPrioritasPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [reasonFilter, setReasonFilter] = useState<'all' | 'kritis' | 'absen' | 'belum'>('all');
 
   useEffect(() => {
     async function fetchData() {
@@ -122,16 +126,49 @@ export default function KunjunganPrioritasPage() {
     }
   }, [selectedDesa, selectedPosyanduId, filtersLoading]);
 
+  // Memoized filtered data
+  const filteredData = useMemo(() => {
+    return data.filter(item => {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = item.nama.toLowerCase().includes(q);
+      if (!matchesSearch) return false;
+
+      // Reason filter
+      if (reasonFilter !== 'all') {
+        if (reasonFilter === 'kritis' && !item.alasan_prioritas.toLowerCase().includes('kritis')) return false;
+        if (reasonFilter === 'absen' && !item.alasan_prioritas.toLowerCase().includes('absen')) return false;
+        if (reasonFilter === 'belum' && !item.alasan_prioritas.toLowerCase().includes('belum')) return false;
+      }
+
+      return true;
+    });
+  }, [data, searchQuery, reasonFilter]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, reasonFilter]);
+
   const stats = useMemo((): StatItem[] => [
-    { label: 'Butuh Kunjungan', value: data.length, color: 'danger' },
-    { label: 'Absen >60 Hari', value: data.filter(d => d.hari_sejak_periksa > 60 && d.hari_sejak_periksa < 999).length, color: 'warning' },
-    { label: 'Kondisi Kritis', value: data.filter(d => d.alasan_prioritas.toLowerCase().includes('kritis')).length, color: 'danger' },
-    { label: 'Belum Pernah Periksa', value: data.filter(d => d.hari_sejak_periksa === 999).length, color: 'danger' },
-  ], [data]);
+    { label: 'Butuh Kunjungan', value: filteredData.length, color: 'danger' },
+    { label: 'Absen >60 Hari', value: filteredData.filter(d => d.hari_sejak_periksa > 60 && d.hari_sejak_periksa < 999).length, color: 'warning' },
+    { label: 'Kondisi Kritis', value: filteredData.filter(d => d.alasan_prioritas.toLowerCase().includes('kritis')).length, color: 'danger' },
+    { label: 'Belum Pernah Periksa', value: filteredData.filter(d => d.hari_sejak_periksa === 999).length, color: 'danger' },
+  ], [filteredData]);
+
+  const insightData = useMemo(() => {
+    if (filteredData.length === 0) return {};
+    return {
+      total_prioritas_kunjungan: filteredData.length,
+      absen_lama: filteredData.filter(d => d.hari_sejak_periksa > 60 && d.hari_sejak_periksa < 999).length,
+      kondisi_kritis: filteredData.filter(d => d.alasan_prioritas.toLowerCase().includes('kritis')).length,
+      belum_pernah_periksa: filteredData.filter(d => d.hari_sejak_periksa === 999).length
+    };
+  }, [filteredData]);
 
   const actionItems = useMemo((): ActionItem[] | undefined => {
-    if (data.length === 0) return undefined;
-    return [...data]
+    if (filteredData.length === 0) return undefined;
+    return [...filteredData]
       .sort((a, b) => b.hari_sejak_periksa - a.hari_sejak_periksa)
       .slice(0, 3)
       .map(d => ({
@@ -139,13 +176,13 @@ export default function KunjunganPrioritasPage() {
         keterangan: d.alasan_prioritas,
         urgensi: d.hari_sejak_periksa >= 90 || d.alasan_prioritas.toLowerCase().includes('kritis') ? 'tinggi' as const : 'sedang' as const,
       }));
-  }, [data]);
+  }, [filteredData]);
 
   // Pagination calculations
-  const totalPages = Math.ceil(data.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = Math.min(startIndex + itemsPerPage, data.length);
-  const paginatedData = data.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + itemsPerPage, filteredData.length);
+  const paginatedData = filteredData.slice(startIndex, endIndex);
 
   return (
     <SubmenuPlaceholder
@@ -181,72 +218,114 @@ export default function KunjunganPrioritasPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div className="table-container">
-            <table className="custom-table">
-              <thead>
-                <tr>
-                  <th>Nama Lansia</th>
-                  <th>Alamat Domisili</th>
-                  <th>Hari Sejak Kontrol Terakhir</th>
-                  <th>Alasan Prioritas Kunjungan</th>
-                  <th>Status Kunjungan</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedData.map((item) => (
-                  <tr key={item.id}>
-                    <td style={{ fontWeight: 600, color: 'var(--color-danger)' }}>{item.nama}</td>
-                    <td>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <MapPin size={12} style={{ color: 'var(--text-muted)' }} />
-                        {item.alamat}
-                      </span>
-                    </td>
-                    <td>
-                      {item.hari_sejak_periksa === 999 
-                        ? 'Belum Pernah' 
-                        : `${item.hari_sejak_periksa} hari yang lalu`}
-                    </td>
-                    <td style={{ fontWeight: 500, color: '#9f1239' }}>{item.alasan_prioritas}</td>
-                    <td>
-                      <span className="badge badge-warning" style={{ cursor: 'pointer' }}>
-                        Jadwalkan Home Visit
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {totalPages > 1 && (
-            <div className="pagination-container">
-              <span>Menampilkan {startIndex + 1}-{endIndex} dari {data.length} data</span>
-              <div className="pagination-pages">
-                <button 
-                  className="pagination-btn" 
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
-                  disabled={currentPage === 1}
-                >
-                  &lt;
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                  <button 
-                    key={page} 
-                    className={`pagination-btn ${currentPage === page ? 'active' : ''}`}
-                    onClick={() => setCurrentPage(page)}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <button 
-                  className="pagination-btn" 
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
-                  disabled={currentPage === totalPages}
-                >
-                  &gt;
-                </button>
-              </div>
+          {/* AI INSIGHT BOX */}
+          <AIInsightBox
+            konteks="Kunjungan Prioritas Lansia"
+            bulan="Bulan Berjalan"
+            filter={selectedPosyanduId === 'all' ? (selectedDesa === 'all' ? 'Semua Kalurahan' : `Kalurahan ${selectedDesa}`) : `Posyandu Terpilih`}
+            data={insightData}
+          />
+
+          {/* SEARCH & FILTERS BAR */}
+          <div className="filter-bar" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div className="search-input-wrapper" style={{ flex: 1, minWidth: '200px' }}>
+              <Search size={14} className="search-icon" />
+              <input 
+                type="text" 
+                className="search-input"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari Nama Lansia..." 
+              />
             </div>
+
+            <select 
+              className="header-select"
+              value={reasonFilter}
+              onChange={(e) => setReasonFilter(e.target.value as any)}
+              style={{ minWidth: '200px' }}
+            >
+              <option value="all">Semua Alasan Prioritas</option>
+              <option value="kritis">Kondisi Kritis Terakhir</option>
+              <option value="absen">Absen Kontrol Bulanan</option>
+              <option value="belum">Belum Pernah Periksa</option>
+            </select>
+          </div>
+
+          {filteredData.length === 0 ? (
+            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              Tidak ditemukan data prioritas kunjungan yang cocok dengan filter.
+            </div>
+          ) : (
+            <>
+              <div className="table-container">
+                <table className="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Nama Lansia</th>
+                      <th>Alamat Domisili</th>
+                      <th>Hari Sejak Kontrol Terakhir</th>
+                      <th>Alasan Prioritas Kunjungan</th>
+                      <th>Status Kunjungan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedData.map((item) => (
+                      <tr key={item.id}>
+                        <td style={{ fontWeight: 600, color: 'var(--color-danger)' }}>{item.nama}</td>
+                        <td>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <MapPin size={12} style={{ color: 'var(--text-muted)' }} />
+                            {item.alamat}
+                          </span>
+                        </td>
+                        <td>
+                          {item.hari_sejak_periksa === 999 
+                            ? 'Belum Pernah' 
+                            : `${item.hari_sejak_periksa} hari yang lalu`}
+                        </td>
+                        <td style={{ fontWeight: 500, color: '#9f1239' }}>{item.alasan_prioritas}</td>
+                        <td>
+                          <span className="badge badge-warning" style={{ cursor: 'pointer' }}>
+                            Jadwalkan Home Visit
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {totalPages > 1 && (
+                <div className="pagination-container">
+                  <span>Menampilkan {startIndex + 1}-{endIndex} dari {filteredData.length} data</span>
+                  <div className="pagination-pages">
+                    <button 
+                      className="pagination-btn" 
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                      disabled={currentPage === 1}
+                    >
+                      &lt;
+                    </button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                      <button 
+                        key={page} 
+                        className={`pagination-btn ${currentPage === page ? 'active' : ''}`}
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    <button 
+                      className="pagination-btn" 
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                      disabled={currentPage === totalPages}
+                    >
+                      &gt;
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

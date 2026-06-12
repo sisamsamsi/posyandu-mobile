@@ -24,7 +24,18 @@ export default function LoginScreen() {
       });
 
       if (error) {
-        Alert.alert('Login Gagal', error.message);
+        if (error.message.includes('Invalid login credentials')) {
+          Alert.alert(
+            'Login Gagal',
+            'Kata sandi salah atau email tidak terdaftar. Silakan periksa kembali email dan kata sandi Anda, atau daftarkan akun baru jika belum memiliki akun.',
+            [
+              { text: 'Tutup', style: 'cancel' },
+              { text: 'Daftar Akun', onPress: () => router.replace('/register') }
+            ]
+          );
+        } else {
+          Alert.alert('Login Gagal', error.message);
+        }
       } else {
         // Clear any previous active workspace/posyandu
         useServiceStore.getState().setActivePosyandu(null);
@@ -53,6 +64,7 @@ export default function LoginScreen() {
       const idToken = userInfo.data.idToken;
       
       if (!idToken) {
+        console.warn('Google Sign-In response does not contain idToken. Raw response:', JSON.stringify(userInfo));
         throw new Error('Tidak ada ID Token Google yang ditemukan.');
       }
 
@@ -98,7 +110,6 @@ export default function LoginScreen() {
                 resizeMode="contain" 
               />
             </View>
-            <Text style={styles.brandSubtitle}>Posyandu Berbasis Keluarga</Text>
           </View>
 
           <View style={styles.form}>
@@ -189,20 +200,14 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
-  },
-  brandSubtitle: {
-    fontSize: 14,
-    color: '#64748b',
-    textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
   },
   logoImageContainer: {
     width: '100%',
-    height: 130,
+    height: 170,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: -10,
+    marginBottom: 12,
   },
   logoImage: {
     width: '100%',

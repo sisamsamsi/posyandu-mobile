@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
-import { BrainCircuit, TrendingDown } from 'lucide-react';
+import { BrainCircuit, TrendingDown, Search } from 'lucide-react';
 import SubmenuPlaceholder, { StatItem } from '@/components/layout/SubmenuPlaceholder';
 
 interface RiskBalitaPredictRecord {
@@ -21,6 +21,10 @@ export default function AnalisisRisikoBalitaPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [riskFilter, setRiskFilter] = useState<'all' | 'Tinggi' | 'Sedang' | 'Rendah'>('all');
+  const [trendFilter, setTrendFilter] = useState<'all' | 'Turun' | 'Tetap' | 'Naik' | 'Tunggal'>('all');
 
   const calculateAgeMonths = (dobStr: string) => {
     const dob = new Date(dobStr);
@@ -130,18 +134,51 @@ export default function AnalisisRisikoBalitaPage() {
     }
   }, [selectedDesa, selectedPosyanduId, filtersLoading]);
 
+  // Memoized filtered data
+  const filteredData = useMemo(() => {
+    return data.filter(item => {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = item.nama.toLowerCase().includes(q);
+      if (!matchesSearch) return false;
+
+      // Risk level filter
+      if (riskFilter !== 'all') {
+        const itemRisk = item.risiko_stunting.toLowerCase();
+        if (riskFilter === 'Tinggi' && !itemRisk.includes('tinggi')) return false;
+        if (riskFilter === 'Sedang' && !itemRisk.includes('sedang')) return false;
+        if (riskFilter === 'Rendah' && !itemRisk.includes('rendah')) return false;
+      }
+
+      // Weight trend filter
+      if (trendFilter !== 'all') {
+        const itemTrend = item.tren_berat.toLowerCase();
+        if (trendFilter === 'Turun' && !itemTrend.includes('turun')) return false;
+        if (trendFilter === 'Tetap' && !itemTrend.includes('tetap')) return false;
+        if (trendFilter === 'Naik' && !itemTrend.includes('naik')) return false;
+        if (trendFilter === 'Tunggal' && !itemTrend.includes('tunggal')) return false;
+      }
+
+      return true;
+    });
+  }, [data, searchQuery, riskFilter, trendFilter]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, riskFilter, trendFilter]);
+
   const stats = useMemo((): StatItem[] => [
-    { label: 'Total Berisiko', value: data.length, color: 'neutral' },
-    { label: 'Risiko Tinggi', value: data.filter(d => d.risiko_stunting.toLowerCase().includes('tinggi')).length, color: 'danger' },
-    { label: 'Risiko Sedang', value: data.filter(d => d.risiko_stunting.toLowerCase().includes('sedang')).length, color: 'warning' },
-    { label: 'Risiko Rendah', value: data.filter(d => d.risiko_stunting.toLowerCase().includes('rendah')).length, color: 'success' },
-  ], [data]);
+    { label: 'Total Berisiko', value: filteredData.length, color: 'neutral' },
+    { label: 'Risiko Tinggi', value: filteredData.filter(d => d.risiko_stunting.toLowerCase().includes('tinggi')).length, color: 'danger' },
+    { label: 'Risiko Sedang', value: filteredData.filter(d => d.risiko_stunting.toLowerCase().includes('sedang')).length, color: 'warning' },
+    { label: 'Risiko Rendah', value: filteredData.filter(d => d.risiko_stunting.toLowerCase().includes('rendah')).length, color: 'success' },
+  ], [filteredData]);
 
   // Pagination calculations
-  const totalPages = Math.ceil(data.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = Math.min(startIndex + itemsPerPage, data.length);
-  const paginatedData = data.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + itemsPerPage, filteredData.length);
+  const paginatedData = filteredData.slice(startIndex, endIndex);
 
   return (
     <SubmenuPlaceholder
@@ -162,93 +199,140 @@ export default function AnalisisRisikoBalitaPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div className="table-container">
-            <table className="custom-table">
-              <thead>
-                <tr>
-                  <th>Nama Balita</th>
-                  <th>Status Gizi Saat Ini</th>
-                  <th>Tren Berat Terakhir</th>
-                  <th>Prediksi Risiko Stunting (AI)</th>
-                  <th>Skor Probabilitas Risiko</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedData.map((item) => (
-                  <tr key={item.id}>
-                    <td style={{ fontWeight: 500 }}>{item.nama}</td>
-                    <td>{item.status_gizi}</td>
-                    <td style={{ 
-                      color: item.tren_berat.includes('Turun') || item.tren_berat.includes('Tetap') ? 'var(--color-danger)' : 'inherit',
-                      fontWeight: item.tren_berat.includes('Turun') ? 600 : 'normal'
-                    }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        {(item.tren_berat.includes('Turun') || item.tren_berat.includes('Tetap')) && <TrendingDown size={14} />}
-                        {item.tren_berat}
-                      </span>
-                    </td>
-                    <td>
-                      <span 
-                        className={`badge ${
-                          item.risiko_stunting.includes('Tinggi') 
-                            ? 'badge-danger' 
-                            : item.risiko_stunting.includes('Sedang') 
-                            ? 'badge-warning' 
-                            : 'badge-success'
-                        }`}
-                      >
-                        {item.risiko_stunting}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ flex: 1, backgroundColor: '#e2e8f0', height: '6px', borderRadius: '3px', width: '60px' }}>
-                          <div 
-                            style={{ 
-                              width: `${item.skor_risiko}%`, 
-                              backgroundColor: item.skor_risiko >= 70 ? 'var(--color-danger)' : item.skor_risiko >= 40 ? 'var(--color-warning)' : 'var(--color-success)', 
-                              height: '60%', 
-                              borderRadius: '3px' 
-                            }} 
-                          />
-                        </div>
-                        <span style={{ fontSize: '11px', fontWeight: 600 }}>{item.skor_risiko}%</span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {totalPages > 1 && (
-            <div className="pagination-container">
-              <span>Menampilkan {startIndex + 1}-{endIndex} dari {data.length} data</span>
-              <div className="pagination-pages">
-                <button 
-                  className="pagination-btn" 
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
-                  disabled={currentPage === 1}
-                >
-                  &lt;
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                  <button 
-                    key={page} 
-                    className={`pagination-btn ${currentPage === page ? 'active' : ''}`}
-                    onClick={() => setCurrentPage(page)}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <button 
-                  className="pagination-btn" 
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
-                  disabled={currentPage === totalPages}
-                >
-                  &gt;
-                </button>
-              </div>
+          {/* SEARCH & FILTERS BAR */}
+          <div className="filter-bar" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div className="search-input-wrapper" style={{ flex: 1, minWidth: '200px' }}>
+              <Search size={14} className="search-icon" />
+              <input 
+                type="text" 
+                className="search-input"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari Nama Balita..." 
+              />
             </div>
+
+            <select 
+              className="header-select"
+              value={riskFilter}
+              onChange={(e) => setRiskFilter(e.target.value as any)}
+              style={{ minWidth: '160px' }}
+            >
+              <option value="all">Semua Kategori Risiko</option>
+              <option value="Tinggi">Risiko Tinggi</option>
+              <option value="Sedang">Risiko Sedang</option>
+              <option value="Rendah">Risiko Rendah</option>
+            </select>
+
+            <select 
+              className="header-select"
+              value={trendFilter}
+              onChange={(e) => setTrendFilter(e.target.value as any)}
+              style={{ minWidth: '160px' }}
+            >
+              <option value="all">Semua Tren Berat</option>
+              <option value="Turun">Berat Turun</option>
+              <option value="Tetap">Berat Tetap (Faltering)</option>
+              <option value="Naik">Berat Naik</option>
+              <option value="Tunggal">Data Tunggal</option>
+            </select>
+          </div>
+
+          {filteredData.length === 0 ? (
+            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              Tidak ditemukan hasil analisis risiko balita yang cocok dengan filter.
+            </div>
+          ) : (
+            <>
+              <div className="table-container">
+                <table className="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Nama Balita</th>
+                      <th>Status Gizi Saat Ini</th>
+                      <th>Tren Berat Terakhir</th>
+                      <th>Prediksi Risiko Stunting (AI)</th>
+                      <th>Skor Probabilitas Risiko</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedData.map((item) => (
+                      <tr key={item.id}>
+                        <td style={{ fontWeight: 500 }}>{item.nama}</td>
+                        <td>{item.status_gizi}</td>
+                        <td style={{ 
+                          color: item.tren_berat.includes('Turun') || item.tren_berat.includes('Tetap') ? 'var(--color-danger)' : 'inherit',
+                          fontWeight: item.tren_berat.includes('Turun') ? 600 : 'normal'
+                        }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            {(item.tren_berat.includes('Turun') || item.tren_berat.includes('Tetap')) && <TrendingDown size={14} />}
+                            {item.tren_berat}
+                          </span>
+                        </td>
+                        <td>
+                          <span 
+                            className={`badge ${
+                              item.risiko_stunting.includes('Tinggi') 
+                                ? 'badge-danger' 
+                                : item.risiko_stunting.includes('Sedang') 
+                                ? 'badge-warning' 
+                                : 'badge-success'
+                            }`}
+                          >
+                            {item.risiko_stunting}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ flex: 1, backgroundColor: '#e2e8f0', height: '6px', borderRadius: '3px', width: '60px' }}>
+                              <div 
+                                style={{ 
+                                  width: `${item.skor_risiko}%`, 
+                                  backgroundColor: item.skor_risiko >= 70 ? 'var(--color-danger)' : item.skor_risiko >= 40 ? 'var(--color-warning)' : 'var(--color-success)', 
+                                  height: '60%', 
+                                  borderRadius: '3px' 
+                                }} 
+                              />
+                            </div>
+                            <span style={{ fontSize: '11px', fontWeight: 600 }}>{item.skor_risiko}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {totalPages > 1 && (
+                <div className="pagination-container">
+                  <span>Menampilkan {startIndex + 1}-{endIndex} dari {filteredData.length} data</span>
+                  <div className="pagination-pages">
+                    <button 
+                      className="pagination-btn" 
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                      disabled={currentPage === 1}
+                    >
+                      &lt;
+                    </button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                      <button 
+                        key={page} 
+                        className={`pagination-btn ${currentPage === page ? 'active' : ''}`}
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    <button 
+                      className="pagination-btn" 
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                      disabled={currentPage === totalPages}
+                    >
+                      &gt;
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

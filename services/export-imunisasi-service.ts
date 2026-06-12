@@ -214,7 +214,7 @@ export class ExportImunisasiService {
       }
 
       const wbout = XLSX.write(wb, { type: "base64", bookType: "xlsx" });
-      const file = new File(Paths.cache, `Laporan_Imunisasi_Ayomi_Lengkap.xlsx`);
+      const file = new File(Paths.cache, `Laporan_Imunisasi_Simpul_Sehat_Lengkap.xlsx`);
 
       file.write(wbout, {
         encoding: "base64",

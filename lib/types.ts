@@ -38,13 +38,22 @@ export interface Balita {
   nama_ortu: string;
   alamat: string;
   rt: number;
+  rw?: string | null;
   tempat_lahir?: string;
   nama_ayah?: string;
   nama_ibu?: string;
   penyakit_bawaan?: string[];
   bb_lahir?: number | null;
   tb_lahir?: number | null;
+  lk_lahir?: number | null;
   no_hp_ortu?: string | null; // Format: 628xxxxxxxxxx
+  no_kk?: string | null;
+  nik_ortu?: string | null;
+  usia_kehamilan_lahir?: number | null;
+  buku_kia?: boolean | null;
+  buku_kia_bayi_kecil?: boolean | null;
+  tatalaksana_bblr?: boolean | null;
+  imd?: boolean | null;
   created_at:string;
   posyandu?: Posyandu;
   penimbangans?: Penimbangan[];

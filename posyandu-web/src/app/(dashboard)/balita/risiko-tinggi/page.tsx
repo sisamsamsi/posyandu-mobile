@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
 import { AlertTriangle, ShieldAlert } from 'lucide-react';
 import SubmenuPlaceholder, { ActionItem, StatItem } from '@/components/layout/SubmenuPlaceholder';
+import AIInsightBox from '@/components/ui/AIInsightBox';
 
 interface RisikoBalitaRecord {
   id: string;
@@ -15,6 +16,43 @@ interface RisikoBalitaRecord {
   faktor_risiko: string[];
   status_gizi: string;
 }
+
+const getBadgeStyles = (factor: string) => {
+  const f = factor.toLowerCase();
+  if (f.includes('stunting') || f.includes('pendek')) {
+    return {
+      backgroundColor: '#fef2f2',
+      color: '#991b1b',
+      border: '1px solid #fee2e2'
+    };
+  }
+  if (f.includes('wasting') || f.includes('kurus')) {
+    return {
+      backgroundColor: '#fff7ed',
+      color: '#c2410c',
+      border: '1px solid #ffedd5'
+    };
+  }
+  if (f.includes('underweight') || f.includes('kurang')) {
+    return {
+      backgroundColor: '#f5f3ff',
+      color: '#5b21b6',
+      border: '1px solid #ddd6fe'
+    };
+  }
+  if (f.includes('imunisasi')) {
+    return {
+      backgroundColor: '#fffbeb',
+      color: '#b45309',
+      border: '1px solid #fde68a'
+    };
+  }
+  return {
+    backgroundColor: '#f1f5f9',
+    color: '#334155',
+    border: '1px solid #cbd5e1'
+  };
+};
 
 export default function RisikoTinggiPage() {
   const { selectedDesa, selectedPosyanduId, loading: filtersLoading } = useFilters();
@@ -89,19 +127,22 @@ export default function RisikoTinggiPage() {
             factors.push(`Underweight (${latest.status_bb_u})`);
           }
 
-          // Check immunization completeness by counting filled vaccine date fields
-          const imuRecord = Array.isArray(b.imunisasi) ? b.imunisasi[0] : b.imunisasi;
-          const imuFields = [
-            'hb0_date', 'bcg_date', 'penta_1_date', 'penta_2_date', 'penta_3_date',
-            'ipv_1_date', 'ipv_2_date', 'ipv_3_date', 'pcv_1_date', 'pcv_2_date',
-            'pcv_3_date', 'rv_1_date', 'rv_2_date', 'rv_3_date', 'mr_date', 'je_date',
-            'booster_penta_date', 'booster_mr_date'
-          ];
-          const imuCount = imuRecord
-            ? imuFields.filter(f => !!(imuRecord as any)[f]).length
-            : 0;
-          if (imuCount < 2) {
-            factors.push('Imunisasi Dasar Belum Lengkap');
+          // Check immunization completeness for toddlers born in 2023 or later
+          const birthYear = new Date(b.tanggal_lahir).getFullYear();
+          if (birthYear >= 2023) {
+            const imuRecord = Array.isArray(b.imunisasi) ? b.imunisasi[0] : b.imunisasi;
+            const imuFields = [
+              'hb0_date', 'bcg_date', 'penta_1_date', 'penta_2_date', 'penta_3_date',
+              'ipv_1_date', 'ipv_2_date', 'ipv_3_date', 'pcv_1_date', 'pcv_2_date',
+              'pcv_3_date', 'rv_1_date', 'rv_2_date', 'rv_3_date', 'mr_date', 'je_date',
+              'booster_penta_date', 'booster_mr_date'
+            ];
+            const imuCount = imuRecord
+              ? imuFields.filter(f => !!(imuRecord as any)[f]).length
+              : 0;
+            if (imuCount < 2) {
+              factors.push('Imunisasi Dasar Belum Lengkap');
+            }
           }
 
           // If there are risk factors, add to list
@@ -153,6 +194,16 @@ export default function RisikoTinggiPage() {
     { label: 'Wasting', value: data.filter(d => d.faktor_risiko.some(f => f.includes('Wasting'))).length, color: 'warning' },
     { label: 'Imunisasi Tidak Lengkap', value: data.filter(d => d.faktor_risiko.some(f => f.includes('Imunisasi'))).length, color: 'warning' },
   ], [data]);
+
+  const insightData = useMemo(() => {
+    if (data.length === 0) return {};
+    return {
+      total_berisiko: data.length,
+      stunting: data.filter(d => d.faktor_risiko.some(f => f.includes('Stunting'))).length,
+      wasting: data.filter(d => d.faktor_risiko.some(f => f.includes('Wasting'))).length,
+      imunisasi_tidak_lengkap: data.filter(d => d.faktor_risiko.some(f => f.includes('Imunisasi'))).length
+    };
+  }, [data]);
 
   const actionItems = useMemo((): ActionItem[] | undefined => {
     if (data.length === 0) return undefined;
@@ -206,13 +257,20 @@ export default function RisikoTinggiPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {/* AI INSIGHT BOX */}
+          <AIInsightBox
+            konteks="Risiko Tinggi Balita"
+            bulan="Bulan Berjalan"
+            filter={selectedPosyanduId === 'all' ? (selectedDesa === 'all' ? 'Semua Kalurahan' : `Kalurahan ${selectedDesa}`) : `Posyandu Terpilih`}
+            data={insightData}
+          />
+
           <div className="table-container">
             <table className="custom-table">
               <thead>
                 <tr>
                   <th>Nama Balita</th>
                   <th>Orang Tua</th>
-                  <th>Status Pertumbuhan</th>
                   <th>Faktor Risiko Terdeteksi</th>
                   <th>Tindakan Medis</th>
                 </tr>
@@ -222,11 +280,23 @@ export default function RisikoTinggiPage() {
                   <tr key={item.id}>
                     <td style={{ fontWeight: 600, color: 'var(--color-danger)' }}>{item.nama}</td>
                     <td>{item.ortu}</td>
-                    <td>{item.status_gizi}</td>
                     <td>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                         {item.faktor_risiko.map((factor, i) => (
-                          <span key={i} className="badge badge-danger" style={{ fontSize: '10px' }}>
+                          <span 
+                            key={i} 
+                            style={{ 
+                              fontSize: '10.5px',
+                              fontWeight: 600,
+                              padding: '4px 10px',
+                              borderRadius: '9999px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              lineHeight: '1.2',
+                              whiteSpace: 'nowrap',
+                              ...getBadgeStyles(factor)
+                            }}
+                          >
                             {factor}
                           </span>
                         ))}

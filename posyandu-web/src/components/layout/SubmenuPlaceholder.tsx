@@ -7,7 +7,7 @@ export interface StatItem {
   label: string;
   value: string | number;
   color?: 'primary' | 'danger' | 'warning' | 'success' | 'neutral';
-  icon?: React.ComponentType<{ size?: number }>;
+  icon?: React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
 }
 
 export interface ActionItem {
@@ -19,7 +19,7 @@ export interface ActionItem {
 export interface SubmenuPlaceholderProps {
   title: string;
   parentTitle: string;
-  icon: React.ComponentType<{ size?: number }>;
+  icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
   sectionTitle?: string;
   loading?: boolean;
   stats?: StatItem[];

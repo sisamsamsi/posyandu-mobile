@@ -140,7 +140,7 @@ export default function SelectWorkspaceScreen() {
         </View>
         
         <TouchableOpacity style={styles.joinOtherBtn} onPress={() => router.push('/onboarding')}>
-            <Text style={styles.joinOtherText}>+ Daftarkan Posyandu Lain</Text>
+            <Text style={styles.joinOtherText}>+ Gabung Posyandu Lain</Text>
         </TouchableOpacity>
       </Animated.View>
     </SafeAreaView>

@@ -443,9 +443,9 @@ export default function CounselingQueueScreen() {
               <Text style={styles.metricValue}>{item.penimbangan?.tinggi_badan} cm</Text>
             </View>
             <View style={styles.metric}>
-              <Text style={styles.metricLabel}>Status BB/U</Text>
-              <Text style={[styles.metricStatus, { color: getStatusColor(item.penimbangan?.status_bb_u || '') }]}>
-                {item.penimbangan?.status_bb_u}
+              <Text style={styles.metricLabel}>Status TB/U</Text>
+              <Text style={[styles.metricStatus, { color: getStatusColor(item.penimbangan?.status_tb_u || '') }]}>
+                {item.penimbangan?.status_tb_u}
               </Text>
             </View>
           </View>
@@ -510,7 +510,13 @@ export default function CounselingQueueScreen() {
 
   const getStatusColor = (status: string) => {
     if (status.includes('Normal') || status.includes('Baik')) return '#22C55E';
-    if (status.includes('Sangat Kurang') || status.includes('Kurang') || status.includes('Buruk')) return '#EF4444';
+    if (
+      status.includes('Sangat Kurang') || 
+      status.includes('Kurang') || 
+      status.includes('Buruk') ||
+      status.includes('Sangat Pendek') ||
+      status.includes('Pendek')
+    ) return '#EF4444';
     return '#F59E0B';
   };
 

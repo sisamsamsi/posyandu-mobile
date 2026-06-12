@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
 import { Calendar } from 'lucide-react';
 import SubmenuPlaceholder, { ActionItem, StatItem } from '@/components/layout/SubmenuPlaceholder';
+import AIInsightBox from '@/components/ui/AIInsightBox';
 
 interface KehadiranData {
   id: string;
@@ -21,16 +22,40 @@ interface KehadiranData {
 export default function KehadiranPage() {
   const { selectedDesa, selectedPosyanduId, loading: filtersLoading } = useFilters();
   const [data, setData] = useState<KehadiranData[]>([]);
+  const [activeCategory, setActiveCategory] = useState<'balita' | 'lansia'>('balita');
+  const [selectedMonth, setSelectedMonth] = useState('6'); // Default: Juni (1-indexed)
+  const [selectedYear, setSelectedYear] = useState('2026');
   const [loading, setLoading] = useState(true);
+
+  // Set current month/year dynamically on mount to prevent stale defaults
+  useEffect(() => {
+    const today = new Date();
+    setSelectedMonth((today.getMonth() + 1).toString());
+    setSelectedYear(today.getFullYear().toString());
+  }, []);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
 
-  const calculateAgeMonths = (dobStr: string) => {
+  const monthsList = [
+    { value: '1', label: 'Januari' },
+    { value: '2', label: 'Februari' },
+    { value: '3', label: 'Maret' },
+    { value: '4', label: 'April' },
+    { value: '5', label: 'Mei' },
+    { value: '6', label: 'Juni' },
+    { value: '7', label: 'Juli' },
+    { value: '8', label: 'Agustus' },
+    { value: '9', label: 'September' },
+    { value: '10', label: 'Oktober' },
+    { value: '11', label: 'November' },
+    { value: '12', label: 'Desember' }
+  ];
+
+  const calculateAgeMonths = (dobStr: string, refDate: Date) => {
     const dob = new Date(dobStr);
-    const today = new Date();
-    let months = (today.getFullYear() - dob.getFullYear()) * 12;
+    let months = (refDate.getFullYear() - dob.getFullYear()) * 12;
     months -= dob.getMonth();
-    months += today.getMonth();
+    months += refDate.getMonth();
     return months <= 0 ? 0 : months;
   };
 
@@ -38,6 +63,15 @@ export default function KehadiranPage() {
     async function fetchData() {
       try {
         setLoading(true);
+        const yearNum = parseInt(selectedYear);
+        const monthNum = parseInt(selectedMonth);
+
+        // Date bounds for measurements
+        const startDay = `${yearNum}-${String(monthNum).padStart(2, '0')}-01`;
+        const lastDay = new Date(yearNum, monthNum, 0).getDate();
+        const endDay = `${yearNum}-${String(monthNum).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+        const refDate = new Date(yearNum, monthNum - 1, 1);
+
         // Query posyandus to generate attendance report
         const { data: posyandus, error: pError } = await supabase
           .from('posyandus')
@@ -57,21 +91,40 @@ export default function KehadiranPage() {
           .select('id, posyandu_id');
         if (lError) throw lError;
 
-        // Filter out balitas aged >= 60 months
-        const activeBalitas = (balitas || []).filter(b => calculateAgeMonths(b.tanggal_lahir) < 60);
+        // Fetch measurements (penimbangans) in the selected month
+        const { data: weighs, error: wError } = await supabase
+          .from('penimbangans')
+          .select('balita_id, tanggal')
+          .gte('tanggal', startDay)
+          .lte('tanggal', endDay);
+        if (wError) throw wError;
+
+        // Fetch checkups (pemeriksaan_lansias) in the selected month
+        const { data: checks, error: cError } = await supabase
+          .from('pemeriksaan_lansias')
+          .select('lansia_id, tanggal_periksa')
+          .gte('tanggal_periksa', startDay)
+          .lte('tanggal_periksa', endDay);
+        if (cError) throw cError;
+
+        // Create sets of unique IDs who have records on the selected month
+        const weighSet = new Set((weighs || []).map(w => w.balita_id));
+        const checkSet = new Set((checks || []).map(c => c.lansia_id));
+
+        // Filter out balitas aged >= 60 months on selected period
+        const activeBalitas = (balitas || []).filter(b => calculateAgeMonths(b.tanggal_lahir, refDate) < 60);
 
         // Map and calculate stats
         const report: KehadiranData[] = (posyandus || []).map(p => {
           const listB = activeBalitas.filter(b => b.posyandu_id === p.id);
           const listL = (lansias || []).filter(l => l.posyandu_id === p.id);
           
-          // Generate a deterministic attendance rate for representation based on ID characters
-          const seed = p.id.charCodeAt(0) + p.id.charCodeAt(1) || 5;
-          const hadirB = Math.min(listB.length, Math.round(listB.length * (0.6 + (seed % 35) / 100)));
-          const hadirL = Math.min(listL.length, Math.round(listL.length * (0.5 + (seed % 45) / 100)));
+          // Calculate actual counts using Set checkups
+          const hadirB = listB.filter(b => weighSet.has(b.id)).length;
+          const hadirL = listL.filter(l => checkSet.has(l.id)).length;
           
-          const total = listB.length + listL.length;
-          const hadir = hadirB + hadirL;
+          const total = activeCategory === 'balita' ? listB.length : listL.length;
+          const hadir = activeCategory === 'balita' ? hadirB : hadirL;
           const pct = total > 0 ? Math.round((hadir / total) * 100) : 0;
           
           let status = 'Sangat Baik';
@@ -112,7 +165,7 @@ export default function KehadiranPage() {
     if (!filtersLoading) {
       fetchData();
     }
-  }, [selectedDesa, selectedPosyanduId, filtersLoading]);
+  }, [selectedDesa, selectedPosyanduId, activeCategory, selectedMonth, selectedYear, filtersLoading]);
 
   const stats = useMemo((): StatItem[] => [
     { label: 'Total Posyandu', value: data.length, color: 'neutral' },
@@ -127,15 +180,32 @@ export default function KehadiranPage() {
       .sort((a, b) => a.persentase - b.persentase)
       .slice(0, 3)
       .map(d => {
-        const total = d.total_balita + d.total_lansia;
-        const hadir = d.hadir_balita + d.hadir_lansia;
+        const total = activeCategory === 'balita' ? d.total_balita : d.total_lansia;
+        const hadir = activeCategory === 'balita' ? d.hadir_balita : d.hadir_lansia;
         return {
           nama: `${d.nama_posyandu} — ${d.kelurahan}`,
           keterangan: `${hadir}/${total} peserta (${d.persentase}%)`,
           urgensi: d.persentase < 60 ? 'tinggi' as const : 'sedang' as const,
         };
       });
-  }, [data]);
+  }, [data, activeCategory]);
+
+  const insightData = useMemo(() => {
+    if (data.length === 0) return {};
+    const total = data.reduce((acc, curr) => acc + (activeCategory === 'balita' ? curr.total_balita : curr.total_lansia), 0);
+    const hadir = data.reduce((acc, curr) => acc + (activeCategory === 'balita' ? curr.hadir_balita : curr.hadir_lansia), 0);
+    const baik = data.filter(d => d.persentase >= 80).length;
+    const perhatian = data.filter(d => d.persentase < 60).length;
+
+    return {
+      kategori: activeCategory === 'balita' ? 'Balita' : 'Lansia',
+      total_sasaran_wilayah: total,
+      total_hadir_wilayah: hadir,
+      rata_rata_kehadiran: total > 0 ? `${Math.round((hadir / total) * 100)}%` : '0%',
+      posyandu_kehadiran_baik: baik,
+      posyandu_perlu_perhatian: perhatian
+    };
+  }, [data, activeCategory]);
 
   // Pagination calculations
   const totalPages = Math.ceil(data.length / itemsPerPage);
@@ -163,14 +233,63 @@ export default function KehadiranPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {/* CATEGORY SWITCH & MONTH/YEAR FILTER */}
+          <div className="filter-bar" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <div className="toggle-switch-container">
+              <button 
+                className={`toggle-btn ${activeCategory === 'balita' ? 'active' : ''}`}
+                onClick={() => setActiveCategory('balita')}
+              >
+                BALITA
+              </button>
+              <button 
+                className={`toggle-btn ${activeCategory === 'lansia' ? 'active' : ''}`}
+                onClick={() => setActiveCategory('lansia')}
+              >
+                LANSIA
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <select 
+                className="header-select"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                style={{ minWidth: '120px' }}
+              >
+                {monthsList.map(m => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+
+              <select 
+                className="header-select"
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                style={{ minWidth: '90px' }}
+              >
+                <option value="2026">2026</option>
+                <option value="2025">2025</option>
+                <option value="2024">2024</option>
+              </select>
+            </div>
+          </div>
+
+          {/* AI INSIGHT BOX */}
+          <AIInsightBox
+            konteks={`Kehadiran Posyandu (${activeCategory === 'balita' ? 'Balita' : 'Lansia'})`}
+            bulan={monthsList.find(m => m.value === selectedMonth)?.label + ' ' + selectedYear}
+            filter={selectedDesa === 'all' ? 'Semua Kalurahan' : `Kalurahan ${selectedDesa}`}
+            data={insightData}
+          />
+
           <div className="table-container">
             <table className="custom-table">
               <thead>
                 <tr>
                   <th>Nama Posyandu</th>
                   <th>Kelurahan/Desa</th>
-                  <th>Kehadiran Balita</th>
-                  <th>Kehadiran Lansia</th>
+                  {activeCategory === 'balita' ? <th>Kehadiran Balita</th> : <th>Kehadiran Lansia</th>}
                   <th>Tingkat Kehadiran</th>
                   <th>Status Partisipasi</th>
                 </tr>
@@ -181,10 +300,9 @@ export default function KehadiranPage() {
                     <td style={{ fontWeight: 500 }}>{item.nama_posyandu}</td>
                     <td>{item.kelurahan}</td>
                     <td>
-                      {item.hadir_balita} / {item.total_balita} Anak
-                    </td>
-                    <td>
-                      {item.hadir_lansia} / {item.total_lansia} Lansia
+                      {activeCategory === 'balita' 
+                        ? `${item.hadir_balita} / ${item.total_balita} Anak`
+                        : `${item.hadir_lansia} / ${item.total_lansia} Lansia`}
                     </td>
                     <td style={{ fontWeight: 600, color: 'var(--color-primary)' }}>
                       {item.persentase}%
@@ -242,3 +360,4 @@ export default function KehadiranPage() {
     </SubmenuPlaceholder>
   );
 }
+

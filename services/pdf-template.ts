@@ -15,7 +15,6 @@ export const generateMonthlyReportHtml = (
     ? newBalitaList.map((w, i) => `
         <tr>
           <td style="text-align:center;">${i + 1}</td>
-          <td>${w.nik || '-'}</td>
           <td style="font-weight: bold;">${w.nama}</td>
           <td style="text-align:center;">${w.tanggal_lahir ? format(new Date(w.tanggal_lahir), 'dd/MM/yyyy') : '-'}</td>
           <td style="text-align:center;">${w.jenis_kelamin}</td>
@@ -42,14 +41,13 @@ export const generateMonthlyReportHtml = (
         <tr>
           <td style="text-align:center;">${i + 1}</td>
           <td style="font-weight: bold;">${p.nama}</td>
-          <td>${p.nik}</td>
           <td>
             ${p.jenis_masalah.map(m => `<span class="badge ${m.includes('Stunting') ? 'bg-orange' : m.includes('Wasting') ? 'bg-red' : m.includes('2T') ? 'bg-rose' : 'bg-blue'}">${m}</span>`).join(' ')}
           </td>
           <td style="font-size: 10px; color: #64748b;">${p.status_detail}</td>
         </tr>
       `).join('')
-    : '<tr><td colspan="5" style="text-align:center; padding: 20px; color: #94a3b8;">Tidak ada balita dengan masalah gizi bulan ini.</td></tr>';
+    : '<tr><td colspan="4" style="text-align:center; padding: 20px; color: #94a3b8;">Tidak ada balita dengan masalah gizi bulan ini.</td></tr>';
 
   const weighingRows = weighings.length > 0
     ? weighings.map((w, i) => {
@@ -70,7 +68,6 @@ export const generateMonthlyReportHtml = (
         return `
           <tr style="${w.status_kehadiran === 'Tidak Hadir' ? 'background-color: #fffbeb; color: #64748b;' : ''}">
             <td style="text-align:center;">${i + 1}</td>
-            <td>${w.nik || '-'}</td>
             <td style="font-weight: bold; color: ${w.status_kehadiran === 'Tidak Hadir' ? '#64748b' : '#1e293b'};">${w.nama}</td>
             <td style="text-align:center;">${w.jenis_kelamin}</td>
             <td style="text-align:center;">${formattedDob}</td>
@@ -86,7 +83,7 @@ export const generateMonthlyReportHtml = (
           </tr>
         `;
       }).join('')
-    : `<tr><td colspan="14" style="text-align:center; padding: 20px;">Tidak ada data penimbangan.</td></tr>`;
+    : `<tr><td colspan="13" style="text-align:center; padding: 20px;">Tidak ada data penimbangan.</td></tr>`;
 
   // Filter for children with counseling priority:
   // Only present children (Hadir) who have nutritional problems (Z-score <= -2)
@@ -321,7 +318,6 @@ export const generateMonthlyReportHtml = (
             <thead>
               <tr>
                 <th style="width: 30px; text-align:center;">No</th>
-                <th style="width: 100px; text-align:left;">NIK</th>
                 <th style="text-align:left;">Nama Balita</th>
                 <th style="width: 80px; text-align:center;">Tgl Lahir</th>
                 <th style="width: 30px; text-align:center;">JK</th>
@@ -346,7 +342,6 @@ export const generateMonthlyReportHtml = (
               <tr>
                 <th style="width: 30px; text-align:center;">No</th>
                 <th style="text-align:left;">Nama Balita</th>
-                <th style="text-align:left;">NIK</th>
                 <th style="text-align:left;">Jenis Masalah</th>
                 <th style="text-align:left;">Detail Status Terakhir</th>
               </tr>
@@ -366,7 +361,6 @@ export const generateMonthlyReportHtml = (
             <thead>
               <tr>
                 <th style="width: 25px; text-align:center;">No</th>
-                <th style="width: 100px; text-align:left;">NIK</th>
                 <th style="text-align:left;">Nama Balita</th>
                 <th style="width: 25px; text-align:center;">JK</th>
                 <th style="width: 70px; text-align:center;">Tgl Lahir</th>

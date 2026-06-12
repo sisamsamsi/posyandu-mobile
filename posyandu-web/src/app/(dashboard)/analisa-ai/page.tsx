@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useFilters } from '@/context/FilterContext';
 import { supabase } from '@/lib/supabase';
+import AIInsightBox from '@/components/ui/AIInsightBox';
+
 import { 
   BrainCircuit, 
   Sparkles, 
@@ -163,6 +165,7 @@ export default function AnalisaAiPage() {
 
   // Visualizations & Aggregated Data States
   const [totals, setTotals] = useState({ totalActive: 0, checked: 0, stunting: 0, wasting: 0, underweight: 0 });
+  const [regionMapData, setRegionMapData] = useState<any[]>([]);
   const [trendChartData, setTrendChartData] = useState<any[]>([]);
   const [bbuPieData, setBbuPieData] = useState<any[]>([]);
   const [tbuPieData, setTbuPieData] = useState<any[]>([]);
@@ -205,26 +208,58 @@ export default function AnalisaAiPage() {
       const posyanduIds = activePosyandus.map(p => p.id);
       const safePosyanduIds = posyanduIds.length > 0 ? posyanduIds : ['00000000-0000-0000-0000-000000000000'];
 
+      // Query both balitas and lansias in parallel for target Posyandus
+      const [balitasRes, lansiasRes] = await Promise.all([
+        supabase.from('balitas').select('id, nama, tanggal_lahir, posyandu_id, posyandu:posyandus(kelurahan, nama_posyandu)').in('posyandu_id', safePosyanduIds),
+        supabase.from('lansias').select('id, nama, posyandu_id, posyandu:posyandus(kelurahan, nama_posyandu)').in('posyandu_id', safePosyanduIds)
+      ]);
+
+      if (balitasRes.error) throw balitasRes.error;
+      if (lansiasRes.error) throw lansiasRes.error;
+
+      const allBalitas = balitasRes.data || [];
+      const allLansias = lansiasRes.data || [];
+
+      // Filter out balitas aged >= 60 months on selected period
+      const activeBalitas = allBalitas.filter(b => {
+        const dob = new Date(b.tanggal_lahir);
+        const refDate = new Date(year, monthNum - 1, 1);
+        let months = (refDate.getFullYear() - dob.getFullYear()) * 12;
+        months -= dob.getMonth();
+        months += refDate.getMonth();
+        const age = months <= 0 ? 0 : months;
+        return age < 60;
+      });
+
+      // Calculate region comparison chart dataset (Balita & Lansia)
+      let mapChartData: any[] = [];
+      if (selectedDesa === 'all') {
+        // Compare each Kalurahan in desaList
+        mapChartData = desaList.map(desaName => {
+          const balitaCount = activeBalitas.filter(b => (b.posyandu as any)?.kelurahan === desaName).length;
+          const lansiaCount = allLansias.filter(l => (l.posyandu as any)?.kelurahan === desaName).length;
+          return {
+            name: desaName,
+            'Balita': balitaCount,
+            'Lansia': lansiaCount
+          };
+        });
+      } else {
+        // Compare each Posyandu unit in the selected Kalurahan
+        mapChartData = activePosyandus.map(posy => {
+          const balitaCount = activeBalitas.filter(b => b.posyandu_id === posy.id).length;
+          const lansiaCount = allLansias.filter(l => l.posyandu_id === posy.id).length;
+          return {
+            name: posy.nama_posyandu,
+            'Balita': balitaCount,
+            'Lansia': lansiaCount
+          };
+        });
+      }
+      setRegionMapData(mapChartData);
+
       if (toggleMode === 'balita') {
         // --- BALITA MODE AGGREGATION ---
-        const { data: balitasData, error: bErr } = await supabase
-          .from('balitas')
-          .select('id, nama, posyandu_id, tanggal_lahir')
-          .in('posyandu_id', safePosyanduIds);
-        
-        if (bErr) throw bErr;
-        const allBalitas = balitasData || [];
-        
-        const activeBalitas = allBalitas.filter(b => {
-          const dob = new Date(b.tanggal_lahir);
-          const refDate = new Date(year, monthNum - 1, 1);
-          let months = (refDate.getFullYear() - dob.getFullYear()) * 12;
-          months -= dob.getMonth();
-          months += refDate.getMonth();
-          const age = months <= 0 ? 0 : months;
-          return age < 60;
-        });
-
         const activeBalitaIds = activeBalitas.map(b => b.id);
         const safeBalitaIds = activeBalitaIds.length > 0 ? activeBalitaIds : ['00000000-0000-0000-0000-000000000000'];
 
@@ -364,31 +399,70 @@ export default function AnalisaAiPage() {
           { name: `Obesitas (${((bbtbObesitas/totalBbtb)*100).toFixed(1)}%)`, value: bbtbObesitas, color: '#6366f1' }
         ]);
 
-        // Calculate immunizations
-        const totalBalitaImunisasi = activeBalitas.length || 1;
+        // Calculate immunizations (Only count toddlers born in 2023 or later, matching the mobile version)
+        const targetImunisasiBalitas = activeBalitas.filter(b => new Date(b.tanggal_lahir).getFullYear() >= 2023);
+        const totalBalitaImunisasi = targetImunisasiBalitas.length || 1;
+        const targetImunisasiIds = new Set(targetImunisasiBalitas.map(b => b.id));
         let hb0Count = 0;
         let bcgCount = 0;
         let penta1Count = 0;
+        let penta2Count = 0;
         let penta3Count = 0;
         let ipv1Count = 0;
+        let ipv2Count = 0;
+        let ipv3Count = 0;
+        let pcv1Count = 0;
+        let pcv2Count = 0;
+        let pcv3Count = 0;
+        let rv1Count = 0;
+        let rv2Count = 0;
+        let rv3Count = 0;
         let mrCount = 0;
+        let jeCount = 0;
+        let boosterPentaCount = 0;
+        let boosterMrCount = 0;
 
         imunisasiData.forEach(im => {
+          if (!targetImunisasiIds.has(im.balita_id)) return;
           if (im.hb0_date) hb0Count++;
           if (im.bcg_date) bcgCount++;
           if (im.penta_1_date) penta1Count++;
+          if (im.penta_2_date) penta2Count++;
           if (im.penta_3_date) penta3Count++;
           if (im.ipv_1_date) ipv1Count++;
+          if (im.ipv_2_date) ipv2Count++;
+          if (im.ipv_3_date) ipv3Count++;
+          if (im.pcv_1_date) pcv1Count++;
+          if (im.pcv_2_date) pcv2Count++;
+          if (im.pcv_3_date) pcv3Count++;
+          if (im.rv_1_date) rv1Count++;
+          if (im.rv_2_date) rv2Count++;
+          if (im.rv_3_date) rv3Count++;
           if (im.mr_date) mrCount++;
+          if (im.je_date) jeCount++;
+          if (im.booster_penta_date) boosterPentaCount++;
+          if (im.booster_mr_date) boosterMrCount++;
         });
 
         setImmunizationCoverage([
           { vaccine: 'HB-0 (0-7 hari)', percentage: Math.round((hb0Count / totalBalitaImunisasi) * 100), count: hb0Count, total: totalBalitaImunisasi, color: '#14B8A6' },
           { vaccine: 'BCG (TBC)', percentage: Math.round((bcgCount / totalBalitaImunisasi) * 100), count: bcgCount, total: totalBalitaImunisasi, color: '#3b82f6' },
           { vaccine: 'DPT-HB-Hib 1 (Penta 1)', percentage: Math.round((penta1Count / totalBalitaImunisasi) * 100), count: penta1Count, total: totalBalitaImunisasi, color: '#ea580c' },
+          { vaccine: 'DPT-HB-Hib 2 (Penta 2)', percentage: Math.round((penta2Count / totalBalitaImunisasi) * 100), count: penta2Count, total: totalBalitaImunisasi, color: '#f97316' },
           { vaccine: 'DPT-HB-Hib 3 (Penta 3)', percentage: Math.round((penta3Count / totalBalitaImunisasi) * 100), count: penta3Count, total: totalBalitaImunisasi, color: '#e11d48' },
           { vaccine: 'Polio IPV 1', percentage: Math.round((ipv1Count / totalBalitaImunisasi) * 100), count: ipv1Count, total: totalBalitaImunisasi, color: '#6366f1' },
-          { vaccine: 'Campak / MR', percentage: Math.round((mrCount / totalBalitaImunisasi) * 100), count: mrCount, total: totalBalitaImunisasi, color: '#f59e0b' }
+          { vaccine: 'Polio IPV 2', percentage: Math.round((ipv2Count / totalBalitaImunisasi) * 100), count: ipv2Count, total: totalBalitaImunisasi, color: '#818cf8' },
+          { vaccine: 'Polio IPV 3', percentage: Math.round((ipv3Count / totalBalitaImunisasi) * 100), count: ipv3Count, total: totalBalitaImunisasi, color: '#4f46e5' },
+          { vaccine: 'PCV 1', percentage: Math.round((pcv1Count / totalBalitaImunisasi) * 100), count: pcv1Count, total: totalBalitaImunisasi, color: '#10b981' },
+          { vaccine: 'PCV 2', percentage: Math.round((pcv2Count / totalBalitaImunisasi) * 100), count: pcv2Count, total: totalBalitaImunisasi, color: '#34d399' },
+          { vaccine: 'PCV 3', percentage: Math.round((pcv3Count / totalBalitaImunisasi) * 100), count: pcv3Count, total: totalBalitaImunisasi, color: '#059669' },
+          { vaccine: 'Rotavirus 1', percentage: Math.round((rv1Count / totalBalitaImunisasi) * 100), count: rv1Count, total: totalBalitaImunisasi, color: '#84cc16' },
+          { vaccine: 'Rotavirus 2', percentage: Math.round((rv2Count / totalBalitaImunisasi) * 100), count: rv2Count, total: totalBalitaImunisasi, color: '#a3e635' },
+          { vaccine: 'Rotavirus 3', percentage: Math.round((rv3Count / totalBalitaImunisasi) * 100), count: rv3Count, total: totalBalitaImunisasi, color: '#65a30d' },
+          { vaccine: 'Campak / MR', percentage: Math.round((mrCount / totalBalitaImunisasi) * 100), count: mrCount, total: totalBalitaImunisasi, color: '#f59e0b' },
+          { vaccine: 'JE (Japanese Encephalitis)', percentage: Math.round((jeCount / totalBalitaImunisasi) * 100), count: jeCount, total: totalBalitaImunisasi, color: '#8b5cf6' },
+          { vaccine: 'Booster DPT-HB-Hib', percentage: Math.round((boosterPentaCount / totalBalitaImunisasi) * 100), count: boosterPentaCount, total: totalBalitaImunisasi, color: '#ec4899' },
+          { vaccine: 'Booster Campak / MR', percentage: Math.round((boosterMrCount / totalBalitaImunisasi) * 100), count: boosterMrCount, total: totalBalitaImunisasi, color: '#db2777' }
         ]);
 
         // Calculate AI counseling topics
@@ -424,13 +498,6 @@ export default function AnalisaAiPage() {
 
       } else {
         // --- LANSIA MODE AGGREGATION ---
-        const { data: lansiasData, error: lErr } = await supabase
-          .from('lansias')
-          .select('id, posyandu_id')
-          .in('posyandu_id', safePosyanduIds);
-
-        if (lErr) throw lErr;
-        const allLansias = lansiasData || [];
         const activeLansiaIds = allLansias.map(l => l.id);
         const safeLansiaIds = activeLansiaIds.length > 0 ? activeLansiaIds : ['00000000-0000-0000-0000-000000000000'];
 
@@ -601,6 +668,18 @@ export default function AnalisaAiPage() {
     }
   };
 
+  const insightData = useMemo(() => {
+    if (loading) return {};
+    return {
+      kategori_aktif: toggleMode === 'balita' ? 'Gizi Balita' : 'Penyakit Lansia',
+      total_sasaran_wilayah: totals.totalActive,
+      total_diperiksa_bulan_ini: totals.checked,
+      persentase_partisipasi: totals.totalActive > 0 ? `${Math.round((totals.checked / totals.totalActive) * 100)}%` : '0%',
+      kasus_kritis_1: toggleMode === 'balita' ? `Stunting: ${totals.stunting}` : `Hipertensi: ${totals.stunting}`,
+      kasus_kritis_2: toggleMode === 'balita' ? `Wasting: ${totals.wasting}` : `Diabetes: ${totals.wasting}`
+    };
+  }, [totals, toggleMode, loading]);
+
   return (
     <div>
       {/* 1. FILTER BAR (TOGGLE & SELECTORS) */}
@@ -662,6 +741,16 @@ export default function AnalisaAiPage() {
           </select>
         </div>
       </div>
+
+      {/* AI INSIGHT BOX */}
+      {!loading && (
+        <AIInsightBox
+          konteks={`Ringkasan Wilayah (${toggleMode === 'balita' ? 'Gizi Balita' : 'Penyakit Lansia'})`}
+          bulan={selectedMonth}
+          filter={selectedPosyanduId === 'all' ? (selectedDesa === 'all' ? 'Semua Kalurahan' : `Kalurahan ${selectedDesa}`) : `Posyandu Terpilih`}
+          data={insightData}
+        />
+      )}
 
       {/* 2. CARD METRICS SUMMARY */}
       {toggleMode === 'balita' ? (
@@ -735,6 +824,41 @@ export default function AnalisaAiPage() {
         </div>
       ) : (
         <div className="grid-dashboard-main" style={{ marginBottom: '20px' }}>
+          {/* Chart Pemetaan Distribusi Wilayah (Balita & Lansia) */}
+          <div className="card chart-card" style={{ gridColumn: 'span 2' }}>
+            <div className="card-header-compact" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <span className="card-title-compact">
+                  {selectedDesa === 'all'
+                    ? 'Pemetaan Sebaran Sasaran per Kalurahan'
+                    : `Pemetaan Sebaran Sasaran per Posyandu di Kalurahan ${selectedDesa}`}
+                </span>
+                <p style={{ margin: '2px 0 0 0', fontSize: '10px', color: '#94a3b8' }}>
+                  Perbandingan Jumlah Sasaran Balita (&lt;60 Bln) dan Lansia Terdaftar
+                </p>
+              </div>
+            </div>
+            <div style={{ width: '100%', height: '280px', marginTop: '14px' }}>
+              {regionMapData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={regionMapData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} />
+                    <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} allowDecimals={false} />
+                    <Tooltip contentStyle={{ fontSize: '11px', borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+                    <Legend verticalAlign="top" height={28} iconSize={10} wrapperStyle={{ fontSize: '10px' }} />
+                    <Bar dataKey="Balita" fill="#14B8A6" radius={[4, 4, 0, 0]} barSize={24} />
+                    <Bar dataKey="Lansia" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={24} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', border: '1px dashed #cbd5e1', borderRadius: '12px', color: '#64748b', fontSize: '11px' }}>
+                  Belum ada data pemetaan wilayah.
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Chart Left: Line chart showing monthly trend Jan → selected month */}
           <div className="card chart-card" style={{ gridColumn: 'span 2' }}>
             <div className="card-header-compact">
@@ -960,7 +1084,7 @@ export default function AnalisaAiPage() {
                   <span className="card-title-compact">Cakupan Imunisasi Sasaran</span>
                   <span style={{ fontSize: '10px', color: '#94a3b8' }}>Berdasarkan Balita Aktif</span>
                 </div>
-                <div className="table-container" style={{ border: 'none', boxShadow: 'none', marginTop: '4px' }}>
+                <div className="table-container" style={{ border: 'none', boxShadow: 'none', marginTop: '4px', maxHeight: '320px', overflowY: 'auto' }}>
                   <table className="custom-table">
                     <thead>
                       <tr>

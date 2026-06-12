@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
 import { BrainCircuit, ArrowRight, Baby, User } from 'lucide-react';
 import SubmenuPlaceholder, { StatItem } from '@/components/layout/SubmenuPlaceholder';
+import AIInsightBox from '@/components/ui/AIInsightBox';
 
 /* ────────────────────────────────────────────────── types */
 interface BalitaRecord {
@@ -245,6 +246,20 @@ export default function PrioritasIntervensiPage() {
     ];
   }, [activeData]);
 
+  const insightData = useMemo(() => {
+    if (activeData.length === 0) return {};
+    return {
+      tipe_sasaran: activeTab === 'balita' ? 'Balita (Stunting)' : 'Lansia (PTM/Penyakit Tidak Menular)',
+      total_posyandu: activeData.length,
+      prioritas_tinggi: activeData.filter(x => x.prioritas === 'Tinggi').length,
+      prioritas_sedang: activeData.filter(x => x.prioritas === 'Sedang').length,
+      prioritas_rendah: activeData.filter(x => x.prioritas === 'Rendah').length,
+      rata_rata_skor_urgensi: activeData.length > 0
+        ? Math.round(activeData.reduce((acc, curr) => acc + curr.skor_kebutuhan, 0) / activeData.length) + '%'
+        : '0%'
+    };
+  }, [activeData, activeTab]);
+
   /* ── pagination ── */
   const totalPages  = Math.ceil(activeData.length / itemsPerPage);
   const startIndex  = (currentPage - 1) * itemsPerPage;
@@ -332,6 +347,12 @@ export default function PrioritasIntervensiPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <AIInsightBox
+            konteks={activeTab === 'balita' ? 'Prioritas Intervensi Balita' : 'Prioritas Intervensi Lansia'}
+            bulan="Bulan Berjalan"
+            filter={selectedPosyanduId === 'all' ? (selectedDesa === 'all' ? 'Semua Kalurahan' : `Kalurahan ${selectedDesa}`) : `Posyandu Terpilih`}
+            data={insightData}
+          />
           <div className="table-container">
             <table className="custom-table">
               <thead>

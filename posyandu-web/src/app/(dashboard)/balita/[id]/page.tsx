@@ -3,6 +3,7 @@
 import React, { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { maskNik } from '@/lib/utils';
 import { ArrowLeft, Edit, Baby, Activity, MessageSquareCode, Calendar, ClipboardCheck } from 'lucide-react';
 import { useFilters } from '@/context/FilterContext';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -436,7 +437,7 @@ export default function BalitaDetailPage({ params }: PageProps) {
           <div className="profile-details-list">
             <div className="profile-details-item">
               <span className="profile-details-label">NIK:</span>
-              <span className="profile-details-val" style={{ fontFamily: 'monospace' }}>{balita.nik}</span>
+              <span className="profile-details-val" style={{ fontFamily: 'monospace' }}>{maskNik(balita.nik)}</span>
             </div>
             <div className="profile-details-item">
               <span className="profile-details-label">Lahir:</span>

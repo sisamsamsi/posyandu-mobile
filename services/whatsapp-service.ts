@@ -56,7 +56,7 @@ export class WhatsAppService {
     pesan += `${saran}\n\n`;
 
     pesan += `Tetap rutin membawa ananda ke Posyandu setiap bulan untuk memantau tumbuh kembang optimalnya. Terima kasih. 🙏\n`;
-    pesan += `_Layanan Posyandu Digital - AYOMI_`;
+    pesan += `_Layanan Posyandu Digital - SIMPUL SEHAT_`;
 
     return pesan;
   }
@@ -229,7 +229,7 @@ export class WhatsAppService {
     pesan += `${rekomendasiAI}\n\n`;
 
     pesan += `Tetap rutin membawa ananda ke Posyandu setiap bulan untuk memantau tumbuh kembang optimalnya. Terima kasih. 🙏\n`;
-    pesan += `_Layanan Posyandu Digital - AYOMI_`;
+    pesan += `_Layanan Posyandu Digital - SIMPUL SEHAT_`;
 
     return pesan;
   }

@@ -16,17 +16,15 @@ export default function Header() {
     posyanduList 
   } = useFilters();
 
-  const [puskesmasName, setPuskesmasName] = useState('Puskesmas Pondok I');
-  const [isMounted, setIsMounted] = useState(false);
+  const [puskesmasName, setPuskesmasName] = useState('Memuat...');
 
   useEffect(() => {
-    setIsMounted(true);
     const updateProfile = () => {
       const saved = localStorage.getItem('simpul_sehat_puskesmas_profile');
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          setPuskesmasName(parsed.namaPuskesmas || 'Puskesmas Pondok I');
+          setPuskesmasName(parsed.namaPuskesmas || 'Puskesmas');
         } catch (_) {}
       }
     };
@@ -160,7 +158,7 @@ export default function Header() {
           }}
         >
           <Building2 size={14} style={{ color: '#14B8A6' }} />
-          <span>{isMounted ? puskesmasName : ''}</span>
+          <span>{puskesmasName}</span>
         </div>
 
         {/* Notification Bell with Badge */}

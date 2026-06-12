@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useFilters } from '@/context/FilterContext';
 import { supabase } from '@/lib/supabase';
+import { maskNik } from '@/lib/utils';
 import { Upload, FileSpreadsheet, ArrowLeft, ArrowRight, Check, AlertTriangle, RefreshCw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -583,7 +584,7 @@ export default function ImportDataPage() {
                 {parsedData.slice(0, 10).map((row, i) => (
                   <tr key={i}>
                     <td style={{ fontWeight: 500 }}>{row.nama || '-'}</td>
-                    <td style={{ fontFamily: 'monospace' }}>{row.nik || '-'}</td>
+                    <td style={{ fontFamily: 'monospace' }}>{maskNik(row.nik)}</td>
                     <td>{row.tanggal_lahir || '-'}</td>
                     <td>{row.jenis_kelamin || '-'}</td>
                     <td>{row.nama_ortu || 'Ortu'}</td>

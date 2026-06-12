@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { groq } from '@/lib/groq';
+import { groqInsight } from '@/lib/groq';
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,7 +44,7 @@ Rules:
 
     const userPrompt = `Headers to map: ${JSON.stringify(headers)}`;
 
-    const response = await groq.chat.completions.create({
+    const response = await groqInsight.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       messages: [
         { role: 'system', content: systemPrompt },

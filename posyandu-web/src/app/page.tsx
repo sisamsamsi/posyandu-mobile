@@ -15,9 +15,21 @@ export default function LoginPage() {
   // Redirect to dashboard if session already exists
   useEffect(() => {
     async function checkSession() {
-      const { data } = await supabase.auth.getSession();
-      if (data?.session) {
-        router.push('/dashboard');
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          console.warn('Sesi tidak valid, membersihkan token:', error.message);
+          await supabase.auth.signOut();
+          return;
+        }
+        if (data?.session) {
+          router.push('/dashboard');
+        }
+      } catch (err) {
+        console.error('Gagal memeriksa sesi:', err);
+        try {
+          await supabase.auth.signOut();
+        } catch (_) {}
       }
     }
     checkSession();
@@ -45,7 +57,15 @@ export default function LoginPage() {
         router.push('/dashboard');
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Gagal masuk. Periksa kembali email dan sandi Anda.');
+      let msg = err.message || 'Gagal masuk. Periksa kembali email dan sandi Anda.';
+      if (msg === 'Invalid login credentials') {
+        msg = 'Email atau kata sandi salah. Silakan coba kembali.';
+      } else if (msg.includes('Failed to fetch')) {
+        msg = 'Gagal terhubung ke server. Periksa koneksi internet Anda.';
+      } else if (msg === 'Email not confirmed') {
+        msg = 'Email Anda belum dikonfirmasi. Silakan verifikasi email Anda terlebih dahulu.';
+      }
+      setErrorMsg(msg);
     } finally {
       setLoading(false);
     }
@@ -84,24 +104,15 @@ export default function LoginPage() {
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '56px',
-              height: '56px',
-              borderRadius: '14px',
-              backgroundColor: '#f0fdfa', // Teal 50
-              color: '#14B8A6', // Teal 600
-              marginBottom: '16px',
-              border: '1px solid #ccfbf1',
+              width: '100%',
+              maxWidth: '260px',
+              borderRadius: '16px',
+              backgroundColor: '#ffffff',
               overflow: 'hidden'
             }}
           >
-            <img src="/simpulsehat-logo.svg" alt="SIMPUL SEHAT" style={{ width: 28, height: 28 }} />
+            <img src="/simpulsehat-logo.png?v=2" alt="SIMPUL SEHAT" style={{ width: '100%', height: 'auto', objectFit: 'contain' }} />
           </div>
-          <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#0f172a', margin: '0 0 6px 0', letterSpacing: '-0.5px' }}>
-            SIMPUL SEHAT
-          </h2>
-          <p style={{ fontSize: '12px', color: '#64748b', margin: 0, lineHeight: 1.4 }}>
-            Portal Administrasi Puskesmas & Integrasi Posyandu
-          </p>
         </div>
 
         {/* Error Alert Box */}

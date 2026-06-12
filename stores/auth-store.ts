@@ -31,8 +31,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
   initialize: async () => {
     try {
+      const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '915119317105-qp78aupkgcb0vbdntqs0kv6hqfuplea8.apps.googleusercontent.com';
       GoogleSignin.configure({
-        webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
+        webClientId,
       });
     } catch (gErr) {
       console.warn('Failed to configure Google Sign-In SDK:', gErr);

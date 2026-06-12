@@ -1,5 +1,5 @@
 // components/forms/BalitaForm.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -13,7 +13,7 @@ import {
 import { Balita } from '../../lib/types';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS } from '../../lib/constants';
-import { Calendar, User, BookOpen, MapPin, Phone, Scale, Ruler } from 'lucide-react-native';
+import { Calendar, User, BookOpen, MapPin, Phone, Scale, Ruler, CheckSquare, Square } from 'lucide-react-native';
 
 interface BalitaFormProps {
   initialData?: Partial<Balita>;
@@ -34,14 +34,87 @@ export const BalitaForm: React.FC<BalitaFormProps> = ({
     nama_ortu: initialData?.nama_ortu || '',
     alamat: initialData?.alamat || '',
     rt: initialData?.rt || 1,
+    rw: initialData?.rw || '',
     no_hp_ortu: initialData?.no_hp_ortu || '',
+    no_kk: initialData?.no_kk || '',
+    nik_ortu: initialData?.nik_ortu || '',
+    anak_ke: initialData?.anak_ke || 1,
+    usia_kehamilan_lahir: initialData?.usia_kehamilan_lahir || 36,
+    buku_kia: initialData?.buku_kia !== undefined ? initialData.buku_kia : true,
+    buku_kia_bayi_kecil: initialData?.buku_kia_bayi_kecil || false,
+    tatalaksana_bblr: initialData?.tatalaksana_bblr || false,
+    imd: initialData?.imd !== undefined ? initialData.imd : true,
     ...initialData
   });
 
   const [bbLahirText, setBbLahirText] = useState(initialData?.bb_lahir ? initialData.bb_lahir.toString() : '');
   const [tbLahirText, setTbLahirText] = useState(initialData?.tb_lahir ? initialData.tb_lahir.toString() : '');
+  const [lkLahirText, setLkLahirText] = useState(initialData?.lk_lahir ? initialData.lk_lahir.toString() : '');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [isTempNik, setIsTempNik] = useState(false);
+
+  const generateTemporaryNik = (dob: string, jk: string) => {
+    const prefix = '340208';
+    const parts = (dob || '').split('-');
+    const year = parts[0] ? parts[0].substring(2, 4) : '20';
+    const month = parts[1] || '01';
+    let dayVal = parseInt(parts[2] || '01');
+    if (jk === 'Perempuan') {
+      dayVal += 40;
+    }
+    const day = dayVal.toString().padStart(2, '0');
+    const dobStr = `${day}${month}${year}`;
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000).toString();
+    return `${prefix}${dobStr}${randomSuffix}`;
+  };
+
+  const handleToggleTempNik = () => {
+    setIsTempNik(prev => {
+      const nextVal = !prev;
+      if (nextVal) {
+        const tempNik = generateTemporaryNik(
+          formData.tanggal_lahir || '',
+          formData.jenis_kelamin || ''
+        );
+        setFormData(p => ({ ...p, nik: tempNik }));
+      } else {
+        setFormData(p => ({ ...p, nik: '' }));
+      }
+      return nextVal;
+    });
+  };
+
+  useEffect(() => {
+    if (isTempNik) {
+      const tempNik = generateTemporaryNik(
+        formData.tanggal_lahir || '',
+        formData.jenis_kelamin || ''
+      );
+      setFormData(prev => ({ ...prev, nik: tempNik }));
+    }
+  }, [formData.tanggal_lahir, formData.jenis_kelamin, isTempNik]);
+
+  useEffect(() => {
+    if (bbLahirText) {
+      const bb = parseFloat(bbLahirText.replace(',', '.'));
+      if (!isNaN(bb)) {
+        if (bb < 2.5) {
+          setFormData(prev => ({
+            ...prev,
+            buku_kia_bayi_kecil: true,
+            tatalaksana_bblr: true
+          }));
+        } else {
+          setFormData(prev => ({
+            ...prev,
+            buku_kia_bayi_kecil: false,
+            tatalaksana_bblr: false
+          }));
+        }
+      }
+    }
+  }, [bbLahirText]);
 
   const handleChange = (field: keyof Balita, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -59,6 +132,9 @@ export const BalitaForm: React.FC<BalitaFormProps> = ({
       ...formData,
       bb_lahir: bbLahirText ? parseFloat(bbLahirText.replace(',', '.')) : null,
       tb_lahir: tbLahirText ? parseFloat(tbLahirText.replace(',', '.')) : null,
+      lk_lahir: lkLahirText ? parseFloat(lkLahirText.replace(',', '.')) : null,
+      anak_ke: formData.anak_ke ? parseInt(formData.anak_ke.toString()) : null,
+      usia_kehamilan_lahir: formData.usia_kehamilan_lahir ? parseInt(formData.usia_kehamilan_lahir.toString()) : null,
     };
     onSubmit(finalData);
   };
@@ -97,21 +173,76 @@ export const BalitaForm: React.FC<BalitaFormProps> = ({
           </View>
 
           {/* NIK */}
-          <Text style={styles.label}>NIK</Text>
+          <View style={styles.nikHeaderRow}>
+            <Text style={styles.label}>NIK</Text>
+            <TouchableOpacity 
+              style={styles.checkboxWrapper} 
+              onPress={handleToggleTempNik}
+              activeOpacity={0.7}
+            >
+              {isTempNik ? (
+                <CheckSquare size={16} color={COLORS.tealPrimary} />
+              ) : (
+                <Square size={16} color="#94A3B8" />
+              )}
+              <Text style={styles.checkboxLabel}>NIK belum ada</Text>
+            </TouchableOpacity>
+          </View>
           <View style={[
             styles.inputWrapper, 
-            focusedField === 'nik' && styles.inputWrapperFocused
+            focusedField === 'nik' && styles.inputWrapperFocused,
+            isTempNik && styles.inputWrapperDisabled
           ]}>
-            <BookOpen size={18} color={focusedField === 'nik' ? COLORS.tealPrimary : '#94A3B8'} />
+            <BookOpen size={18} color={isTempNik ? '#cbd5e1' : (focusedField === 'nik' ? COLORS.tealPrimary : '#94A3B8')} />
             <TextInput
-              style={styles.input}
+              style={[styles.input, isTempNik && styles.inputDisabled]}
               value={formData.nik}
               onChangeText={(val) => handleChange('nik', val)}
               placeholder="16 Digit Nomor Induk Kependudukan"
               placeholderTextColor="#94A3B8"
               keyboardType="numeric"
               maxLength={16}
+              editable={!isTempNik}
               onFocus={() => setFocusedField('nik')}
+              onBlur={() => setFocusedField(null)}
+            />
+          </View>
+
+          {/* Nomor KK */}
+          <Text style={styles.label}>Nomor KK</Text>
+          <View style={[
+            styles.inputWrapper, 
+            focusedField === 'no_kk' && styles.inputWrapperFocused
+          ]}>
+            <BookOpen size={18} color={focusedField === 'no_kk' ? COLORS.tealPrimary : '#94A3B8'} />
+            <TextInput
+              style={styles.input}
+              value={formData.no_kk || ''}
+              onChangeText={(val) => handleChange('no_kk', val)}
+              placeholder="16 Digit Nomor Kartu Keluarga"
+              placeholderTextColor="#94A3B8"
+              keyboardType="numeric"
+              maxLength={16}
+              onFocus={() => setFocusedField('no_kk')}
+              onBlur={() => setFocusedField(null)}
+            />
+          </View>
+
+          {/* Anak Ke */}
+          <Text style={styles.label}>Anak Ke Berapa?</Text>
+          <View style={[
+            styles.inputWrapper, 
+            focusedField === 'anak_ke' && styles.inputWrapperFocused
+          ]}>
+            <User size={18} color={focusedField === 'anak_ke' ? COLORS.tealPrimary : '#94A3B8'} />
+            <TextInput
+              style={styles.input}
+              value={formData.anak_ke?.toString() || ''}
+              onChangeText={(val) => handleChange('anak_ke', val ? parseInt(val) || '' : '')}
+              placeholder="Contoh: 2"
+              placeholderTextColor="#94A3B8"
+              keyboardType="numeric"
+              onFocus={() => setFocusedField('anak_ke')}
               onBlur={() => setFocusedField(null)}
             />
           </View>
@@ -193,6 +324,26 @@ export const BalitaForm: React.FC<BalitaFormProps> = ({
             />
           </View>
 
+          {/* NIK Ortu */}
+          <Text style={styles.label}>NIK Orang Tua</Text>
+          <View style={[
+            styles.inputWrapper, 
+            focusedField === 'nik_ortu' && styles.inputWrapperFocused
+          ]}>
+            <BookOpen size={18} color={focusedField === 'nik_ortu' ? COLORS.tealPrimary : '#94A3B8'} />
+            <TextInput
+              style={styles.input}
+              value={formData.nik_ortu || ''}
+              onChangeText={(val) => handleChange('nik_ortu', val)}
+              placeholder="16 Digit NIK Orang Tua"
+              placeholderTextColor="#94A3B8"
+              keyboardType="numeric"
+              maxLength={16}
+              onFocus={() => setFocusedField('nik_ortu')}
+              onBlur={() => setFocusedField(null)}
+            />
+          </View>
+
           {/* No HP Ortu */}
           <Text style={styles.label}>No. HP Orang Tua (WhatsApp)</Text>
           <View style={[
@@ -238,21 +389,45 @@ export const BalitaForm: React.FC<BalitaFormProps> = ({
             />
           </View>
 
-          <Text style={styles.label}>RT</Text>
-          <View style={[
-            styles.inputWrapper, 
-            { marginBottom: 0 },
-            focusedField === 'rt' && styles.inputWrapperFocused
-          ]}>
-            <MapPin size={18} color={focusedField === 'rt' ? COLORS.tealPrimary : '#94A3B8'} />
-            <TextInput
-              style={styles.input}
-              value={formData.rt?.toString()}
-              onChangeText={(val) => handleChange('rt', parseInt(val) || 1)}
-              keyboardType="numeric"
-              onFocus={() => setFocusedField('rt')}
-              onBlur={() => setFocusedField(null)}
-            />
+          <View style={styles.row}>
+            <View style={{ flex: 1, marginRight: 8 }}>
+              <Text style={styles.label}>RT</Text>
+              <View style={[
+                styles.inputWrapper, 
+                { marginBottom: 0 },
+                focusedField === 'rt' && styles.inputWrapperFocused
+              ]}>
+                <MapPin size={18} color={focusedField === 'rt' ? COLORS.tealPrimary : '#94A3B8'} />
+                <TextInput
+                  style={styles.input}
+                  value={formData.rt?.toString()}
+                  onChangeText={(val) => handleChange('rt', parseInt(val) || 1)}
+                  keyboardType="numeric"
+                  onFocus={() => setFocusedField('rt')}
+                  onBlur={() => setFocusedField(null)}
+                />
+              </View>
+            </View>
+
+            <View style={{ flex: 1, marginLeft: 8 }}>
+              <Text style={styles.label}>RW</Text>
+              <View style={[
+                styles.inputWrapper, 
+                { marginBottom: 0 },
+                focusedField === 'rw' && styles.inputWrapperFocused
+              ]}>
+                <MapPin size={18} color={focusedField === 'rw' ? COLORS.tealPrimary : '#94A3B8'} />
+                <TextInput
+                  style={styles.input}
+                  value={formData.rw || ''}
+                  onChangeText={(val) => handleChange('rw', val)}
+                  placeholder="Contoh: 1"
+                  placeholderTextColor="#94A3B8"
+                  onFocus={() => setFocusedField('rw')}
+                  onBlur={() => setFocusedField(null)}
+                />
+              </View>
+            </View>
           </View>
         </View>
 
@@ -297,6 +472,50 @@ export const BalitaForm: React.FC<BalitaFormProps> = ({
                   placeholderTextColor="#94A3B8"
                   keyboardType="decimal-pad"
                   onFocus={() => setFocusedField('tb_lahir')}
+                  onBlur={() => setFocusedField(null)}
+                />
+              </View>
+            </View>
+          </View>
+
+          <View style={[styles.row, { marginTop: 16 }]}>
+            <View style={{ flex: 1, marginRight: 8 }}>
+              <Text style={styles.label}>LK Lahir (cm)</Text>
+              <View style={[
+                styles.inputWrapper, 
+                { marginBottom: 0 },
+                focusedField === 'lk_lahir' && styles.inputWrapperFocused
+              ]}>
+                <Ruler size={18} color={focusedField === 'lk_lahir' ? COLORS.tealPrimary : '#94A3B8'} />
+                <TextInput
+                  style={styles.input}
+                  value={lkLahirText}
+                  onChangeText={setLkLahirText}
+                  placeholder="Contoh: 33.0"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="decimal-pad"
+                  onFocus={() => setFocusedField('lk_lahir')}
+                  onBlur={() => setFocusedField(null)}
+                />
+              </View>
+            </View>
+
+            <View style={{ flex: 1, marginLeft: 8 }}>
+              <Text style={styles.label}>Usia Kehamilan (mggu)</Text>
+              <View style={[
+                styles.inputWrapper, 
+                { marginBottom: 0 },
+                focusedField === 'usia_kehamilan_lahir' && styles.inputWrapperFocused
+              ]}>
+                <Calendar size={18} color={focusedField === 'usia_kehamilan_lahir' ? COLORS.tealPrimary : '#94A3B8'} />
+                <TextInput
+                  style={styles.input}
+                  value={formData.usia_kehamilan_lahir?.toString() || ''}
+                  onChangeText={(val) => handleChange('usia_kehamilan_lahir', val ? parseInt(val) || '' : '')}
+                  placeholder="Contoh: 38"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="numeric"
+                  onFocus={() => setFocusedField('usia_kehamilan_lahir')}
                   onBlur={() => setFocusedField(null)}
                 />
               </View>
@@ -449,5 +668,28 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     backgroundColor: '#99F6E4',
+  },
+  nikHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  checkboxWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  checkboxLabel: {
+    fontSize: 12,
+    color: '#475569',
+    fontWeight: '600',
+  },
+  inputWrapperDisabled: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
+  },
+  inputDisabled: {
+    color: '#64748B',
   },
 });

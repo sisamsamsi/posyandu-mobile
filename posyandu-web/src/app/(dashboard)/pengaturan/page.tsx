@@ -10,43 +10,143 @@ export default function PengaturanPage() {
   const [dbMessage, setDbMessage] = useState('');
   
   // Profile settings state
-  const [namaPuskesmas, setNamaPuskesmas] = useState('Puskesmas Pondok I');
-  const [kodePuskesmas, setKodePuskesmas] = useState('P3402010101');
-  const [kecamatan, setKecamatan] = useState('Wonokromo');
-  const [kepalaPuskesmas, setKepalaPuskesmas] = useState('Dr. dr. Hendra Irawan, M.Kes');
-  const [nipKepala, setNipKepala] = useState('197508102003121004');
-  const [alamat, setAlamat] = useState('Jl. Raya Wonosari KM 7, Bantul, DIY');
+  const [namaPuskesmas, setNamaPuskesmas] = useState('');
+  const [kodePuskesmas, setKodePuskesmas] = useState('');
+  const [kecamatan, setKecamatan] = useState('');
+  const [kabupaten, setKabupaten] = useState('');
+  const [provinsi, setProvinsi] = useState('');
+  const [kepalaPuskesmas, setKepalaPuskesmas] = useState('');
+  const [nipKepala, setNipKepala] = useState('');
+  const [alamat, setAlamat] = useState('');
+  const [wilayahBinaan, setWilayahBinaan] = useState('');
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Load custom profile if saved locally
+  // Load custom profile from database if authenticated, fallback to local storage
   useEffect(() => {
-    const savedProfile = localStorage.getItem('simpul_sehat_puskesmas_profile');
-    if (savedProfile) {
+    async function loadPuskesmasProfile() {
       try {
-        const parsed = JSON.parse(savedProfile);
-        setNamaPuskesmas(parsed.namaPuskesmas || 'Puskesmas Pondok I');
-        setKodePuskesmas(parsed.kodePuskesmas || 'P3402010101');
-        setKecamatan(parsed.kecamatan || 'Wonokromo');
-        setKepalaPuskesmas(parsed.kepalaPuskesmas || 'Dr. dr. Hendra Irawan, M.Kes');
-        setNipKepala(parsed.nipKepala || '197508102003121004');
-        setAlamat(parsed.alamat || 'Jl. Raya Wonosari KM 7, Bantul, DIY');
-      } catch (_) {}
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data: roleData, error: roleError } = await supabase
+            .from('user_roles')
+            .select(`
+              role,
+              puskesmas_id,
+              puskesmas:puskesmas(*)
+            `)
+            .eq('user_id', session.user.id)
+            .single();
+
+          if (roleError) throw roleError;
+
+          if (roleData && roleData.puskesmas) {
+            const p = (Array.isArray(roleData.puskesmas) ? roleData.puskesmas[0] : roleData.puskesmas) as any;
+            setNamaPuskesmas(p.nama_puskesmas || '');
+            setKodePuskesmas(p.kode_puskesmas || '');
+            setKecamatan(p.kecamatan || '');
+            setKabupaten(p.kabupaten || '');
+            setProvinsi(p.provinsi || '');
+            setKepalaPuskesmas(p.kepala_puskesmas || '');
+            setNipKepala(p.nip_kepala || '');
+            setAlamat(p.alamat || '');
+            setWilayahBinaan(p.wilayah_binaan || '');
+
+            const profile = {
+              namaPuskesmas: p.nama_puskesmas,
+              kodePuskesmas: p.kode_puskesmas,
+              kecamatan: p.kecamatan,
+              kabupaten: p.kabupaten,
+              provinsi: p.provinsi,
+              kepalaPuskesmas: p.kepala_puskesmas,
+              nipKepala: p.nip_kepala,
+              alamat: p.alamat,
+              wilayahBinaan: p.wilayah_binaan
+            };
+            localStorage.setItem('simpul_sehat_puskesmas_profile', JSON.stringify(profile));
+            window.dispatchEvent(new Event('puskesmas-profile-updated'));
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Gagal memuat profil Puskesmas dari database, menggunakan data lokal:', err);
+      }
+
+      // Fallback
+      const savedProfile = localStorage.getItem('simpul_sehat_puskesmas_profile');
+      if (savedProfile) {
+        try {
+          const parsed = JSON.parse(savedProfile);
+          setNamaPuskesmas(parsed.namaPuskesmas || '');
+          setKodePuskesmas(parsed.kodePuskesmas || '');
+          setKecamatan(parsed.kecamatan || '');
+          setKabupaten(parsed.kabupaten || '');
+          setProvinsi(parsed.provinsi || '');
+          setKepalaPuskesmas(parsed.kepalaPuskesmas || '');
+          setNipKepala(parsed.nipKepala || '');
+          setAlamat(parsed.alamat || '');
+          setWilayahBinaan(parsed.wilayahBinaan || '');
+        } catch (_) {}
+      }
     }
+
+    loadPuskesmasProfile();
   }, []);
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setSuccessMsg('');
 
-    setTimeout(() => {
-      const profile = { namaPuskesmas, kodePuskesmas, kecamatan, kepalaPuskesmas, nipKepala, alamat };
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('puskesmas_id')
+          .eq('user_id', session.user.id)
+          .single();
+
+        if (roleData?.puskesmas_id) {
+          const { error } = await supabase
+            .from('puskesmas')
+            .update({
+              nama_puskesmas: namaPuskesmas,
+              kode_puskesmas: kodePuskesmas,
+              kecamatan: kecamatan,
+              kabupaten: kabupaten,
+              provinsi: provinsi,
+              kepala_puskesmas: kepalaPuskesmas,
+              nip_kepala: nipKepala,
+              alamat: alamat,
+              wilayah_binaan: wilayahBinaan
+            })
+            .eq('id', roleData.puskesmas_id);
+
+          if (error) throw error;
+        }
+      }
+      
+      const profile = { 
+        namaPuskesmas, 
+        kodePuskesmas, 
+        kecamatan, 
+        kabupaten, 
+        provinsi, 
+        kepalaPuskesmas, 
+        nipKepala, 
+        alamat, 
+        wilayahBinaan 
+      };
       localStorage.setItem('simpul_sehat_puskesmas_profile', JSON.stringify(profile));
-      setSaving(false);
       setSuccessMsg('Pengaturan profil Puskesmas berhasil disimpan.');
       window.dispatchEvent(new Event('puskesmas-profile-updated'));
-    }, 800);
+    } catch (err: any) {
+      console.error(err);
+      setSuccessMsg('Error: Gagal menyimpan ke database. ' + err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleTestDatabase = async () => {
@@ -97,7 +197,7 @@ export default function PengaturanPage() {
             />
           </div>
 
-          {/* Kode Puskesmas & Alamat */}
+          {/* Kode Puskesmas & Kecamatan */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
               <label style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>Kode Registrasi Puskesmas</label>
@@ -108,10 +208,30 @@ export default function PengaturanPage() {
               />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>Kecamatan/Wilayah Kerja</label>
+              <label style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>Kecamatan</label>
               <input 
                 type="text" required value={kecamatan}
                 onChange={(e) => setKecamatan(e.target.value)}
+                style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '12px' }}
+              />
+            </div>
+          </div>
+
+          {/* Kabupaten & Provinsi */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>Kabupaten / Kota</label>
+              <input 
+                type="text" required value={kabupaten}
+                onChange={(e) => setKabupaten(e.target.value)}
+                style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '12px' }}
+              />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>Provinsi</label>
+              <input 
+                type="text" required value={provinsi}
+                onChange={(e) => setProvinsi(e.target.value)}
                 style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '12px' }}
               />
             </div>
@@ -146,6 +266,21 @@ export default function PengaturanPage() {
               rows={2}
               style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '12px', resize: 'none' }}
             />
+          </div>
+
+          {/* Wilayah Kerja / Kalurahan Binaan */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <label style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>Wilayah Kerja / Kalurahan Binaan (Dipisahkan Koma)</label>
+            <input 
+              type="text" 
+              value={wilayahBinaan}
+              onChange={(e) => setWilayahBinaan(e.target.value)}
+              placeholder="Contoh: Ringinharjo, Trirenggo, Palbapang"
+              style={{ padding: '8px 12px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '12px' }}
+            />
+            <span style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px', lineHeight: '1.4' }}>
+              Daftar kalurahan ini akan menjadi pilihan dropdown Kelurahan saat mendaftarkan Posyandu baru.
+            </span>
           </div>
 
           <button type="submit" disabled={saving} className="btn btn-primary" style={{ marginTop: '8px', alignSelf: 'flex-start' }}>

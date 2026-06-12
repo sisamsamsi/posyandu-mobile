@@ -3,8 +3,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
-import { Activity, Calendar } from 'lucide-react';
+import { Activity, Calendar, Search } from 'lucide-react';
 import SubmenuPlaceholder, { StatItem } from '@/components/layout/SubmenuPlaceholder';
+import AIInsightBox from '@/components/ui/AIInsightBox';
 
 interface PenimbanganRecord {
   id: string;
@@ -33,6 +34,10 @@ export default function PenimbanganPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [bbuFilter, setBbuFilter] = useState<string>('all');
+  const [tbuFilter, setTbuFilter] = useState<string>('all');
 
   const calculateAgeMonths = (dobStr: string) => {
     const dob = new Date(dobStr);
@@ -109,27 +114,81 @@ export default function PenimbanganPage() {
   const now = new Date();
   const bulanIni = now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
 
+  // Memoized filtered data
+  const filteredData = useMemo(() => {
+    return data.filter(item => {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = item.balita_nama.toLowerCase().includes(q);
+      if (!matchesSearch) return false;
+
+      if (bbuFilter !== 'all') {
+        const status = item.status_bb_u || '';
+        if (bbuFilter === 'Normal') {
+          if (!status.toLowerCase().includes('normal') && status !== '') return false;
+        } else if (bbuFilter === 'Kurang/Buruk') {
+          if (!status.toLowerCase().includes('kurang') && !status.toLowerCase().includes('buruk')) return false;
+        }
+      }
+
+      if (tbuFilter !== 'all') {
+        const status = item.status_tb_u || '';
+        if (tbuFilter === 'Normal') {
+          if (!status.toLowerCase().includes('normal') && status !== '') return false;
+        } else if (tbuFilter === 'Pendek') {
+          if (!status.toLowerCase().includes('pendek')) return false;
+        }
+      }
+
+      return true;
+    });
+  }, [data, searchQuery, bbuFilter, tbuFilter]);
+
+  // Reset page when search or filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, bbuFilter, tbuFilter]);
+
   const stats = useMemo((): StatItem[] => {
-    const bulanIniCount = data.filter(r => {
+    const bulanIniCount = filteredData.filter(r => {
       const d = new Date(r.tanggal);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     }).length;
-    const kurangBuruk = data.filter(r => {
+    const kurangBuruk = filteredData.filter(r => {
       const s = r.status_bb_u?.toLowerCase() || '';
       return s.includes('kurang') || s.includes('buruk');
     }).length;
-    const normal = data.filter(r => r.status_bb_u?.toLowerCase().includes('normal')).length;
+    const normal = filteredData.filter(r => r.status_bb_u?.toLowerCase().includes('normal')).length;
     return [
-      { label: 'Total Record', value: data.length, color: 'neutral' },
+      { label: 'Total Record', value: filteredData.length, color: 'neutral' },
       { label: 'Bulan Ini', value: bulanIniCount, color: 'primary' },
       { label: 'Status Kurang/Buruk', value: kurangBuruk, color: 'warning' },
       { label: 'Status Normal', value: normal, color: 'success' },
     ];
-  }, [data]);
+  }, [filteredData]);
+
+  const insightData = useMemo(() => {
+    if (filteredData.length === 0) return {};
+    const bulanIniCount = filteredData.filter(r => {
+      const d = new Date(r.tanggal);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }).length;
+    const kurangBuruk = filteredData.filter(r => {
+      const s = r.status_bb_u?.toLowerCase() || '';
+      return s.includes('kurang') || s.includes('buruk');
+    }).length;
+    const normal = filteredData.filter(r => r.status_bb_u?.toLowerCase().includes('normal')).length;
+
+    return {
+      total_record_tercatat: filteredData.length,
+      penimbangan_bulan_ini: bulanIniCount,
+      status_bb_kurang_atau_buruk: kurangBuruk,
+      status_bb_normal: normal
+    };
+  }, [filteredData]);
 
   const insightText = useMemo(() => {
-    if (data.length === 0) return undefined;
-    const bulanIniRecords = data.filter(r => {
+    if (filteredData.length === 0) return undefined;
+    const bulanIniRecords = filteredData.filter(r => {
       const d = new Date(r.tanggal);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
@@ -143,13 +202,13 @@ export default function PenimbanganPage() {
     });
     const topPosy = Object.entries(posyCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
     return `Tercatat **${bulanIniRecords.length} penimbangan** pada bulan ${bulanIni}. **${kurangCount} anak** menunjukkan status BB/U di bawah normal. Penimbangan terbanyak dilakukan di **${topPosy}**.`;
-  }, [data]);
+  }, [filteredData]);
 
   // Pagination calculations
-  const totalPages = Math.ceil(data.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = Math.min(startIndex + itemsPerPage, data.length);
-  const paginatedData = data.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + itemsPerPage, filteredData.length);
+  const paginatedData = filteredData.slice(startIndex, endIndex);
 
   return (
     <SubmenuPlaceholder
@@ -159,7 +218,7 @@ export default function PenimbanganPage() {
       loading={loading}
       stats={stats}
       sectionTitle="Riwayat Penimbangan Terbaru"
-      insightText={insightText}
+      insightText={undefined}
     >
       {loading ? (
         <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -171,92 +230,144 @@ export default function PenimbanganPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div className="table-container">
-            <table className="custom-table">
-              <thead>
-                <tr>
-                  <th>Nama Balita</th>
-                  <th>Tanggal Timbang</th>
-                  <th>Berat Badan</th>
-                  <th>Tinggi/Panjang</th>
-                  <th>Cara Ukur</th>
-                  <th>Status BB/U</th>
-                  <th>Status TB/U</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedData.map((item) => (
-                  <tr key={item.id}>
-                    <td style={{ fontWeight: 500 }}>{item.balita_nama}</td>
-                    <td>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Calendar size={12} style={{ color: 'var(--text-muted)' }} />
-                        {new Date(item.tanggal).toLocaleDateString('id-ID', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric'
-                        })}
-                      </span>
-                    </td>
-                    <td>{item.berat_badan} kg</td>
-                    <td>{item.tinggi_badan} cm</td>
-                    <td>{item.cara_ukur}</td>
-                    <td>
-                      <span 
-                        className={`badge ${
-                          item.status_bb_u?.toLowerCase().includes('kurang') || item.status_bb_u?.toLowerCase().includes('buruk')
-                            ? 'badge-danger' 
-                            : 'badge-success'
-                        }`}
-                      >
-                        {item.status_bb_u || 'Normal'}
-                      </span>
-                    </td>
-                    <td>
-                      <span 
-                        className={`badge ${
-                          item.status_tb_u?.toLowerCase().includes('pendek') 
-                            ? 'badge-warning' 
-                            : 'badge-success'
-                        }`}
-                      >
-                        {item.status_tb_u || 'Normal'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {totalPages > 1 && (
-            <div className="pagination-container">
-              <span>Menampilkan {startIndex + 1}-{endIndex} dari {data.length} data</span>
-              <div className="pagination-pages">
-                <button 
-                  className="pagination-btn" 
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
-                  disabled={currentPage === 1}
-                >
-                  &lt;
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                  <button 
-                    key={page} 
-                    className={`pagination-btn ${currentPage === page ? 'active' : ''}`}
-                    onClick={() => setCurrentPage(page)}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <button 
-                  className="pagination-btn" 
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
-                  disabled={currentPage === totalPages}
-                >
-                  &gt;
-                </button>
-              </div>
+          {/* AI INSIGHT BOX */}
+          <AIInsightBox
+            konteks="Riwayat Penimbangan & Pengukuran Balita"
+            bulan="Bulan Berjalan"
+            filter={selectedPosyanduId === 'all' ? (selectedDesa === 'all' ? 'Semua Kalurahan' : `Kalurahan ${selectedDesa}`) : `Posyandu Terpilih`}
+            data={insightData}
+          />
+
+          {/* SEARCH & FILTERS BAR */}
+          <div className="filter-bar" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div className="search-input-wrapper" style={{ flex: 1, minWidth: '200px' }}>
+              <Search size={14} className="search-icon" />
+              <input 
+                type="text" 
+                className="search-input"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari Nama Balita..." 
+              />
             </div>
+
+            <select 
+              className="header-select"
+              value={bbuFilter}
+              onChange={(e) => setBbuFilter(e.target.value)}
+              style={{ minWidth: '140px' }}
+            >
+              <option value="all">Semua Status BB/U</option>
+              <option value="Normal">Status Normal</option>
+              <option value="Kurang/Buruk">Status Kurang/Buruk</option>
+            </select>
+
+            <select 
+              className="header-select"
+              value={tbuFilter}
+              onChange={(e) => setTbuFilter(e.target.value)}
+              style={{ minWidth: '140px' }}
+            >
+              <option value="all">Semua Status TB/U</option>
+              <option value="Normal">Status Normal</option>
+              <option value="Pendek">Status Pendek/Sangat Pendek</option>
+            </select>
+          </div>
+
+          {filteredData.length === 0 ? (
+            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              Tidak ditemukan data penimbangan yang cocok dengan filter.
+            </div>
+          ) : (
+            <>
+              <div className="table-container">
+                <table className="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Nama Balita</th>
+                      <th>Tanggal Timbang</th>
+                      <th>Berat Badan</th>
+                      <th>Tinggi/Panjang</th>
+                      <th>Cara Ukur</th>
+                      <th>Status BB/U</th>
+                      <th>Status TB/U</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedData.map((item) => (
+                      <tr key={item.id}>
+                        <td style={{ fontWeight: 500 }}>{item.balita_nama}</td>
+                        <td>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Calendar size={12} style={{ color: 'var(--text-muted)' }} />
+                            {new Date(item.tanggal).toLocaleDateString('id-ID', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric'
+                            })}
+                          </span>
+                        </td>
+                        <td>{item.berat_badan} kg</td>
+                        <td>{item.tinggi_badan} cm</td>
+                        <td>{item.cara_ukur}</td>
+                        <td>
+                          <span 
+                            className={`badge ${
+                              item.status_bb_u?.toLowerCase().includes('kurang') || item.status_bb_u?.toLowerCase().includes('buruk')
+                                ? 'badge-danger' 
+                                : 'badge-success'
+                            }`}
+                          >
+                            {item.status_bb_u || 'Normal'}
+                          </span>
+                        </td>
+                        <td>
+                          <span 
+                            className={`badge ${
+                              item.status_tb_u?.toLowerCase().includes('pendek') 
+                                ? 'badge-warning' 
+                                : 'badge-success'
+                            }`}
+                          >
+                            {item.status_tb_u || 'Normal'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {totalPages > 1 && (
+                <div className="pagination-container">
+                  <span>Menampilkan {startIndex + 1}-{endIndex} dari {filteredData.length} data</span>
+                  <div className="pagination-pages">
+                    <button 
+                      className="pagination-btn" 
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                      disabled={currentPage === 1}
+                    >
+                      &lt;
+                    </button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                      <button 
+                        key={page} 
+                        className={`pagination-btn ${currentPage === page ? 'active' : ''}`}
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    <button 
+                      className="pagination-btn" 
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                      disabled={currentPage === totalPages}
+                    >
+                      &gt;
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

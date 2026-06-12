@@ -428,12 +428,10 @@ export default function LansiaServiceDesk() {
         style={{ flex: 1 }}
       >
         <View style={styles.header}>
-           <TouchableOpacity onPress={() => router.back()}><ArrowLeft size={24} color="#1E293B" /></TouchableOpacity>
-           <Image 
-             source={require('../../assets/simpulsehat-logo.png')} 
-             style={{ width: 160, height: 55, marginLeft: 16 }} 
-             resizeMode="contain" 
-           />
+           <View style={styles.headerLeftContainer}>
+             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}><ArrowLeft size={24} color="#1E293B" /></TouchableOpacity>
+             <Text style={styles.headerTitle}>Layanan Lansia</Text>
+           </View>
            <QuickTransition 
               currentType="lansia" 
               onSwitch={() => router.replace('/service-desk/balita')} 
@@ -456,15 +454,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 18,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
+  headerLeftContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    marginRight: 16,
+  },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1E293B',
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: -0.5,
   },
   stepContainer: {
     flex: 1,

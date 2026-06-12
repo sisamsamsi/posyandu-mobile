@@ -28,34 +28,89 @@ export default function Sidebar({
   const pathname = usePathname();
   const router = useRouter();
 
-  const [adminName, setAdminName] = useState(propAdminName || 'Dr. Anisa Putri');
-  const [puskesmasName, setPuskesmasName] = useState(propPuskesmasName || 'Puskesmas Pondok I');
+  const [adminName, setAdminName] = useState(propAdminName || '');
+  const [puskesmasName, setPuskesmasName] = useState(propPuskesmasName || 'Memuat...');
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
-  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    setIsMounted(true);
-
     if (propAdminName || propPuskesmasName) return;
 
-    const updateProfile = () => {
+    async function loadAndSyncProfile() {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Sesi tidak valid di Sidebar, mengeluarkan pengguna:', error.message);
+          await supabase.auth.signOut();
+          router.push('/');
+          return;
+        }
+
+        const session = data?.session;
+        if (!session) {
+          console.warn('Sesi tidak ditemukan di Sidebar, mengarahkan ke halaman login.');
+          router.push('/');
+          return;
+        }
+
+        if (session.user) {
+          const { data: roleData } = await supabase
+            .from('user_roles')
+            .select(`
+              puskesmas:puskesmas(*)
+            `)
+            .eq('user_id', session.user.id)
+            .single();
+
+          if (roleData && roleData.puskesmas) {
+            const p = (Array.isArray(roleData.puskesmas) ? roleData.puskesmas[0] : roleData.puskesmas) as any;
+            const profile = {
+              namaPuskesmas: p.nama_puskesmas,
+              kodePuskesmas: p.kode_puskesmas,
+              kecamatan: p.kecamatan,
+              kepalaPuskesmas: p.kepala_puskesmas,
+              nipKepala: p.nip_kepala,
+              alamat: p.alamat
+            };
+            localStorage.setItem('simpul_sehat_puskesmas_profile', JSON.stringify(profile));
+            setAdminName(p.kepala_puskesmas || 'Dr. dr. Hendra Irawan, M.Kes');
+            setPuskesmasName(p.nama_puskesmas || 'Puskesmas Pondok I');
+            window.dispatchEvent(new Event('puskesmas-profile-updated'));
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Gagal memuat profil Puskesmas dari database di Sidebar, menggunakan data lokal:', err);
+      }
+
+      // Fallback
       const saved = localStorage.getItem('simpul_sehat_puskesmas_profile');
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          setAdminName(parsed.kepalaPuskesmas || 'Dr. dr. Hendra Irawan, M.Kes');
-          setPuskesmasName(parsed.namaPuskesmas || 'Puskesmas Pondok I');
+          setAdminName(parsed.kepalaPuskesmas || '');
+          setPuskesmasName(parsed.namaPuskesmas || 'Puskesmas');
+        } catch (_) {}
+      }
+    }
+
+    loadAndSyncProfile();
+
+    const handleProfileUpdate = () => {
+      const saved = localStorage.getItem('simpul_sehat_puskesmas_profile');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setAdminName(parsed.kepalaPuskesmas || '');
+          setPuskesmasName(parsed.namaPuskesmas || 'Puskesmas');
         } catch (_) {}
       }
     };
 
-    updateProfile();
-
-    window.addEventListener('puskesmas-profile-updated', updateProfile);
-    window.addEventListener('storage', updateProfile);
+    window.addEventListener('puskesmas-profile-updated', handleProfileUpdate);
+    window.addEventListener('storage', handleProfileUpdate);
     return () => {
-      window.removeEventListener('puskesmas-profile-updated', updateProfile);
-      window.removeEventListener('storage', updateProfile);
+      window.removeEventListener('puskesmas-profile-updated', handleProfileUpdate);
+      window.removeEventListener('storage', handleProfileUpdate);
     };
   }, [propAdminName, propPuskesmasName]);
 
@@ -136,16 +191,27 @@ export default function Sidebar({
   return (
     <aside className="sidebar">
       {/* Brand Logo Section */}
-      <div className="sidebar-brand">
-        <img src="/simpulsehat-logo-white.svg" alt="SIMPUL SEHAT" style={{ width: 36, height: 36, marginRight: 12 }} />
-        <div>
-          <span className="sidebar-logo-text" style={{ display: 'block', fontWeight: 600 }}>
-            SIMPUL SEHAT
-          </span>
-          <span className="sidebar-logo-sub">
-            Sistem Informasi Kesehatan
-          </span>
-        </div>
+      <div 
+        className="sidebar-brand" 
+        style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          height: '72px', 
+          padding: '0 8px', 
+          boxSizing: 'border-box',
+          backgroundColor: '#ffffff',
+          borderBottom: '1px solid var(--border-color)',
+          borderRight: '1px solid var(--border-color)',
+          marginRight: '-1px',
+          overflow: 'hidden'
+        }}
+      >
+        <img 
+          src="/simpulsehat-logo.png?v=2" 
+          alt="SIMPUL SEHAT" 
+          style={{ width: '100%', maxWidth: '264px', height: 'auto', objectFit: 'contain' }} 
+        />
       </div>
 
       {/* Navigation Menu */}
@@ -216,8 +282,8 @@ export default function Sidebar({
           className="profile-avatar"
         />
         <div className="profile-info" style={{ flex: 1 }}>
-          <span className="profile-name" title={adminName}>{isMounted ? adminName : ''}</span>
-          <span className="profile-role" title={puskesmasName}>{isMounted ? puskesmasName : ''}</span>
+          <span className="profile-name" title={adminName}>{adminName}</span>
+          <span className="profile-role" title={puskesmasName}>{puskesmasName}</span>
         </div>
         <button 
           onClick={handleSignOut}
