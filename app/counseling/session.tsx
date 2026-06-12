@@ -34,7 +34,8 @@ import { supabase } from '../../lib/supabase';
 import { Balita, Penimbangan, WHOReferenceRow } from '../../lib/types';
 import { COLORS } from '../../lib/constants';
 import { Card } from '../../components/ui/Card';
-import { GroqService, ZScoreData, PreviousCounseling, AdaptiveQuestion, InterviewQA } from '../../services/groq-service';
+import { GroqService, ZScoreData, PreviousCounseling, AdaptiveQuestion, InterviewQA, WeighingHistoryItem, ImunisasiStatus } from '../../services/groq-service';
+import { ImunisasiService } from '../../services/imunisasi-service';
 import { WhatsAppService } from '../../services/whatsapp-service';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
@@ -63,6 +64,9 @@ export default function CounselingSessionScreen() {
   const [penimbangan, setPenimbangan] = useState<Penimbangan | null>(null);
   const [posyandu, setPosyandu] = useState<any>(null);
   const [previousSession, setPreviousSession] = useState<PreviousCounseling | null>(null);
+  const [previousSessions, setPreviousSessions] = useState<PreviousCounseling[]>([]);
+  const [weighingHistory, setWeighingHistory] = useState<WeighingHistoryItem[]>([]);
+  const [imunisasiStatus, setImunisasiStatus] = useState<ImunisasiStatus | null>(null);
   
   // Wizard & Adaptive States
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -141,7 +145,7 @@ export default function CounselingSessionScreen() {
       // 1. Ambil data balita beserta posyandunya
       const { data: balitaData, error: balitaErr } = await supabase
         .from('balitas')
-        .select('*, posyandu:posyandus(*)')
+        .select('*, posyandu:posyandus(*), imunisasi(*)')
         .eq('id', balitaId)
         .single();
 
@@ -201,27 +205,57 @@ export default function CounselingSessionScreen() {
       setWhoTB(tb);
       setWhoBBTB(bbtb);
 
-      // 4. Ambil data penyuluhan bulan lalu (jika ada)
+      // 4. Ambil data penyuluhan 3 bulan terakhir (jika ada)
       const { data: prevData, error: prevErr } = await supabase
         .from('penyuluhans')
         .select('*')
         .eq('balita_id', balitaId)
         .order('created_at', { ascending: false })
-        .limit(1);
+        .limit(3);
 
-      let prevSessionObj: PreviousCounseling | null = null;
+      let prevSessionsList: PreviousCounseling[] = [];
       if (prevErr) {
         console.warn('Penyuluhans table might not exist or failed to query:', prevErr);
       } else if (prevData && prevData.length > 0) {
-        const lastSession = prevData[0];
-        prevSessionObj = {
+        prevSessionsList = prevData.map(lastSession => ({
           tanggal: lastSession.tanggal,
           pertanyaan: lastSession.pertanyaan,
           jawaban: lastSession.jawaban,
           rekomendasi: lastSession.rekomendasi,
-        };
-        setPreviousSession(prevSessionObj);
+        }));
+        setPreviousSessions(prevSessionsList);
+        setPreviousSession(prevSessionsList[0]);
       }
+
+      // Ambil data imunisasi dari balitaData
+      let imunisasiData = null;
+      if (balitaData && balitaData.imunisasi) {
+        imunisasiData = Array.isArray(balitaData.imunisasi) && balitaData.imunisasi.length > 0 
+          ? balitaData.imunisasi[0] 
+          : balitaData.imunisasi;
+      }
+      
+      const missingVaccines = ImunisasiService.getMissingVaccines(imunisasiData);
+      const immunizationCompleteness = ImunisasiService.calculateCompleteness(imunisasiData);
+      const imunStatusObj: ImunisasiStatus = {
+        completeness: immunizationCompleteness,
+        missing: missingVaccines
+      };
+      setImunisasiStatus(imunStatusObj);
+
+      // Ambil riwayat penimbangan (weighingHistory) untuk dikirim ke AI
+      const weighingHistoryList: WeighingHistoryItem[] = descHistory.slice(0, 4).map(h => ({
+        tanggal: h.tanggal,
+        berat_badan: h.berat_badan,
+        tinggi_badan: h.tinggi_badan,
+        zscore_bb_u: h.zscore_bb_u,
+        status_bb_u: h.status_bb_u,
+        zscore_tb_u: h.zscore_tb_u,
+        status_tb_u: h.status_tb_u,
+        zscore_bb_tb: h.zscore_bb_tb,
+        status_bb_tb: h.status_bb_tb,
+      }));
+      setWeighingHistory(weighingHistoryList);
 
       // 5. Tahap Pembuatan Pertanyaan Langkah 1 AI (Gizi & MPASI)
       setStage('generating-questions');
@@ -246,8 +280,10 @@ export default function CounselingSessionScreen() {
         metrics,
         ageMonths,
         [],
-        prevSessionObj,
-        bbTrend
+        prevSessionsList,
+        bbTrend,
+        weighingHistoryList,
+        imunStatusObj
       );
 
       setActiveQuestion(firstQ);
@@ -325,8 +361,10 @@ export default function CounselingSessionScreen() {
           metrics,
           ageMonths,
           updatedQaList,
-          previousSession,
-          calculatedTrend
+          previousSessions,
+          calculatedTrend,
+          weighingHistory,
+          imunisasiStatus
         );
 
         setQuestionsHistory([...questionsHistory, nextQ]);
@@ -395,7 +433,10 @@ export default function CounselingSessionScreen() {
         ageMonths, 
         qaList, 
         catatanKader,
-        calculatedTrend
+        calculatedTrend,
+        previousSessions,
+        weighingHistory,
+        imunisasiStatus
       );
       setAiRecommendation(rec);
 
@@ -476,39 +517,106 @@ export default function CounselingSessionScreen() {
     }
   };
 
-  const getQuickReplies = (step: number) => {
-    switch (step) {
-      case 1:
-        return [
-          "Makan 3x sehari lauk telur/ikan, tanpa penolakan.",
-          "Nafsu makan anak berkurang, lebih suka minum susu/ASI.",
-          "Anak sulit makan nasi, hanya mau makan camilan biskuit.",
-          "Masih ASI eksklusif saja, belum mulai MPASI."
-        ];
-      case 2:
-        return [
-          "Anak sehat walafiat, tidak ada sakit dalam 2 minggu terakhir.",
-          "Sempat batuk-pilek ringan selama 3 hari, nafsu makan stabil.",
-          "Sempat demam dan diare ringan, sekarang sudah membaik.",
-          "Imunisasi dasar lengkap sesuai jadwal umur anak."
-        ];
-      case 3:
-        return [
-          "Disuapi ibu dengan telaten tanpa gawai/HP.",
-          "Rewel saat disuapi, sering diemut atau dilepeh.",
-          "Sumber air bersih dimasak matang, rajin cuci tangan pakai sabun.",
-          "Tinggal bersama nenek karena orang tua bekerja."
-        ];
-      case 4:
-        return [
-          "Anak tampak lincah, aktif, ceria, dan tidak ada tanda klinis lesu.",
-          "Fisik anak tampak agak lesu dan rambut kusam.",
-          "Keluarga sedang dalam pengawasan TBC/ISPA.",
-          "Tidak ada catatan khusus lapangan."
-        ];
-      default:
-        return [];
+  const getQuickReplies = (step: number, activeQ?: AdaptiveQuestion | null) => {
+    if (step === 4) {
+      return [
+        "Anak tampak lincah, aktif, ceria, dan tidak ada tanda klinis lesu.",
+        "Fisik anak tampak agak lesu dan rambut kusam.",
+        "Keluarga sedang dalam pengawasan TBC/ISPA.",
+        "Tidak ada catatan khusus lapangan."
+      ];
     }
+
+    if (!activeQ || !activeQ.focus_area) {
+      switch (step) {
+        case 1:
+          return [
+            "Makan 3x sehari lauk telur/ikan, tanpa penolakan.",
+            "Nafsu makan anak berkurang, lebih suka minum susu/ASI.",
+            "Anak sulit makan nasi, hanya mau makan camilan biskuit.",
+            "Masih ASI eksklusif saja, belum mulai MPASI."
+          ];
+        case 2:
+          return [
+            "Anak sehat walafiat, tidak ada sakit dalam 2 minggu terakhir.",
+            "Sempat batuk-pilek ringan selama 3 hari, nafsu makan stabil.",
+            "Sempat demam dan diare ringan, sekarang sudah membaik.",
+            "Imunisasi dasar lengkap sesuai jadwal umur anak."
+          ];
+        case 3:
+          return [
+            "Disuapi ibu dengan telaten tanpa gawai/HP.",
+            "Rewel saat disuapi, sering diemut atau dilepeh.",
+            "Sumber air bersih dimasak matang, rajin cuci tangan pakai sabun.",
+            "Tinggal bersama nenek karena orang tua bekerja."
+          ];
+        default:
+          return [];
+      }
+    }
+
+    const area = activeQ.focus_area.toUpperCase();
+
+    if (area.includes('EVALUASI') || area.includes('LALU')) {
+      return [
+        "Rekomendasi bulan lalu sudah dijalankan dengan rutin dan ada progres baik.",
+        "Sudah dijalankan sebagian, namun ada beberapa kendala penerapan.",
+        "Belum sempat dijalankan karena anak sempat sakit atau alasan lain.",
+        "Tidak ada perubahan atau kendala, kondisi anak masih stagnan."
+      ];
+    }
+    
+    if (area.includes('GIZI') || area.includes('NUTRISI') || area.includes('MPASI')) {
+      return [
+        "Makan 3x sehari lauk telur/ikan/daging secara teratur.",
+        "Nafsu makan berkurang, lebih suka camilan/susu saja.",
+        "Kesulitan memberikan protein hewani (anak menolak atau jarang ada).",
+        "Porsi makan sedikit (hanya 1-2 sendok makan per sesi)."
+      ];
+    }
+    
+    if (area.includes('PENYAKIT') || area.includes('INFEKSI') || area.includes('SAKIT') || area.includes('KESEHATAN')) {
+      return [
+        "Anak sehat, tidak ada riwayat demam, batuk, pilek, atau diare baru-baru ini.",
+        "Sempat batuk-pilek ringan 2-3 hari, tetapi nafsu makan tetap baik.",
+        "Sempat demam/diare dalam 2 minggu ini, nafsu makan menurun drastis.",
+        "Imunisasi dasar lengkap, saat ini sedang dalam kondisi sehat."
+      ];
+    }
+    
+    if (area.includes('PENGASUHAN') || area.includes('RULES') || area.includes('ASUH') || area.includes('PERILAKU')) {
+      return [
+        "Disuapi ibu secara tenang tanpa nonton HP/jalan-jalan.",
+        "Sering GTM (Gerakan Tutup Mulut), melepeh, atau mengemut makanan.",
+        "Jadwal makan tidak teratur, sering diberikan susu/camilan di sela jam makan.",
+        "Anak aktif disuapi secara responsif, tidak dipaksa."
+      ];
+    }
+    
+    if (area.includes('SANITASI') || area.includes('BERSIH') || area.includes('LINGKUNGAN')) {
+      return [
+        "Menggunakan air galon/rebus mendidih, cuci tangan pakai sabun sebelum makan.",
+        "Sumber air sumur, kebersihan lingkungan rumah cukup terjaga.",
+        "Akses air bersih terbatas, jarang membiasakan cuci tangan pakai sabun.",
+        "Sanitasi rumah baik, jamban keluarga bersih dan sehat."
+      ];
+    }
+    
+    if (area.includes('STIMULASI') || area.includes('KEMBANG') || area.includes('TUMBUH')) {
+      return [
+        "Perkembangan motorik dan bahasa sesuai usia, anak aktif bergerak.",
+        "Belum bisa berjalan/merangkak sesuai usianya, butuh stimulasi lebih.",
+        "Sering berinteraksi dan diajak bicara oleh orang tua di rumah.",
+        "Anak sudah bisa mengucapkan beberapa kata bermakna dengan jelas."
+      ];
+    }
+
+    return [
+      "Sudah berjalan baik sesuai anjuran.",
+      "Masih ada kendala/penolakan dari anak.",
+      "Kondisi anak sehat dan aktif bermain.",
+      "Tidak ada masalah khusus saat ini."
+    ];
   };
 
   const handleHeaderBack = () => {
@@ -546,7 +654,7 @@ export default function CounselingSessionScreen() {
         );
 
       case 'interview': {
-        const quickReplies = getQuickReplies(currentStep);
+        const quickReplies = getQuickReplies(currentStep, activeQuestion);
         const isStep4 = currentStep === 4;
 
         return (

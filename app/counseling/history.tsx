@@ -94,9 +94,9 @@ export default function CounselingHistoryScreen() {
         let tumbuhKembangScore = 0;
         let imunisasiScore = 0;
 
-        const giziKeywords = ['makan', 'mpasi', 'asi', 'lauk', 'protein', 'hewan', 'bb', 'berat', 'gizi', 'nutrisi', 'susu', 'suap', 'lahap', 'biskuit', 'makanan', 'lapar', 'kenyang'];
-        const tumbuhKembangKeywords = ['stunting', 'pendek', 'tinggi', 'tb', 'motorik', 'sensorik', 'jalan', 'berdiri', 'merangkak', 'duduk', 'tengkurap', 'stimulasi', 'bicara', 'kembang', 'tumbuh'];
-        const imunisasiKeywords = ['imunisasi', 'vaksin', 'campak', 'polio', 'dpt', 'bcg', 'hepatitis', 'pentabio', 'ipv', 'opv', 'suntik', 'booster', 'tetanus'];
+        const giziKeywords = ['makan', 'mpasi', 'asi', 'lauk', 'protein', 'hewan', 'bb', 'berat', 'gizi', 'nutrisi', 'susu', 'suap', 'lahap', 'biskuit', 'makanan', 'lapar', 'kenyang', 'feeding', 'rules', 'gtm', 'suapi', 'porsi', 'frekuensi'];
+        const tumbuhKembangKeywords = ['stunting', 'pendek', 'tinggi', 'tb', 'motorik', 'sensorik', 'jalan', 'berdiri', 'merangkak', 'duduk', 'tengkurap', 'stimulasi', 'bicara', 'kembang', 'tumbuh', 'sanitasi', 'kebersihan', 'jamban', 'cuci tangan', 'air bersih', 'ctps', 'lingkungan'];
+        const imunisasiKeywords = ['imunisasi', 'vaksin', 'campak', 'polio', 'dpt', 'bcg', 'hepatitis', 'pentabio', 'ipv', 'opv', 'suntik', 'booster', 'tetanus', 'sakit', 'demam', 'batuk', 'pilek', 'diare', 'infeksi', 'penyakit'];
 
         // High-weight matching on actual Q&A text (3x weight)
         const qaText = (questions + ' ' + answers).toLowerCase();
