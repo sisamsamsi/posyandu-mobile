@@ -126,9 +126,9 @@ export class GroqService {
       // Menggunakan gemini-2.5-flash untuk peningkatan kecepatan (low-latency)
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`;
 
-      // Batasi waktu request agar tidak menggantung selamanya (timeout 8 detik)
+      // Batasi waktu request agar tidak menggantung selamanya (timeout 15 detik)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
 
       const response = await fetch(url, {
         method: 'POST',
