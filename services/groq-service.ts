@@ -40,72 +40,20 @@ export class GroqService {
     return process.env.EXPO_PUBLIC_GROQ_API_KEY || '';
   }
 
-  private static async callGroq(messages: any[], isJsonResponse = false): Promise<string> {
-    // === NONAKTIFKAN SEMENTARA: GROQ SERVICE ===
-    /*
-    const apiKey = this.getApiKey();
-    const useEdgeFunction = process.env.EXPO_PUBLIC_USE_EDGE_FUNCTION === 'true' || !apiKey;
-
-    if (useEdgeFunction) {
-      try {
-        const { data, error } = await supabase.functions.invoke('counseling', {
-          body: { messages, isJsonResponse }
-        });
-        if (error) throw error;
-        return data?.content || '';
-      } catch (err: any) {
-        console.error('Failed to call Supabase Edge Function counseling:', err);
-        throw new Error(err.message || 'Gagal terhubung dengan layanan AI counseling.');
-      }
-    }
-
-    try {
-      const response = await fetch(this.API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: this.DEFAULT_MODEL,
-          messages,
-          temperature: 0.5,
-          response_format: isJsonResponse ? { type: 'json_object' } : undefined,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Groq API error:', errorText);
-        throw new Error(`Groq API error: ${response.status} - ${response.statusText}`);
-      }
-
-      const json = await response.json();
-      return json.choices[0]?.message?.content || '';
-    } catch (e: any) {
-      console.error('Failed to call Groq API:', e);
-      throw new Error(e.message || 'Gagal terhubung dengan layanan AI Groq.');
-    }
-    */
-    // ============================================
-
-    // === AKTIFKAN: GEMINI SERVICE ===
+  private static async callGemini(messages: any[], isJsonResponse = false): Promise<string> {
     try {
       const geminiApiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
       if (!geminiApiKey) {
         throw new Error('API Key Gemini tidak dikonfigurasi di env.');
       }
       
-      // Extract system prompt if present
       const systemMessage = messages.find(m => m.role === 'system');
       const systemInstruction = systemMessage ? {
         parts: [{ text: systemMessage.content }]
       } : undefined;
 
-      // Filter out system message from contents
       const chatMessages = messages.filter(m => m.role !== 'system');
 
-      // Map roles: 'assistant' -> 'model', 'user' -> 'user'
       const contents = chatMessages.map(m => ({
         role: m.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: m.content }]
@@ -123,12 +71,10 @@ export class GroqService {
         body.systemInstruction = systemInstruction;
       }
 
-      // Menggunakan gemini-2.5-flash untuk peningkatan kecepatan (low-latency)
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`;
 
-      // Batasi waktu request agar tidak menggantung selamanya (timeout 15 detik)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 detik timeout
 
       const response = await fetch(url, {
         method: 'POST',
@@ -155,6 +101,77 @@ export class GroqService {
         throw new Error('Timeout koneksi ke layanan AI Gemini.');
       }
       throw new Error(e.message || 'Gagal terhubung dengan layanan AI Gemini.');
+    }
+  }
+
+  private static async callOpenAI(messages: any[], isJsonResponse = false): Promise<string> {
+    try {
+      const openaiApiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY || '';
+      if (!openaiApiKey) {
+        throw new Error('API Key OpenAI tidak dikonfigurasi di env.');
+      }
+
+      const body: any = {
+        model: 'gpt-4o-mini',
+        messages,
+        temperature: 0.5,
+        response_format: isJsonResponse ? { type: 'json_object' } : undefined
+      };
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 detik timeout
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openaiApiKey}`
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('OpenAI API error:', errorText);
+        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+      }
+
+      const json = await response.json();
+      return json.choices?.[0]?.message?.content || '';
+    } catch (e: any) {
+      console.error('Failed to call OpenAI API:', e);
+      if (e.name === 'AbortError') {
+        throw new Error('Timeout koneksi ke layanan AI OpenAI.');
+      }
+      throw new Error(e.message || 'Gagal terhubung dengan layanan AI OpenAI.');
+    }
+  }
+
+  private static async callGroq(messages: any[], isJsonResponse = false): Promise<string> {
+    // 1. Coba gunakan Gemini dahulu (Layanan Utama)
+    try {
+      console.log('Mencoba layanan AI utama (Gemini)...');
+      return await this.callGemini(messages, isJsonResponse);
+    } catch (geminiError: any) {
+      console.warn('Layanan utama Gemini gagal atau limit, mencoba cadangan:', geminiError.message);
+      
+      // 2. Jika Gemini gagal, lakukan failover ke OpenAI (Layanan Cadangan)
+      const openaiApiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY || '';
+      if (openaiApiKey) {
+        try {
+          console.log('Mengaktifkan failover ke layanan cadangan (OpenAI)...');
+          return await this.callOpenAI(messages, isJsonResponse);
+        } catch (openaiError: any) {
+          console.error('Layanan cadangan OpenAI juga gagal:', openaiError.message);
+          throw openaiError;
+        }
+      }
+      
+      // Jika tidak ada key OpenAI, lemparkan error asli dari Gemini
+      throw geminiError;
     }
   }
 
