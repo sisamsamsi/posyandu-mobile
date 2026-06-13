@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useFilters } from '@/context/FilterContext';
 import { supabase } from '@/lib/supabase';
 import { maskNik } from '@/lib/utils';
@@ -17,6 +17,17 @@ export default function ImportDataPage() {
   
   // Import type (balita or lansia)
   const [importType, setImportType] = useState<'balita' | 'lansia'>('balita');
+
+  // Load type parameter from URL search query on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const type = params.get('type');
+      if (type === 'lansia' || type === 'balita') {
+        setImportType(type);
+      }
+    }
+  }, []);
 
   // Helper: nama segmen sesuai tipe
   const getSegmentName = (p: { nama_posyandu: string; nama_posyandu_balita?: string | null; nama_posyandu_lansia?: string | null; kelurahan?: string | null }) => {
@@ -258,7 +269,8 @@ export default function ImportDataPage() {
                 rt: parseInt(item.rt) || 1,
                 bb_lahir: item.bb_lahir ? parseFloat(String(item.bb_lahir).replace(',', '.')) : null,
                 tb_lahir: item.tb_lahir ? parseFloat(String(item.tb_lahir).replace(',', '.')) : null,
-                anak_ke: parseInt(item.anak_ke) || 1
+                anak_ke: parseInt(item.anak_ke) || 1,
+                created_at: `${tglLahir}T00:00:00Z` // Gunakan tanggal lahir sebagai created_at agar tidak dianggap pendaftaran baru hari ini
               });
             } else {
               const tglLahir = cleanDate(item.tanggal_lahir);
@@ -277,7 +289,8 @@ export default function ImportDataPage() {
                 rt: item.rt ? parseInt(item.rt) : null,
                 penyakit_bawaan: item.penyakit_bawaan
                   ? String(item.penyakit_bawaan).split(',').map((s: string) => s.trim()).filter(Boolean)
-                  : []
+                  : [],
+                created_at: `${tglLahir}T00:00:00Z` // Gunakan tanggal lahir sebagai created_at agar tidak dianggap pendaftaran baru hari ini
               });
             }
           }

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Building2, Plus, RefreshCw, Key, Check, Edit2, Trash2, MapPin, Calendar, Clock, Baby, Users } from 'lucide-react';
+import { Building2, Plus, RefreshCw, Key, Check, Edit2, Trash2, MapPin, Calendar, Clock, Baby, Users, Printer } from 'lucide-react';
 import { useFilters } from '@/context/FilterContext';
 
 interface Posyandu {
@@ -34,6 +34,18 @@ export default function PosyanduPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [userPuskesmasId, setUserPuskesmasId] = useState<string | null>(null);
   const [wilayahList, setWilayahList] = useState<string[]>([]);
+  const [selectedKelurahan, setSelectedKelurahan] = useState<string>('all');
+
+  // Get unique kelurahans from all posyandus to use as fallback options
+  const uniqueKelurahans = React.useMemo(() => {
+    return Array.from(new Set(posyandus.map(p => p.kelurahan).filter(Boolean))) as string[];
+  }, [posyandus]);
+
+  const kelurahanOptions = wilayahList.length > 0 ? wilayahList : uniqueKelurahans;
+
+  const filteredPosyandus = React.useMemo(() => {
+    return selectedKelurahan === 'all' ? posyandus : posyandus.filter(p => p.kelurahan === selectedKelurahan);
+  }, [posyandus, selectedKelurahan]);
 
   // Fetch logged-in user's puskesmas_id and wilayah_binaan
   useEffect(() => {
@@ -198,6 +210,129 @@ export default function PosyanduPage() {
     }
   };
 
+  const handlePrintCodes = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Gagal membuka jendela cetak. Mohon izinkan pop-up di browser Anda.');
+      return;
+    }
+
+    const title = `Daftar Kode Undangan Posyandu - Kelurahan ${selectedKelurahan === 'all' ? 'Semua Wilayah' : selectedKelurahan}`;
+    const rows = filteredPosyandus.map((p, idx) => `
+      <tr>
+        <td>${idx + 1}</td>
+        <td><strong>${p.nama_posyandu}</strong></td>
+        <td>${p.nama_posyandu_balita || '-'}</td>
+        <td>${p.nama_posyandu_lansia || '-'}</td>
+        <td><span class="invite-code">${p.invite_code || '-'}</span></td>
+        <td>${p.alamat_lengkap || '-'}</td>
+      </tr>
+    `).join('');
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>${title}</title>
+          <style>
+            body {
+              font-family: system-ui, -apple-system, sans-serif;
+              padding: 24px;
+              color: #1e293b;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 24px;
+              border-bottom: 2px solid #14b8a6;
+              padding-bottom: 12px;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 20px;
+              color: #0f766e;
+            }
+            .header p {
+              margin: 4px 0 0;
+              font-size: 13px;
+              color: #64748b;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 16px;
+            }
+            th, td {
+              border: 1px solid #cbd5e1;
+              padding: 10px 12px;
+              text-align: left;
+              font-size: 12px;
+            }
+            th {
+               background-color: #f1f5f9;
+               color: #475569;
+               font-weight: 700;
+            }
+            tr:nth-child(even) {
+              background-color: #f8fafc;
+            }
+            .invite-code {
+              font-family: monospace;
+              font-weight: 700;
+              font-size: 13px;
+              color: #0f766e;
+              background-color: #ccfbf1;
+              padding: 2px 8px;
+              border-radius: 4px;
+              border: 1px solid #99f6e4;
+              display: inline-block;
+            }
+            .footer {
+              margin-top: 30px;
+              text-align: right;
+              font-size: 10px;
+              color: #94a3b8;
+            }
+            @media print {
+              body { padding: 0; }
+              @page { size: portrait; margin: 1.5cm; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>DAFTAR KODE AKSES / UNDANGAN POSYANDU</h1>
+            <p>${title}</p>
+            <p>Dicetak pada: ${new Date().toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })}</p>
+          </div>
+          <table>
+            <thead>
+               <tr>
+                 <th style="width: 5%">No</th>
+                 <th style="width: 25%">Nama Posyandu</th>
+                 <th style="width: 20%">Layanan Balita</th>
+                 <th style="width: 20%">Layanan Lansia</th>
+                 <th style="width: 15%">Kode Undangan (Mobile)</th>
+                 <th style="width: 15%">Alamat / Dusun</th>
+               </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+          <div class="footer">
+            Layanan Posyandu Digital - SIMPUL SEHAT
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -258,7 +393,48 @@ export default function PosyanduPage() {
           <Building2 size={16} style={{ color: '#14B8A6' }} />
           <span style={{ fontWeight: 600, fontSize: '13px' }}>Daftar Posyandu Terdaftar</span>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {/* Kelurahan Filter Dropdown */}
+          <select
+            value={selectedKelurahan}
+            onChange={(e) => setSelectedKelurahan(e.target.value)}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '8px',
+              border: '1px solid #cbd5e1',
+              fontSize: '12px',
+              fontWeight: 500,
+              color: '#334155',
+              backgroundColor: '#fff',
+              outline: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <option value="all">Semua Kelurahan</option>
+            {kelurahanOptions.map((kel) => (
+              <option key={kel} value={kel}>Kelurahan {kel}</option>
+            ))}
+          </select>
+
+          {/* Cetak Kode Undangan Button */}
+          <button 
+            onClick={handlePrintCodes} 
+            className="btn btn-secondary" 
+            style={{ 
+              padding: '6px 12px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px',
+              borderColor: '#14b8a6',
+              color: '#0f766e',
+              backgroundColor: '#f0fdfa'
+            }}
+            title="Cetak Kode Undangan"
+          >
+            <Printer size={14} />
+            <span>Cetak Kode</span>
+          </button>
+
           <button onClick={fetchPosyandus} className="btn btn-secondary" style={{ padding: '6px 10px' }}>
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -281,7 +457,7 @@ export default function PosyanduPage() {
       ) : (
         <div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '20px', marginTop: '20px' }}>
-            {posyandus.map((p) => (
+            {filteredPosyandus.map((p) => (
               <div 
                 key={p.id}
                 style={{
@@ -394,7 +570,7 @@ export default function PosyanduPage() {
             ))}
           </div>
           <div className="pagination-container" style={{ marginTop: '20px' }}>
-            <span>Menampilkan {posyandus.length} unit posyandu</span>
+            <span>Menampilkan {filteredPosyandus.length} unit posyandu</span>
           </div>
         </div>
       )}

@@ -233,6 +233,23 @@ export default function CounselingSummaryScreen() {
           }
         }
       } else if (trimmed.length > 0 && !trimmed.startsWith('#')) {
+        // Skip transition lines that introduce bullet points to avoid awkward concatenation in extraNotes
+        const lowercaseTrimmed = trimmed.toLowerCase();
+        const isTransitionLine = 
+          (lowercaseTrimmed.includes('berikut') && 
+           (lowercaseTrimmed.includes('tips') || 
+            lowercaseTrimmed.includes('saran') || 
+            lowercaseTrimmed.includes('rekomendasi') || 
+            lowercaseTrimmed.includes('panduan') || 
+            lowercaseTrimmed.includes('langkah'))) ||
+          (lowercaseTrimmed.endsWith(':') && 
+           (lowercaseTrimmed.includes('tips') || 
+            lowercaseTrimmed.includes('saran') || 
+            lowercaseTrimmed.includes('rekomendasi')));
+            
+        if (isTransitionLine) {
+          return;
+        }
         extraNotes += (extraNotes ? '\n' : '') + trimmed;
       }
     });

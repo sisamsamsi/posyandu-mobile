@@ -1,0 +1,54 @@
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+.env
+
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android
+
+# agent, web portal, and dev temp files (not needed for mobile build)
+.agent/
+posyandu-web/
+scratch/
+check_buckets.js
+check_openapi.js
+generate-splash.js
+migrate-data.js
+test_column.js
+backup-april-26.dump
+groq-apikey.txt
+test-db-lansia.js
+test-db.js

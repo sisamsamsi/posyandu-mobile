@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
-import { calculateAgeMonths } from '../lib/utils';
+import { calculateAgeMonths, getKBMValue, calculateGrowthTrend } from '../lib/utils';
 
 export interface SKDNStats {
   s: number; // Semua balita target
@@ -91,7 +91,7 @@ export class ReportService {
     // Ambil balitas milik posyandu ini
     const { data: balitas, error: bError } = await supabase
       .from('balitas')
-      .select('id, tanggal_lahir')
+      .select('id, tanggal_lahir, jenis_kelamin')
       .eq('posyandu_id', posyanduId)
       .gt('tanggal_lahir', birthThresholdStr);
 
@@ -102,7 +102,7 @@ export class ReportService {
     // 3. D (Datang) - Unique balitas who visited this month
     const { data: dData, error: dError } = await supabase
       .from('penimbangans')
-      .select('balita_id, berat_badan')
+      .select('balita_id, berat_badan, tanggal')
       .in('balita_id', safeBalitaIds)
       .gte('tanggal', startStr)
       .lte('tanggal', endStr);
@@ -136,10 +136,20 @@ export class ReportService {
       }
     });
 
+    const balitasMap = new Map((balitas || []).map(b => [b.id, b]));
+
     for (const p of filteredD) {
       const prevWeight = prevVisitsMap.get(p.balita_id);
-      if (prevWeight !== undefined && p.berat_badan > prevWeight) {
-        n++;
+      if (prevWeight !== undefined) {
+        const balita = balitasMap.get(p.balita_id);
+        if (balita && balita.tanggal_lahir) {
+          const ageMonths = calculateAgeMonths(balita.tanggal_lahir, p.tanggal);
+          const kbm = getKBMValue(ageMonths, balita.jenis_kelamin || 'Perempuan');
+          const weightGain = p.berat_badan - prevWeight;
+          if (weightGain >= kbm) {
+            n++;
+          }
+        }
       }
     }
 
@@ -156,7 +166,7 @@ export class ReportService {
     // ── STEP 1: Ambil balitas ──
     const { data: balitas, error: bError } = await supabase
       .from('balitas')
-      .select('id, nama, nik, posyandu_id, tanggal_lahir')
+      .select('id, nama, nik, posyandu_id, tanggal_lahir, jenis_kelamin')
       .eq('posyandu_id', posyanduId)
       .gt('tanggal_lahir', birthThresholdStr);
       
@@ -227,9 +237,9 @@ export class ReportService {
 
       // 4. Check 2T (Tidak Naik 2x berturut-turut)
       const history = historyMap.get(v.balita_id) || [];
-      if (history.length >= 3) {
-        const [curr, prev, beforePrev] = history;
-        if (curr.berat_badan <= prev.berat_badan && prev.berat_badan <= beforePrev.berat_badan) {
+      if (history.length >= 2 && balita.tanggal_lahir) {
+        const trend = calculateGrowthTrend(history, balita.tanggal_lahir, balita.jenis_kelamin || 'Perempuan');
+        if (trend === '2T') {
           issues.push('2T (Tidak Naik 2x)');
         }
       }

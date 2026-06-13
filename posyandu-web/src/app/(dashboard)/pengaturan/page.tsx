@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Settings, Save, RefreshCw, Key, Shield, UserCheck, Check, AlertCircle } from 'lucide-react';
+import { Settings, Save, RefreshCw, Key, Shield, UserCheck, Check, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 export default function PengaturanPage() {
   // Connection state
@@ -21,6 +21,15 @@ export default function PengaturanPage() {
   const [wilayahBinaan, setWilayahBinaan] = useState('');
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Password change state
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [updatingPassword, setUpdatingPassword] = useState(false);
+  const [passwordMsg, setPasswordMsg] = useState('');
+  const [passwordError, setPasswordError] = useState(false);
 
   // Load custom profile from database if authenticated, fallback to local storage
   useEffect(() => {
@@ -92,6 +101,45 @@ export default function PengaturanPage() {
 
     loadPuskesmasProfile();
   }, []);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordMsg('');
+    setPasswordError(false);
+
+    if (newPassword.length < 6) {
+      setPasswordError(true);
+      setPasswordMsg('Kata sandi harus minimal 6 karakter.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError(true);
+      setPasswordMsg('Konfirmasi kata sandi tidak cocok.');
+      return;
+    }
+
+    setUpdatingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) throw error;
+
+      setPasswordMsg('Kata sandi Anda berhasil diperbarui.');
+      setNewPassword('');
+      setConfirmPassword('');
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
+    } catch (err: any) {
+      console.error(err);
+      setPasswordError(true);
+      setPasswordMsg('Gagal memperbarui kata sandi: ' + err.message);
+    } finally {
+      setUpdatingPassword(false);
+    }
+  };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -237,10 +285,10 @@ export default function PengaturanPage() {
             </div>
           </div>
 
-          {/* Kepala Puskesmas & NIP */}
+          {/* Operator Puskesmas & NIP/ID */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>Nama Kepala Puskesmas</label>
+              <label style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>Nama Operator Puskesmas</label>
               <input 
                 type="text" required value={kepalaPuskesmas}
                 onChange={(e) => setKepalaPuskesmas(e.target.value)}
@@ -248,7 +296,7 @@ export default function PengaturanPage() {
               />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>NIP Kepala</label>
+              <label style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>NIP/ID Operator</label>
               <input 
                 type="text" required value={nipKepala}
                 onChange={(e) => setNipKepala(e.target.value.replace(/[^0-9]/g, ''))}
@@ -364,6 +412,108 @@ export default function PengaturanPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Ubah Kata Sandi */}
+        <div className="card">
+          <div className="card-header-compact">
+            <span className="card-title-compact" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Key size={14} style={{ color: '#14B8A6' }} />
+              Ubah Kata Sandi Akun
+            </span>
+          </div>
+
+          <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '16px', lineHeight: '1.4' }}>
+            Perbarui kata sandi akun operator Puskesmas Anda di bawah ini secara aman.
+          </p>
+
+          {passwordMsg && (
+            <div style={{ 
+              display: 'flex', 
+              gap: '8px', 
+              padding: '10px', 
+              backgroundColor: passwordError ? '#fff1f2' : '#f0fdf4', 
+              border: passwordError ? '1px solid #ffe4e6' : '1px solid #dcfce7', 
+              borderRadius: '12px', 
+              fontSize: '11px', 
+              color: passwordError ? '#e11d48' : '#16a34a', 
+              marginBottom: '16px', 
+              alignItems: 'center' 
+            }}>
+              {passwordError ? <AlertCircle size={14} style={{ flexShrink: 0 }} /> : <Check size={14} style={{ flexShrink: 0 }} />}
+              <span>{passwordMsg}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>Kata Sandi Baru</label>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <input 
+                  type={showNewPassword ? 'text' : 'password'} 
+                  required 
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Minimal 6 karakter"
+                  style={{ width: '100%', padding: '8px 36px 8px 12px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '12px', outline: 'none' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: '#94a3b8',
+                    padding: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  {showNewPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 500, color: '#64748b' }}>Konfirmasi Kata Sandi Baru</label>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <input 
+                  type={showConfirmPassword ? 'text' : 'password'} 
+                  required 
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Ulangi kata sandi baru"
+                  style={{ width: '100%', padding: '8px 36px 8px 12px', fontSize: '12px', border: '1px solid #e2e8f0', borderRadius: '12px', outline: 'none' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: '#94a3b8',
+                    padding: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  {showConfirmPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" disabled={updatingPassword} className="btn btn-primary" style={{ marginTop: '8px', alignSelf: 'flex-start' }}>
+              <span>{updatingPassword ? 'Memperbarui...' : 'Perbarui Kata Sandi'}</span>
+            </button>
+          </form>
         </div>
       </div>
     </div>

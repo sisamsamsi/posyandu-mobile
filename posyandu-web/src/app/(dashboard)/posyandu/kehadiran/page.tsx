@@ -6,6 +6,7 @@ import { useFilters } from '@/context/FilterContext';
 import { Calendar } from 'lucide-react';
 import SubmenuPlaceholder, { ActionItem, StatItem } from '@/components/layout/SubmenuPlaceholder';
 import AIInsightBox from '@/components/ui/AIInsightBox';
+import { getKBMValue } from '@/lib/utils';
 
 interface KehadiranData {
   id: string;
@@ -13,6 +14,8 @@ interface KehadiranData {
   kelurahan: string;
   hadir_balita: number;
   total_balita: number;
+  naik_balita?: number;
+  keberhasilan_pct?: number;
   hadir_lansia: number;
   total_lansia: number;
   persentase: number;
@@ -82,7 +85,7 @@ export default function KehadiranPage() {
         // Query total balitas per posyandu (including tanggal_lahir to filter < 60 months)
         const { data: balitas, error: bError } = await supabase
           .from('balitas')
-          .select('id, posyandu_id, tanggal_lahir');
+          .select('id, posyandu_id, tanggal_lahir, jenis_kelamin');
         if (bError) throw bError;
 
         // Query total lansias per posyandu
@@ -94,7 +97,7 @@ export default function KehadiranPage() {
         // Fetch measurements (penimbangans) in the selected month
         const { data: weighs, error: wError } = await supabase
           .from('penimbangans')
-          .select('balita_id, tanggal')
+          .select('balita_id, tanggal, berat_badan')
           .gte('tanggal', startDay)
           .lte('tanggal', endDay);
         if (wError) throw wError;
@@ -106,6 +109,29 @@ export default function KehadiranPage() {
           .gte('tanggal_periksa', startDay)
           .lte('tanggal_periksa', endDay);
         if (cError) throw cError;
+
+        // Date bounds for previous month's measurements
+        const prevMonthNum = monthNum === 1 ? 12 : monthNum - 1;
+        const prevYear = monthNum === 1 ? yearNum - 1 : yearNum;
+        const prevStartDate = `${prevYear}-${String(prevMonthNum).padStart(2, '0')}-01`;
+        const prevLastDay = new Date(prevYear, prevMonthNum, 0).getDate();
+        const prevEndDate = `${prevYear}-${String(prevMonthNum).padStart(2, '0')}-${String(prevLastDay).padStart(2, '0')}`;
+
+        // Fetch previous month's weighings
+        const { data: prevWeighs, error: prevWError } = await supabase
+          .from('penimbangans')
+          .select('balita_id, berat_badan, tanggal')
+          .gte('tanggal', prevStartDate)
+          .lte('tanggal', prevEndDate)
+          .order('tanggal', { ascending: false });
+        if (prevWError) throw prevWError;
+
+        const prevWeightMap = new Map<string, number>();
+        (prevWeighs || []).forEach(pv => {
+          if (!prevWeightMap.has(pv.balita_id)) {
+            prevWeightMap.set(pv.balita_id, pv.berat_badan);
+          }
+        });
 
         // Create sets of unique IDs who have records on the selected month
         const weighSet = new Set((weighs || []).map(w => w.balita_id));
@@ -131,12 +157,43 @@ export default function KehadiranPage() {
           if (pct < 60) status = 'Perlu Perhatian';
           else if (pct < 80) status = 'Cukup';
 
+          // Calculate N (naik_balita)
+          let naikB = 0;
+          if (activeCategory === 'balita') {
+            const posyanduWeighs = (weighs || []).filter(w => listB.some(b => b.id === w.balita_id));
+            const currentWeightMap = new Map<string, { berat_badan: number; tanggal: string }>();
+            posyanduWeighs.forEach(w => {
+              if (!currentWeightMap.has(w.balita_id)) {
+                currentWeightMap.set(w.balita_id, { berat_badan: w.berat_badan, tanggal: w.tanggal });
+              }
+            });
+
+            for (const [balitaId, curW] of currentWeightMap.entries()) {
+              const prevWeight = prevWeightMap.get(balitaId);
+              if (prevWeight !== undefined) {
+                const balita = listB.find(b => b.id === balitaId);
+                if (balita && balita.tanggal_lahir && curW.tanggal) {
+                  const ageMonths = calculateAgeMonths(balita.tanggal_lahir, new Date(curW.tanggal));
+                  const kbm = getKBMValue(ageMonths, balita.jenis_kelamin || 'Perempuan');
+                  const weightGain = curW.berat_badan - prevWeight;
+                  if (weightGain >= kbm) {
+                    naikB++;
+                  }
+                }
+              }
+            }
+          }
+
+          const keberhasilanPct = hadirB > 0 ? Math.round((naikB / hadirB) * 100) : 0;
+
           return {
             id: p.id,
             nama_posyandu: p.nama_posyandu,
             kelurahan: p.kelurahan,
             hadir_balita: hadirB,
             total_balita: listB.length,
+            naik_balita: naikB,
+            keberhasilan_pct: keberhasilanPct,
             hadir_lansia: hadirL,
             total_lansia: listL.length,
             persentase: pct,
@@ -167,12 +224,75 @@ export default function KehadiranPage() {
     }
   }, [selectedDesa, selectedPosyanduId, activeCategory, selectedMonth, selectedYear, filtersLoading]);
 
-  const stats = useMemo((): StatItem[] => [
-    { label: 'Total Posyandu', value: data.length, color: 'neutral' },
-    { label: 'Kehadiran Baik (≥80%)', value: data.filter(d => d.persentase >= 80).length, color: 'success' },
-    { label: 'Cukup (60–79%)', value: data.filter(d => d.persentase >= 60 && d.persentase < 80).length, color: 'warning' },
-    { label: 'Perlu Perhatian (<60%)', value: data.filter(d => d.persentase < 60).length, color: 'danger' },
-  ], [data]);
+  const stats = useMemo((): StatItem[] => {
+    if (data.length === 0) {
+      return [
+        { label: 'Total Posyandu', value: 0, color: 'neutral' },
+        { label: 'Rerata Kehadiran (D/S)', value: '0%', color: 'danger' },
+        { label: 'Rerata Keberhasilan (N/D)', value: '0%', color: 'danger' },
+        { label: 'Total Sasaran (S)', value: 0, color: 'neutral' },
+      ];
+    }
+
+    if (activeCategory === 'balita') {
+      const totalS = data.reduce((acc, curr) => acc + curr.total_balita, 0);
+      const totalD = data.reduce((acc, curr) => acc + curr.hadir_balita, 0);
+      const totalN = data.reduce((acc, curr) => acc + (curr.naik_balita || 0), 0);
+
+      const avgKehadiran = totalS > 0 ? Math.round((totalD / totalS) * 100) : 0;
+      const avgKeberhasilan = totalD > 0 ? Math.round((totalN / totalD) * 100) : 0;
+
+      return [
+        { 
+          label: 'Total Posyandu', 
+          value: data.length, 
+          color: 'neutral' 
+        },
+        { 
+          label: 'Rerata Kehadiran (D/S) - Target 85%', 
+          value: `${avgKehadiran}%`, 
+          color: avgKehadiran >= 85 ? 'success' : 'danger' 
+        },
+        { 
+          label: 'Rerata Keberhasilan (N/D) - Target 88%', 
+          value: `${avgKeberhasilan}%`, 
+          color: avgKeberhasilan >= 88 ? 'success' : 'danger' 
+        },
+        { 
+          label: 'Total Balita Terdaftar (S)', 
+          value: `${totalS} Anak`, 
+          color: 'primary' 
+        },
+      ];
+    } else {
+      const totalS = data.reduce((acc, curr) => acc + curr.total_lansia, 0);
+      const totalD = data.reduce((acc, curr) => acc + curr.hadir_lansia, 0);
+      const avgKehadiran = totalS > 0 ? Math.round((totalD / totalS) * 100) : 0;
+
+      return [
+        { 
+          label: 'Total Posyandu', 
+          value: data.length, 
+          color: 'neutral' 
+        },
+        { 
+          label: 'Rerata Kehadiran Lansia - Target 80%', 
+          value: `${avgKehadiran}%`, 
+          color: avgKehadiran >= 80 ? 'success' : 'danger' 
+        },
+        { 
+          label: 'Total Lansia Terdaftar', 
+          value: `${totalS} Lansia`, 
+          color: 'primary' 
+        },
+        { 
+          label: 'Total Lansia Hadir', 
+          value: `${totalD} Lansia`, 
+          color: 'success' 
+        },
+      ];
+    }
+  }, [data, activeCategory]);
 
   const actionItems = useMemo((): ActionItem[] | undefined => {
     if (data.length === 0) return undefined;
@@ -197,11 +317,19 @@ export default function KehadiranPage() {
     const baik = data.filter(d => d.persentase >= 80).length;
     const perhatian = data.filter(d => d.persentase < 60).length;
 
+    // For Balita, compute total N (naik BB) and average success rate (N/D)
+    const totalN = activeCategory === 'balita' ? data.reduce((acc, curr) => acc + (curr.naik_balita || 0), 0) : 0;
+    const avgKeberhasilan = activeCategory === 'balita' && hadir > 0 ? Math.round((totalN / hadir) * 100) : 0;
+
     return {
       kategori: activeCategory === 'balita' ? 'Balita' : 'Lansia',
       total_sasaran_wilayah: total,
       total_hadir_wilayah: hadir,
       rata_rata_kehadiran: total > 0 ? `${Math.round((hadir / total) * 100)}%` : '0%',
+      ...(activeCategory === 'balita' ? {
+        total_balita_naik_bb_n: totalN,
+        rata_rata_keberhasilan_program_nd: `${avgKeberhasilan}%`,
+      } : {}),
       posyandu_kehadiran_baik: baik,
       posyandu_perlu_perhatian: perhatian
     };
@@ -289,8 +417,19 @@ export default function KehadiranPage() {
                 <tr>
                   <th>Nama Posyandu</th>
                   <th>Kelurahan/Desa</th>
-                  {activeCategory === 'balita' ? <th>Kehadiran Balita</th> : <th>Kehadiran Lansia</th>}
-                  <th>Tingkat Kehadiran</th>
+                  {activeCategory === 'balita' ? (
+                    <>
+                      <th>Cakupan Penimbangan (D/S)</th>
+                      <th>Tingkat Partisipasi (D/S)</th>
+                      <th>Keberhasilan Program (N/D)</th>
+                      <th>Rasio Keberhasilan (N/D)</th>
+                    </>
+                  ) : (
+                    <>
+                      <th>Kehadiran Lansia</th>
+                      <th>Tingkat Kehadiran</th>
+                    </>
+                  )}
                   <th>Status Partisipasi</th>
                 </tr>
               </thead>
@@ -299,14 +438,43 @@ export default function KehadiranPage() {
                   <tr key={item.id}>
                     <td style={{ fontWeight: 500 }}>{item.nama_posyandu}</td>
                     <td>{item.kelurahan}</td>
-                    <td>
-                      {activeCategory === 'balita' 
-                        ? `${item.hadir_balita} / ${item.total_balita} Anak`
-                        : `${item.hadir_lansia} / ${item.total_lansia} Lansia`}
-                    </td>
-                    <td style={{ fontWeight: 600, color: 'var(--color-primary)' }}>
-                      {item.persentase}%
-                    </td>
+                    {activeCategory === 'balita' ? (
+                      <>
+                        <td>
+                          <span style={{ fontWeight: 500 }}>{item.hadir_balita}</span>
+                          <span style={{ color: 'var(--text-muted)' }}> / {item.total_balita} Anak</span>
+                        </td>
+                        <td style={{ 
+                          fontWeight: 600, 
+                          color: item.persentase >= 85 ? 'var(--color-success)' : 'var(--color-danger)' 
+                        }}>
+                          {item.persentase}%
+                        </td>
+                        <td>
+                          <span style={{ fontWeight: 500 }}>{item.naik_balita}</span>
+                          <span style={{ color: 'var(--text-muted)' }}> / {item.hadir_balita} Anak</span>
+                        </td>
+                        <td style={{ 
+                          fontWeight: 600, 
+                          color: (item.keberhasilan_pct ?? 0) >= 88 ? 'var(--color-success)' : 'var(--color-danger)' 
+                        }}>
+                          {item.keberhasilan_pct}%
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td>
+                          <span style={{ fontWeight: 500 }}>{item.hadir_lansia}</span>
+                          <span style={{ color: 'var(--text-muted)' }}> / {item.total_lansia} Lansia</span>
+                        </td>
+                        <td style={{ 
+                          fontWeight: 600, 
+                          color: item.persentase >= 80 ? 'var(--color-success)' : 'var(--color-danger)' 
+                        }}>
+                          {item.persentase}%
+                        </td>
+                      </>
+                    )}
                     <td>
                       <span 
                         className={`badge ${

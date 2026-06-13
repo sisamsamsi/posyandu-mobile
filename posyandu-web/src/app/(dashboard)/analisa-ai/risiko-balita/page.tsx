@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getKBMValue, calculateAgeMonths as utilsCalculateAgeMonths } from '@/lib/utils';
 import { useFilters } from '@/context/FilterContext';
 import { BrainCircuit, TrendingDown, Search } from 'lucide-react';
 import SubmenuPlaceholder, { StatItem } from '@/components/layout/SubmenuPlaceholder';
@@ -43,7 +44,7 @@ export default function AnalisisRisikoBalitaPage() {
         const { data: balitas, error } = await supabase
           .from('balitas')
           .select(`
-            id, nama, tanggal_lahir, posyandu_id,
+            id, nama, tanggal_lahir, jenis_kelamin, posyandu_id,
             posyandu:posyandus(nama_posyandu, kelurahan),
             penimbangans(berat_badan, tinggi_badan, status_tb_u, tanggal)
           `);
@@ -70,11 +71,15 @@ export default function AnalisisRisikoBalitaPage() {
 
             if (prev) {
               const diff = latest.berat_badan - prev.berat_badan;
+              const ageMonths = utilsCalculateAgeMonths(b.tanggal_lahir, latest.tanggal);
+              const kbm = getKBMValue(ageMonths, b.jenis_kelamin || 'Perempuan');
               if (diff < 0) {
                 weightTrend = `Turun (${diff.toFixed(1)} kg)`;
                 score += 35;
-              } else if (diff === 0) {
-                weightTrend = 'Tetap (Faltering)';
+              } else if (diff < kbm) {
+                weightTrend = diff === 0
+                  ? 'Tetap (Faltering)'
+                  : `Naik (+${diff.toFixed(1)} kg - Faltering < KBM)`;
                 score += 20;
               } else {
                 weightTrend = `Naik (+${diff.toFixed(1)} kg)`;

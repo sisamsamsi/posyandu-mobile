@@ -39,7 +39,7 @@ import { ImunisasiService } from '../../services/imunisasi-service';
 import { WhatsAppService } from '../../services/whatsapp-service';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
-import { calculateAgeMonths } from '../../lib/utils';
+import { calculateAgeMonths, calculateGrowthTrend } from '../../lib/utils';
 import { whoService } from '../../services/who-service';
 import { GrowthChart } from '../../components/charts/GrowthChart';
 
@@ -175,24 +175,8 @@ export default function CounselingSessionScreen() {
       setBalitaPenimbangans(historyList);
 
       // Hitung trend berdasarkan history (descending untuk formula trend)
-      let bbTrend: 'N' | 'T' | '2T' | '-' = '-';
       const descHistory = [...historyList].sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime());
-      if (descHistory.length >= 2) {
-        const w0 = descHistory[0];
-        const w1 = descHistory[1];
-        if (descHistory.length >= 3) {
-          const w2 = descHistory[2];
-          if (w0.berat_badan <= w1.berat_badan && w1.berat_badan <= w2.berat_badan) {
-            bbTrend = '2T';
-          }
-        }
-        if (bbTrend !== '2T' && w0.berat_badan <= w1.berat_badan) {
-          bbTrend = 'T';
-        }
-        if (bbTrend === '-') {
-          bbTrend = 'N';
-        }
-      }
+      const bbTrend = calculateGrowthTrend(descHistory, balitaData.tanggal_lahir, balitaData.jenis_kelamin || 'Perempuan');
       setCalculatedTrend(bbTrend);
 
       // Fetch WHO standards
@@ -305,10 +289,10 @@ export default function CounselingSessionScreen() {
 
 
   const handleNextStep = () => {
-    const isStep4 = currentStep === 4;
-    const currentVal = isStep4 ? catatanKader : currentAnswer;
+    const isStep5 = currentStep === 5;
+    const currentVal = isStep5 ? catatanKader : currentAnswer;
 
-    if (!isStep4 && currentVal.trim().length === 0) {
+    if (!isStep5 && currentVal.trim().length === 0) {
       Alert.alert(
         'Jawaban Belum Lengkap',
         'Kader disarankan mengisi jawaban orang tua agar analisis AI lebih mendalam. Apakah Anda yakin ingin membiarkannya kosong?',
@@ -323,7 +307,7 @@ export default function CounselingSessionScreen() {
   };
 
   const proceedToNext = async () => {
-    if (currentStep === 4) {
+    if (currentStep === 5) {
       processRecommendation();
       return;
     }
@@ -338,7 +322,7 @@ export default function CounselingSessionScreen() {
     setQaList(updatedQaList);
     setCurrentAnswer('');
 
-    if (currentStep < 3) {
+    if (currentStep < 4) {
       setLoadingNext(true);
       try {
         const ageMonths = calculateAgeMonths(balita.tanggal_lahir, todayStr);
@@ -377,20 +361,20 @@ export default function CounselingSessionScreen() {
         setLoadingNext(false);
       }
     } else {
-      // Pindah ke Langkah 4: Rangkuman & Catatan Khusus Kader (Opsional)
-      setCurrentStep(4);
+      // Pindah ke Langkah 5: Rangkuman & Catatan Khusus Kader (Opsional)
+      setCurrentStep(5);
     }
   };
 
   const handlePrevStep = () => {
     if (currentStep === 1) return;
 
-    if (currentStep === 4) {
-      const lastQA = qaList[2];
+    if (currentStep === 5) {
+      const lastQA = qaList[3];
       setCurrentAnswer(lastQA ? lastQA.answer : '');
-      setActiveQuestion(questionsHistory[2]);
-      setQaList(qaList.slice(0, 2));
-      setCurrentStep(3);
+      setActiveQuestion(questionsHistory[3]);
+      setQaList(qaList.slice(0, 3));
+      setCurrentStep(4);
       return;
     }
 
@@ -472,7 +456,7 @@ export default function CounselingSessionScreen() {
       console.error(e);
       Alert.alert('Gagal Memproses Rekomendasi', e.message || 'Terjadi gangguan jaringan.');
       setStage('interview');
-      setCurrentStep(4);
+      setCurrentStep(5);
     }
   };
 
@@ -509,16 +493,17 @@ export default function CounselingSessionScreen() {
 
   const getStepTitle = (step: number) => {
     switch (step) {
-      case 1: return 'Nutrisi & MPASI';
-      case 2: return 'Kesehatan & Infeksi';
-      case 3: return 'Pola Asuh & Sanitasi';
-      case 4: return 'Catatan Khusus';
+      case 1: return 'Asupan & Protein Hewani';
+      case 2: return 'Riwayat Sakit & Imunisasi';
+      case 3: return 'Pola Asuh & Feeding Rules';
+      case 4: return 'Sanitasi & Air Bersih';
+      case 5: return 'Catatan Akhir';
       default: return '';
     }
   };
 
   const getQuickReplies = (step: number, activeQ?: AdaptiveQuestion | null) => {
-    if (step === 4) {
+    if (step === 5) {
       return [
         "Anak tampak lincah, aktif, ceria, dan tidak ada tanda klinis lesu.",
         "Fisik anak tampak agak lesu dan rambut kusam.",
@@ -545,10 +530,17 @@ export default function CounselingSessionScreen() {
           ];
         case 3:
           return [
-            "Disuapi ibu dengan telaten tanpa gawai/HP.",
-            "Rewel saat disuapi, sering diemut atau dilepeh.",
-            "Sumber air bersih dimasak matang, rajin cuci tangan pakai sabun.",
-            "Tinggal bersama nenek karena orang tua bekerja."
+            "Disuapi ibu secara tenang tanpa nonton HP/jalan-jalan.",
+            "Sering GTM (Gerakan Tutup Mulut), melepeh, atau mengemut makanan.",
+            "Jadwal makan tidak teratur, sering diberikan susu/camilan di sela jam makan.",
+            "Anak aktif disuapi secara responsif, tidak dipaksa."
+          ];
+        case 4:
+          return [
+            "Menggunakan air galon/rebus mendidih, cuci tangan pakai sabun sebelum makan.",
+            "Sumber air sumur, kebersihan lingkungan rumah cukup terjaga.",
+            "Akses air bersih terbatas, jarang membiasakan cuci tangan pakai sabun.",
+            "Sanitasi rumah baik, jamban keluarga bersih dan sehat."
           ];
         default:
           return [];
@@ -566,7 +558,7 @@ export default function CounselingSessionScreen() {
       ];
     }
     
-    if (area.includes('GIZI') || area.includes('NUTRISI') || area.includes('MPASI')) {
+    if (area.includes('GIZI') || area.includes('NUTRISI') || area.includes('MPASI') || area.includes('ASUPAN') || area.includes('PROTEIN')) {
       return [
         "Makan 3x sehari lauk telur/ikan/daging secara teratur.",
         "Nafsu makan berkurang, lebih suka camilan/susu saja.",
@@ -575,7 +567,7 @@ export default function CounselingSessionScreen() {
       ];
     }
     
-    if (area.includes('PENYAKIT') || area.includes('INFEKSI') || area.includes('SAKIT') || area.includes('KESEHATAN')) {
+    if (area.includes('PENYAKIT') || area.includes('INFEKSI') || area.includes('SAKIT') || area.includes('KESEHATAN') || area.includes('IMUNISASI')) {
       return [
         "Anak sehat, tidak ada riwayat demam, batuk, pilek, atau diare baru-baru ini.",
         "Sempat batuk-pilek ringan 2-3 hari, tetapi nafsu makan tetap baik.",
@@ -628,7 +620,7 @@ export default function CounselingSessionScreen() {
   };
 
   const handleQuickReplyPress = (reply: string) => {
-    if (currentStep === 4) {
+    if (currentStep === 5) {
       setCatatanKader(reply);
     } else {
       setCurrentAnswer(reply);
@@ -655,7 +647,7 @@ export default function CounselingSessionScreen() {
 
       case 'interview': {
         const quickReplies = getQuickReplies(currentStep, activeQuestion);
-        const isStep4 = currentStep === 4;
+        const isStep5 = currentStep === 5;
 
         return (
           <KeyboardAvoidingView
@@ -735,11 +727,11 @@ export default function CounselingSessionScreen() {
             {/* Step Indicator Header Line */}
             <View style={styles.stepProgressContainer}>
               <View style={styles.stepIndicatorRow}>
-                <Text style={styles.stepIndicatorText}>Langkah {currentStep} dari 4</Text>
+                <Text style={styles.stepIndicatorText}>Langkah {currentStep} dari 5</Text>
                 <Text style={styles.stepIndicatorTitle}>{getStepTitle(currentStep)}</Text>
               </View>
               <View style={styles.progressBarBg}>
-                <View style={[styles.progressBarFill, { width: `${(currentStep / 4) * 100}%` }]} />
+                <View style={[styles.progressBarFill, { width: `${(currentStep / 5) * 100}%` }]} />
               </View>
             </View>
 
@@ -776,7 +768,7 @@ export default function CounselingSessionScreen() {
               {/* Step 1 */}
               <AiChatBubble 
                 stepNumber={1}
-                title="Nutrisi & MPASI"
+                title="Asupan & Protein Hewani"
                 text={questionsHistory[0]?.question || activeQuestion?.question || ''} 
                 guidance={questionsHistory[0]?.guidance || activeQuestion?.guidance || ''}
               />
@@ -788,7 +780,7 @@ export default function CounselingSessionScreen() {
               {currentStep >= 2 && (
                 <AiChatBubble 
                   stepNumber={2}
-                  title="Kesehatan & Infeksi"
+                  title="Riwayat Sakit & Imunisasi"
                   text={questionsHistory[1]?.question || (currentStep === 2 ? activeQuestion?.question : '') || ''} 
                   guidance={questionsHistory[1]?.guidance || (currentStep === 2 ? activeQuestion?.guidance : '') || ''}
                 />
@@ -801,7 +793,7 @@ export default function CounselingSessionScreen() {
               {currentStep >= 3 && (
                 <AiChatBubble 
                   stepNumber={3}
-                  title="Pola Asuh & Sanitasi"
+                  title="Pola Asuh & Feeding Rules"
                   text={questionsHistory[2]?.question || (currentStep === 3 ? activeQuestion?.question : '') || ''} 
                   guidance={questionsHistory[2]?.guidance || (currentStep === 3 ? activeQuestion?.guidance : '') || ''}
                 />
@@ -814,12 +806,25 @@ export default function CounselingSessionScreen() {
               {currentStep >= 4 && (
                 <AiChatBubble 
                   stepNumber={4}
+                  title="Sanitasi & Air Bersih"
+                  text={questionsHistory[3]?.question || (currentStep === 4 ? activeQuestion?.question : '') || ''} 
+                  guidance={questionsHistory[3]?.guidance || (currentStep === 4 ? activeQuestion?.guidance : '') || ''}
+                />
+              )}
+              {qaList.length >= 4 && (
+                <UserChatBubble text={qaList[3].answer} />
+              )}
+
+              {/* Step 5 */}
+              {currentStep >= 5 && (
+                <AiChatBubble 
+                  stepNumber={5}
                   title="Catatan Khusus Kader"
                   text="Apakah ada catatan khusus lapangan lainnya yang ingin Anda tambahkan? Misalnya kondisi fisik anak lesu, rambut kusam, masalah keluarga, dll. Silakan ketik langsung di bawah, pilih rekomendasi cepat, atau tekan Kirim/Selesai jika tidak ada."
                   guidance="Panduan Kader: Tuliskan pengamatan penting secara bebas untuk memperkuat analisis dan rekomendasi gizi AI."
                 />
               )}
-              {catatanKader.trim().length > 0 && currentStep > 4 && (
+              {catatanKader.trim().length > 0 && currentStep > 5 && (
                 <UserChatBubble text={catatanKader} />
               )}
 
@@ -857,22 +862,22 @@ export default function CounselingSessionScreen() {
                 <TextInput
                   style={[styles.chatTextInput, { maxHeight: 80 }]}
                   placeholder={
-                    isStep4 
+                    isStep5 
                       ? "Tulis catatan khusus kader..." 
                       : `Tulis jawaban langkah ${currentStep}...`
                   }
-                  value={isStep4 ? catatanKader : currentAnswer}
-                  onChangeText={isStep4 ? setCatatanKader : setCurrentAnswer}
+                  value={isStep5 ? catatanKader : currentAnswer}
+                  onChangeText={isStep5 ? setCatatanKader : setCurrentAnswer}
                   multiline
                 />
                 <TouchableOpacity 
                   style={[
                     styles.chatSendBtn, 
-                    ((isStep4 ? catatanKader : currentAnswer).trim().length === 0 && !isStep4) && styles.chatSendBtnDisabled
+                    ((isStep5 ? catatanKader : currentAnswer).trim().length === 0 && !isStep5) && styles.chatSendBtnDisabled
                   ]}
                   onPress={handleNextStep}
                 >
-                  {isStep4 ? (
+                  {isStep5 ? (
                     <CheckCircle2 size={20} color="#FFF" />
                   ) : (
                     <Send size={18} color="#FFF" />
@@ -886,9 +891,10 @@ export default function CounselingSessionScreen() {
 
       case 'success': {
         const chipColors = [
-          { bg: '#F0FDFA', text: '#09A477', label: 'Nutrisi' }, 
+          { bg: '#F0FDFA', text: '#09A477', label: 'Asupan' }, 
           { bg: '#FFFBEB', text: '#D97706', label: 'Kesehatan' }, 
-          { bg: '#FCE7F3', text: '#DB2777', label: 'Pola Asuh' }
+          { bg: '#FCE7F3', text: '#DB2777', label: 'Pola Asuh' },
+          { bg: '#ECFDF5', text: '#059669', label: 'Sanitasi' }
         ];
 
         return (

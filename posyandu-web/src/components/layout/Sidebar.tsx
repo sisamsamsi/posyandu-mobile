@@ -12,7 +12,8 @@ import {
   FileSpreadsheet, 
   Settings,
   LogOut,
-  ChevronDown
+  ChevronDown,
+  FileUp
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
@@ -72,7 +73,7 @@ export default function Sidebar({
               alamat: p.alamat
             };
             localStorage.setItem('simpul_sehat_puskesmas_profile', JSON.stringify(profile));
-            setAdminName(p.kepala_puskesmas || 'Dr. dr. Hendra Irawan, M.Kes');
+            setAdminName(p.kepala_puskesmas || 'Operator Puskesmas');
             setPuskesmasName(p.nama_puskesmas || 'Puskesmas Pondok I');
             window.dispatchEvent(new Event('puskesmas-profile-updated'));
             return;
@@ -87,7 +88,7 @@ export default function Sidebar({
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          setAdminName(parsed.kepalaPuskesmas || '');
+          setAdminName(parsed.kepalaPuskesmas || 'Operator Puskesmas');
           setPuskesmasName(parsed.namaPuskesmas || 'Puskesmas');
         } catch (_) {}
       }
@@ -100,7 +101,7 @@ export default function Sidebar({
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          setAdminName(parsed.kepalaPuskesmas || '');
+          setAdminName(parsed.kepalaPuskesmas || 'Operator Puskesmas');
           setPuskesmasName(parsed.namaPuskesmas || 'Puskesmas');
         } catch (_) {}
       }
@@ -131,8 +132,10 @@ export default function Sidebar({
         { name: 'Data Balita', path: '/balita' },
         { name: 'Status Gizi', path: '/balita/status-gizi' },
         { name: 'Penimbangan', path: '/balita/penimbangan' },
+        { name: 'Imunisasi', path: '/balita/imunisasi' },
         { name: 'Rekomendasi Penyuluhan', path: '/balita/penyuluhan' },
-        { name: 'Risiko Tinggi', path: '/balita/risiko-tinggi' }
+        { name: 'Risiko Tinggi', path: '/balita/risiko-tinggi' },
+        { name: 'Import Data Balita', path: '/import-data?type=balita' }
       ]
     },
     { 
@@ -142,7 +145,8 @@ export default function Sidebar({
         { name: 'Data Lansia', path: '/lansia' },
         { name: 'Pemeriksaan Kesehatan', path: '/lansia/pemeriksaan' },
         { name: 'Risiko PTM', path: '/lansia/risiko-ptm' },
-        { name: 'Kunjungan Prioritas', path: '/lansia/kunjungan-prioritas' }
+        { name: 'Kunjungan Prioritas', path: '/lansia/kunjungan-prioritas' },
+        { name: 'Import Data Lansia', path: '/import-data?type=lansia' }
       ]
     },
     { 
@@ -159,6 +163,7 @@ export default function Sidebar({
         { name: 'Rekomendasi Penyuluhan', path: '/analisa-ai/rekomendasi-penyuluhan' }
       ]
     },
+    { name: 'Import Data (Sistem)', path: '/import-data', icon: FileUp },
     { name: 'Laporan', path: '/laporan', icon: FileSpreadsheet },
     { name: 'Pengaturan', path: '/pengaturan', icon: Settings },
   ];
@@ -168,7 +173,7 @@ export default function Sidebar({
     let activeMenu: string | null = null;
     menuItems.forEach(item => {
       if (item.submenus) {
-        const hasActiveSub = item.submenus.some(sub => pathname === sub.path);
+        const hasActiveSub = item.submenus.some(sub => pathname === sub.path.split('?')[0]);
         if (hasActiveSub) {
           activeMenu = item.name;
         }
@@ -221,7 +226,7 @@ export default function Sidebar({
 
           if (item.submenus) {
             const isExpanded = expandedMenu === item.name;
-            const isParentActive = item.submenus.some(sub => pathname === sub.path);
+            const isParentActive = item.submenus.some(sub => pathname === sub.path.split('?')[0]);
 
             return (
               <div key={item.name} className="submenu-wrapper">
@@ -241,7 +246,7 @@ export default function Sidebar({
                 <div className={`submenu-container ${isExpanded ? 'expanded' : ''}`}>
                   <div className="submenu-list">
                     {item.submenus.map((sub) => {
-                      const isSubActive = pathname === sub.path;
+                      const isSubActive = pathname === sub.path.split('?')[0];
                       return (
                         <Link
                           key={sub.name}

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
-import { BrainCircuit, ArrowRight, Baby, User } from 'lucide-react';
+import { BrainCircuit, ArrowRight, Baby, User, Info } from 'lucide-react';
 import SubmenuPlaceholder, { StatItem } from '@/components/layout/SubmenuPlaceholder';
 import AIInsightBox from '@/components/ui/AIInsightBox';
 
@@ -329,12 +329,34 @@ export default function PrioritasIntervensiPage() {
         ))}
       </div>
 
-      {/* ── note ── */}
-      <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px', marginTop: 0 }}>
-        {activeTab === 'balita'
-          ? '* Skor = % balita aktif (&lt; 60 bulan) yang stunting berdasarkan penimbangan terakhir per anak.'
-          : '* Skor = % lansia dengan hipertensi (sistolik ≥ 140) atau gula darah ≥ 200 berdasarkan pemeriksaan terakhir.'}
-      </p>
+      {/* ── note/alert ── */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '10px',
+        padding: '12px 16px',
+        backgroundColor: '#eff6ff',
+        border: '1px solid #bfdbfe',
+        borderRadius: '12px',
+        color: '#1e3a8a',
+        fontSize: '12px',
+        lineHeight: '1.5',
+        marginBottom: '16px',
+      }}>
+        <Info size={16} style={{ flexShrink: 0, marginTop: '2px', color: '#3b82f6' }} />
+        <div>
+          <span style={{ fontWeight: 700, display: 'block', marginBottom: '2px' }}>Dasar Perhitungan Skor Urgensi:</span>
+          {activeTab === 'balita' ? (
+            <span style={{ display: 'block' }}>
+              Skor kebutuhan wilayah balita dihitung berdasarkan persentase balita aktif (&lt; 60 bulan) yang terindikasi <strong>stunting (pendek/sangat pendek)</strong> pada data penimbangan terakhir masing-masing balita.
+            </span>
+          ) : (
+            <span style={{ display: 'block' }}>
+              Skor kebutuhan wilayah lansia dihitung berdasarkan persentase lansia berisiko <strong>PTM (Penyakit Tidak Menular)</strong> yang terdeteksi memiliki hipertensi (sistolik ≥ 140 / diastolik ≥ 90) atau diabetes (gula darah sewaktu ≥ 200) pada pemeriksaan terakhir.
+            </span>
+          )}
+        </div>
+      </div>
 
       {/* ── table ── */}
       {loading ? (
@@ -377,25 +399,32 @@ export default function PrioritasIntervensiPage() {
                         : (item as LansiaRecord).totalLansia}
                     </td>
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{
-                          flex: 1,
-                          backgroundColor: '#e2e8f0',
-                          height: '6px',
-                          borderRadius: '3px',
-                          width: '70px',
-                          overflow: 'hidden',
-                        }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <div style={{
-                            width: `${item.skor_kebutuhan}%`,
-                            backgroundColor: barColor(item.prioritas),
-                            height: '100%',
+                            flex: 1,
+                            backgroundColor: '#e2e8f0',
+                            height: '6px',
                             borderRadius: '3px',
-                            transition: 'width 0.4s ease',
-                          }} />
+                            width: '70px',
+                            overflow: 'hidden',
+                          }}>
+                            <div style={{
+                              width: `${item.skor_kebutuhan}%`,
+                              backgroundColor: barColor(item.prioritas),
+                              height: '100%',
+                              borderRadius: '3px',
+                              transition: 'width 0.4s ease',
+                            }} />
+                          </div>
+                          <span style={{ fontSize: '11px', fontWeight: 700, minWidth: '36px' }}>
+                            {item.skor_kebutuhan}%
+                          </span>
                         </div>
-                        <span style={{ fontSize: '11px', fontWeight: 700, minWidth: '36px' }}>
-                          {item.skor_kebutuhan}%
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                          {activeTab === 'balita' 
+                            ? `${(item as BalitaRecord).stuntingCount} dari ${(item as BalitaRecord).totalBalita} Anak Stunting`
+                            : `${(item as LansiaRecord).ptmCount} dari ${(item as LansiaRecord).totalLansia} Lansia PTM`}
                         </span>
                       </div>
                     </td>

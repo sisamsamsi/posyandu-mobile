@@ -194,41 +194,42 @@ export class GroqService {
   ): Promise<AdaptiveQuestion> {
     const step = previousQA.length + 1;
 
-    const isStunting = metrics.status_tb_u?.includes('Pendek') || false;
-    const isWasting = metrics.status_bb_tb?.includes('Kurus') || metrics.status_bb_tb?.includes('Wasted') || metrics.status_bb_tb?.includes('Buruk') || false;
-    const isUnderweight = metrics.status_bb_u?.includes('Kurang') || false;
+    let currentTheme = '';
+    let themeGuidance = '';
 
-    const systemPrompt = `Anda adalah Ahli Gizi dan Tumbuh Kembang Posyandu (Kemenkes RI) yang sangat ramah, hangat, dan profesional.
-Tugas Anda adalah memilih Fokus Wawancara terpenting untuk Langkah ${step} dan merumuskan Pertanyaan Langkah ${step} beserta Panduan Kader.
+    if (step === 1) {
+      currentTheme = 'ASUPAN MAKAN & PROTEIN HEWANI';
+      themeGuidance = `Fokus pada frekuensi, porsi, dan terutama konsumsi PROTEIN HEWANI harian anak (seperti telur, hati ayam, ikan, daging). Sesuaikan pertanyaannya dengan data balita (Usia: ${ageMonths} bulan, Jenis Kelamin: ${balita.jenis_kelamin}, KMS: ${bbTrend || '-'}). Jika balita stunting/pendek, prioritaskan asupan protein hewani harian untuk merangsang tinggi badan. Jika balita mengalami T/2T (berat badan stagnan/turun), prioritaskan jumlah porsi makan dan asupan padat kalori.`;
+    } else if (step === 2) {
+      currentTheme = 'RIWAYAT SAKIT & IMUNISASI';
+      themeGuidance = `Fokus pada apakah anak sempat mengalami penyakit infeksi dalam 2 minggu terakhir (seperti batuk, pilek, demam, diare), dan kaitkan dengan kelengkapan imunisasi anak (imunisasi yang terlewat/belum lengkap: ${imunisasiStatus?.missing && imunisasiStatus.missing.length > 0 ? imunisasiStatus.missing.join(', ') : 'terpantau lengkap'}). Tanyakan apakah kondisi sakit ini memicu nafsu makan turun atau menghambat pertumbuhan berat badannya.`;
+    } else if (step === 3) {
+      currentTheme = 'POLA PENGASUHAN MAKAN / FEEDING RULES';
+      themeGuidance = `Fokus pada kedisiplinan dan perilaku makan anak (apakah terjadwal, durasi makan maksimal 30 menit, apakah anak sering melakukan gerakan tutup mulut (GTM), mengemut/melepeh makanan, atau memiliki kebiasaan makan sambil bermain/nonton gawai/HP, serta ketergantungan susu formula/camilan di luar jam makan).`;
+    } else {
+      currentTheme = 'SANITASI & AIR BERSIH';
+      themeGuidance = `Fokus pada higienitas air minum untuk si kecil (dimasak mendidih atau air galon isi ulang langsung dikonsumsi) dan kebiasaan cuci tangan pakai sabun sebelum menyuapi anak. Hal ini sangat krusial terutama bagi anak berstatus stunting/pendek (enteropati lingkungan akibat bakteri air) atau anak yang rentan terkena diare berulang (KMS T/2T).`;
+    }
 
-FOKUS AREA YANG TERSEDIA:
-1. EVALUASI REKOMENDASI LALU: Mengevaluasi progres saran/rekomendasi dari bulan-bulan sebelumnya.
-2. GIZI & MPASI: Kuantitas/kualitas makan, protein hewani, porsi, frekuensi.
-3. RIWAYAT PENYAKIT & INFEKSI: Batuk, pilek, demam, diare dalam 2 minggu terakhir.
-4. POLA PENGASUHAN & FEEDING RULES: Kebiasaan makan (GTM, rewel), kedisiplinan jadwal makan, pengasuh utama.
-5. SANITASI & KEBERSIHAN: Air bersih, cuci tangan pakai sabun, kebersihan jamban/lingkungan.
-6. STIMULASI & TUMBUH KEMBANG: Perkembangan motorik/bahasa sesuai usia anak.
+    const systemPrompt = `Anda adalah mesin skrining gizi dan tumbuh kembang Posyandu (Kemenkes RI) yang efisien, to-the-point, dan berfokus medis.
+Tugas Anda adalah merumuskan Pertanyaan Skrining Ke-${step} untuk kader posyandu (Tema: ${currentTheme}) dan Panduan Kader singkat.
 
-ATURAN PEMILIHAN FOKUS AREA:
-- Langkah ${step} HARUS memilih area yang paling mendesak/bermasalah bagi balita saat ini dan BELUM ditanyakan di langkah sebelumnya pada sesi ini.
-- JIKA ada data "MEMORI PENYULUHAN & REKOMENDASI" dan ini adalah LANGKAH 1, Anda WAJIB memilih area "EVALUASI REKOMENDASI LALU" untuk memfollow-up progres dari rekomendasi terakhir yang diberikan ke orang tua.
-- JIKA tidak ada memori bulan lalu (atau di Langkah 2 & 3), pilihlah Fokus Area yang paling kritis berdasarkan:
-  * Tren KMS 2T/T atau status underweight/wasting: Prioritaskan "GIZI & MPASI" atau "RIWAYAT PENYAKIT & INFEKSI" atau "POLA PENGASUHAN & FEEDING RULES".
-  * Status Stunting (pendek): Prioritaskan "GIZI & MPASI" (khusus lauk protein hewani) atau "SANITASI & KEBERSIHAN" (enteropati lingkungan).
-  * Balita normal: Prioritaskan "STIMULASI & TUMBUH KEMBANG" atau "GIZI & MPASI" (edukasi gizi seimbang).
+TEMA WAJIB LANGHAK INI: ${currentTheme}
+PANDUAN KHUSUS TEMA:
+${themeGuidance}
 
-ATURAN KRITIS PENULISAN PERTANYAAN:
-1. SENSOR SOSIAL-EKONOMI PRIVAT: Dilarang keras menanyakan tentang nominal pendapatan, harta, kekayaan, aset, kendaraan, kondisi rumah tangga privat, atau pekerjaan spesifik orang tua.
-2. FOKUS SOSIAL-EKONOMI MIKRO YANG ETIS: Tanyakan aspek sosial-ekonomi mikro yang mempengaruhi asupan anak secara sopan (ketersediaan lauk murah di pasar lokal, pengasuh utama).
-3. SATU PERTANYAAN TERFOKUS (ATURAN UTAMA): Hanya ajukan SATU pertanyaan utama (maksimal 2 kalimat tanya singkat) sesuai Fokus Area yang Anda pilih. DILARANG menumpuk banyak pertanyaan lintas topik sekaligus agar orang tua tidak kewalahan.
-4. BATAS PANJANG PERTANYAAN (MAKSIMAL 30 KATA): Pertanyaan langsung ke orang tua wajib sangat singkat, hangat, ramah, dan santai.
-5. PANDUAN KADER (GUIDANCE - MAKSIMAL 2 POIN & 25 KATA): Tuliskan instruksi singkat (maksimal 2 poin pendek) untuk kader guna mengarahkan wawancara jika orang tua menjawab terlalu singkat.
+ATURAN KRITIS GAYA PENULISAN (WAJIB DIPATUHI):
+1. TO-THE-POINT (INTI POIN SAJA): DILARANG menuliskan salam pembuka (seperti "Halo Ibu", "Selamat pagi"), kalimat basa-basi, ungkapan simpati, empati, atau kalimat ramah panjang lebar (karena kader akan menyampaikan dengan bahasa kader sendiri di lapangan). Langsung ajukan pertanyaan inti.
+2. DILARANG MEMBERIKAN SARAN/EDUKASI: Fokus pada penggalian data. Jangan menyisipkan saran, edukasi gizi, atau rekomendasi di dalam pertanyaan (semua rekomendasi hanya dikeluarkan di akhir sesi).
+3. BATAS KATA (20 - 40 KATA): Rumuskan pertanyaan dengan panjang sekitar 20 hingga 40 kata. Pertanyaan harus memuat konteks klinis/alasan medis mengapa hal tersebut ditanyakan agar kader memahami pentingnya pertanyaan ini bagi kondisi balita saat ini.
+4. ADAPTIF & SPESIFIK DATA (ANTI-TEMPLATE): Manfaatkan profil data balita saat ini (Usia: ${ageMonths} bulan, BB: ${metrics.berat_badan} kg, TB: ${metrics.tinggi_badan} cm, KMS: ${bbTrend}, Status TB/U: ${metrics.status_tb_u}) secara eksplisit di dalam kalimat pertanyaan. Jangan biarkan pertanyaan terasa generik atau sama untuk setiap anak.
+5. PANDUAN KADER (GUIDANCE - MAKSIMAL 20 KATA): Tuliskan instruksi konkret pendek (1 poin saja) untuk kader guna mengarahkan wawancara jika jawaban orang tua kurang jelas.
 
 Anda HARUS mengembalikan respon dalam format JSON objek dengan format sebagai berikut:
 {
-  "focus_area": "NAMA_FOKUS_AREA_YANG_DIPILIH",
-  "question": "Kalimat pertanyaan langsung yang hangat, spesifik, singkat, dan sopan kepada orang tua",
-  "guidance": "Instruksi konkret pendek bagi kader untuk menggali jawaban"
+  "focus_area": "${currentTheme}",
+  "question": "Kalimat pertanyaan langsung yang to-the-point, kaya konteks klinis sesuai data balita, panjang 20-40 kata, dan langsung ditujukan kepada orang tua",
+  "guidance": "Instruksi konkret pendek bagi kader untuk mendalami jawaban"
 }`;
 
     const userPrompt = `### PROFIL BALITA:
@@ -262,9 +263,9 @@ ${previousSessions && previousSessions.length > 0
   : '- Tidak ada riwayat penyuluhan sebelumnya (Cold Start).'
 }
 
-${previousQA.length > 0 ? `### JAWABAN PERTANYAAN SEBELUMNYA DI SESI INI:\n${previousQA.map((qa, i) => `Langkah ${i+1} [Fokus: ${qa.focus_area || 'Nutrisi'}] - Tanya: "${qa.question}"\nJawaban: "${qa.answer}"`).join('\n')}` : ''}
+${previousQA.length > 0 ? `### JAWABAN PERTANYAAN SEBELUMNYA DI SESI INI:\n${previousQA.map((qa, i) => `Langkah ${i+1} [Tema: ${qa.focus_area || 'Nutrisi'}] - Tanya: "${qa.question}"\nJawaban: "${qa.answer}"`).join('\n')}` : ''}
 
-Tentukan Fokus Area Langkah ${step} yang paling krusial untuk diselidiki saat ini, lalu buatkan 1 objek JSON berisi "focus_area", "question", dan "guidance".`;
+Tentukan Fokus Area Langkah ${step} yang wajib sesuai tema ${currentTheme}, lalu buatkan 1 objek JSON berisi "focus_area", "question", dan "guidance".`;
 
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -284,26 +285,30 @@ Tentukan Fokus Area Langkah ${step} yang paling krusial untuk diselidiki saat in
     // Fallbacks jika terjadi kegagalan sistem
     if (step === 1) {
       return {
-        focus_area: 'GIZI & MPASI',
-        question: "Ibu, apa saja lauk protein hewani (seperti telur atau ikan) yang dikonsumsi si kecil kemarin dan berapa kali makannya?",
-        guidance: "- Gali frekuensi & porsi makan.\n- Pastikan jenis protein hewani yang dikonsumsi."
+        focus_area: 'ASUPAN MAKAN & PROTEIN HEWANI',
+        question: `Bagaimana porsi makan protein hewani seperti telur atau ikan sehari-hari untuk si kecil ${balita.nama} di usianya yang ${ageMonths} bulan saat ini?`,
+        guidance: "Gali frekuensi & porsi makan protein hewani."
       };
     } else if (step === 2) {
       return {
-        focus_area: 'RIWAYAT PENYAKIT & INFEKSI',
-        question: "Apakah si kecil sempat mengalami batuk, pilek, demam, atau diare dalam dua minggu terakhir, Bu?",
-        guidance: "- Gali durasi sakitnya.\n- Tanyakan status imunisasi dasar sesuai usianya."
+        focus_area: 'RIWAYAT SAKIT & IMUNISASI',
+        question: `Apakah ${balita.nama} sempat mengalami demam, batuk, pilek, atau diare dalam dua minggu terakhir ini yang menyebabkan berat badannya tidak naik?`,
+        guidance: "Tanyakan durasi sakit anak."
+      };
+    } else if (step === 3) {
+      return {
+        focus_area: 'POLA PENGASUHAN MAKAN / FEEDING RULES',
+        question: `Bagaimana kebiasaan makan ${balita.nama} sehari-hari? Apakah sering melakukan GTM (Gerakan Tutup Mulut) atau makan sambil bermain?`,
+        guidance: "Tanyakan kebiasaan makan dan jadwal makan."
       };
     } else {
       return {
-        focus_area: 'POLA PENGASUHAN & FEEDING RULES',
-        question: "Bagaimana perilaku makan si kecil sehari-hari? Apakah ia suka rewel atau melakukan gerakan tutup mulut (GTM)?",
-        guidance: "- Tanyakan siapa yang menyuapinya sehari-hari.\n- Tanyakan status cuci tangan/sanitasi."
+        focus_area: 'SANITASI & AIR BERSIH',
+        question: `Apakah sumber air minum ${balita.nama} di rumah selalu direbus hingga mendidih dan apakah ibu mencuci tangan sebelum menyuapi anak?`,
+        guidance: "Tanyakan higienitas air galon/rebusan."
       };
     }
   }
-
-
 
   /**
    * Tahap 2: Menghasilkan rekomendasi gizi & MPASI adaptif yang hangat, terarah, dan sopan.

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFilters } from '@/context/FilterContext';
 import { supabase } from '@/lib/supabase';
+import { calculateAgeMonths, getKBMValue } from '@/lib/utils';
 import { 
   Baby, 
   Activity, 
@@ -240,8 +241,17 @@ export default function Dashboard() {
 
         for (const [balitaId, curWeight] of currentWeightMap.entries()) {
           const prevWeight = prevWeightMap.get(balitaId);
-          if (prevWeight !== undefined && curWeight > prevWeight) {
-            n++;
+          if (prevWeight !== undefined) {
+            const balita = activeBalitas.find(b => b.id === balitaId);
+            const curWeighing = monthlyPenimbangans.find(p => p.balita_id === balitaId);
+            if (balita && balita.tanggal_lahir && curWeighing && curWeighing.tanggal) {
+              const ageMonths = calculateAgeMonths(balita.tanggal_lahir, curWeighing.tanggal);
+              const kbm = getKBMValue(ageMonths, balita.jenis_kelamin || 'Perempuan');
+              const weightGain = curWeight - prevWeight;
+              if (weightGain >= kbm) {
+                n++;
+              }
+            }
           }
         }
 

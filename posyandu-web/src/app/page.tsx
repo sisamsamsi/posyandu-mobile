@@ -3,11 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { Lock, Mail, ShieldAlert, Sparkles, ArrowRight } from 'lucide-react';
+import { Lock, Mail, ShieldAlert, Sparkles, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const router = useRouter();
@@ -142,7 +143,7 @@ export default function LoginPage() {
           {/* Email input field */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>
-              Alamat Email Staf
+              Alamat Email Operator
             </label>
             <div style={{ position: 'relative' }}>
               <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
@@ -178,14 +179,14 @@ export default function LoginPage() {
                 <Lock size={16} />
               </span>
               <input 
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Masukkan kata sandi"
                 style={{
                   width: '100%',
-                  padding: '10px 14px 10px 38px',
+                  padding: '10px 38px 10px 38px',
                   fontSize: '13px',
                   borderRadius: '12px',
                   border: '1px solid #cbd5e1',
@@ -194,6 +195,26 @@ export default function LoginPage() {
                   color: '#1e293b'
                 }}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#94a3b8',
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
           </div>
 

@@ -40,7 +40,7 @@ import { Card } from '../../components/ui/Card';
 import { ZScoreEngine } from '../../services/zscore-engine';
 import { whoService } from '../../services/who-service';
 import { WhatsAppService } from '../../services/whatsapp-service';
-import { calculateAgeMonths, isBalitaLulus } from '../../lib/utils';
+import { calculateAgeMonths, isBalitaLulus, calculateGrowthTrend } from '../../lib/utils';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { GrowthChart } from '../../components/charts/GrowthChart';
@@ -169,22 +169,9 @@ export default function CounselingQueueScreen() {
 
       const getGrowthTrend = (balitaId: string): 'N' | 'T' | '2T' | '-' => {
         const history = historyMap.get(balitaId) || [];
-        if (history.length < 2) return '-';
-        const w0 = history[0];
-        const w1 = history[1];
-        
-        if (history.length >= 3) {
-          const w2 = history[2];
-          if (w0.berat_badan <= w1.berat_badan && w1.berat_badan <= w2.berat_badan) {
-            return '2T';
-          }
-        }
-        
-        if (w0.berat_badan <= w1.berat_badan) {
-          return 'T';
-        }
-        
-        return 'N';
+        const balita = balitasList.find(b => b.id === balitaId);
+        if (!balita || !balita.tanggal_lahir) return '-';
+        return calculateGrowthTrend(history, balita.tanggal_lahir, balita.jenis_kelamin || 'Perempuan');
       };
 
       // Set growth trends map for lookup in UI
