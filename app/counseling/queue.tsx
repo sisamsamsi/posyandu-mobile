@@ -392,7 +392,11 @@ export default function CounselingQueueScreen() {
     ];
 
     return (
-      <View style={styles.card}>
+      <TouchableOpacity 
+        style={styles.card}
+        onPress={() => router.push(`/balita/${item.balita.id}`)}
+        activeOpacity={0.9}
+      >
         <View style={styles.cardHeader}>
           <View style={[styles.avatarContainer, { backgroundColor: avatarBg }]}>
             <Text style={[styles.avatarText, { color: avatarColor }]}>{initials}</Text>
@@ -456,7 +460,7 @@ export default function CounselingQueueScreen() {
             <ChevronRight size={18} color="#09A477" />
           )}
         </TouchableOpacity>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -468,7 +472,11 @@ export default function CounselingQueueScreen() {
     const avatarColor = isLaki ? '#09A477' : '#DB2777';
     
     return (
-      <View style={styles.card}>
+      <TouchableOpacity 
+        style={styles.card}
+        onPress={() => router.push(`/balita/${item.id}`)}
+        activeOpacity={0.9}
+      >
         <View style={styles.cardHeader}>
           <View style={[styles.avatarContainer, { backgroundColor: avatarBg }]}>
             <Text style={[styles.avatarText, { color: avatarColor }]}>{initials}</Text>
@@ -491,7 +499,7 @@ export default function CounselingQueueScreen() {
           <Bell size={14} color="#C2410C" />
           <Text style={styles.absentReminderText}>Kirim Pengingat WA</Text>
         </TouchableOpacity>
-      </View>
+      </TouchableOpacity>
     );
   };
 

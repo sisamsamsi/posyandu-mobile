@@ -81,3 +81,6 @@ CREATE INDEX IF NOT EXISTS idx_posyandus_tipe ON posyandus(tipe_posyandu);
 CREATE INDEX IF NOT EXISTS idx_user_roles_uid ON user_roles(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_roles_role ON user_roles(role);
 CREATE INDEX IF NOT EXISTS idx_anomali_tgl ON data_anomali_logs(tanggal_data);
+
+-- 5. Tambah kolom alasan_tidak_imunisasi di tabel imunisasi untuk menandai yang tidak imunisasi sama sekali
+ALTER TABLE imunisasi ADD COLUMN IF NOT EXISTS alasan_tidak_imunisasi TEXT;

@@ -163,21 +163,31 @@ export default function ImunisasiScreen() {
         </View>
 
         <View style={styles.progressSection}>
-          <View style={styles.progressHeader}>
-            <Text style={styles.progressLabel}>Kelengkapan Imunisasi</Text>
-            <Text style={[
-              styles.progressValue, 
-              { color: completeness === 100 ? '#10B981' : COLORS.tealPrimary }
-            ]}>
-              {completeness}%
-            </Text>
-          </View>
-          <View style={styles.progressBarBg}>
-            <View style={[
-              styles.progressBarFill, 
-              { width: `${completeness}%`, backgroundColor: completeness === 100 ? '#10B981' : COLORS.tealPrimary }
-            ]} />
-          </View>
+          {item.imunisasi?.alasan_tidak_imunisasi ? (
+            <View style={styles.refusedContainer}>
+              <Text style={styles.refusedText}>
+                ⚠️ Sama Sekali Tidak Imunisasi ({item.imunisasi.alasan_tidak_imunisasi})
+              </Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.progressHeader}>
+                <Text style={styles.progressLabel}>Kelengkapan Imunisasi</Text>
+                <Text style={[
+                  styles.progressValue, 
+                  { color: completeness === 100 ? '#10B981' : COLORS.tealPrimary }
+                ]}>
+                  {completeness}%
+                </Text>
+              </View>
+              <View style={styles.progressBarBg}>
+                <View style={[
+                  styles.progressBarFill, 
+                  { width: `${completeness}%`, backgroundColor: completeness === 100 ? '#10B981' : COLORS.tealPrimary }
+                ]} />
+              </View>
+            </>
+          )}
         </View>
 
         <View style={styles.cardFooter}>
@@ -472,5 +482,21 @@ const styles = StyleSheet.create({
     fontSize: 13, 
     textAlign: 'center',
     fontWeight: '600',
+  },
+  refusedContainer: {
+    backgroundColor: '#FFF5F5',
+    borderColor: '#FEE2E2',
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  refusedText: {
+    fontSize: 12,
+    color: '#E11D48',
+    fontWeight: '800',
+    textAlign: 'center',
   }
 });

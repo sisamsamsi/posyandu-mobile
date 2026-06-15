@@ -573,7 +573,7 @@ export default function DashboardScreen() {
                 {isBalita ? (stats?.balitaVisitsThisMonth || 0) : (stats?.lansiaVisitsThisMonth || 0)}
               </Text>
               <Text style={styles.ringkasanLabel} numberOfLines={2}>
-                {isBalita ? 'Balita Aktif' : 'Lansia Aktif'}
+                {isBalita ? 'Balita Aktif (D)' : 'Lansia Aktif'}
               </Text>
             </View>
             
@@ -589,6 +589,33 @@ export default function DashboardScreen() {
               </Text>
             </View>
           </View>
+
+          {isBalita && (
+            <>
+              <View style={styles.ringkasanDivider} />
+              <View style={styles.ringkasanRow}>
+                {/* Column 1: D/S */}
+                <View style={styles.ringkasanCol}>
+                  <Text style={styles.ringkasanValue}>
+                    {stats?.pctDS || 0}%
+                  </Text>
+                  <Text style={styles.ringkasanLabel} numberOfLines={2}>
+                    Partisipasi (D/S)
+                  </Text>
+                </View>
+
+                {/* Column 2: N/D */}
+                <View style={styles.ringkasanCol}>
+                  <Text style={styles.ringkasanValue}>
+                    {stats?.pctND || 0}%
+                  </Text>
+                  <Text style={styles.ringkasanLabel} numberOfLines={2}>
+                    Tumbuh Naik (N/D)
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
         </View>
 
         {/* ==================================== */}
@@ -1250,6 +1277,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
+  },
+  ringkasanDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    marginVertical: 14,
+    width: '100%',
   },
   ringkasanTitleInside: {
     color: '#FFFFFF',

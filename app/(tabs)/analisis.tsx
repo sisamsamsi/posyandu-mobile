@@ -194,12 +194,14 @@ export default function AnalysisTabScreen() {
           const tEnd = endOfMonth(d).toISOString();
           const label = format(d, 'MMM yy', { locale: idLocale });
 
-          const { data: tRecords } = await supabase
+          let trendQuery = supabase
             .from('penimbangans')
-            .select('status_bb_tb, status_bb_u, status_tb_u, balitas!inner(posyandu_id)')
+            .select('status_bb_tb, status_bb_u, status_tb_u, balitas!inner(rt, posyandu_id)')
             .eq('balitas.posyandu_id', activePosyanduId)
             .gte('tanggal', tStart)
             .lte('tanggal', tEnd);
+          if (rt) trendQuery = trendQuery.eq('balitas.rt', rt);
+          const { data: tRecords } = await trendQuery;
 
           let tNormalBaik = 0;
           let tKurangBuruk = 0;
@@ -242,6 +244,7 @@ export default function AnalysisTabScreen() {
           .eq('balitas.posyandu_id', activePosyanduId)
           .gte('tanggal', start)
           .lte('tanggal', end);
+        if (rt) distQuery = distQuery.eq('balitas.rt', rt);
         const { data: distRecords } = await distQuery;
 
         const rtGroups: Record<string, { total: number, cat1: number, cat2: number, cat3: number, cat4: number }> = {};
@@ -342,12 +345,14 @@ export default function AnalysisTabScreen() {
           const tEnd = endOfMonth(d).toISOString();
           const label = format(d, 'MMM yy', { locale: idLocale });
 
-          const { count: lCount } = await supabase
+          let lTrendQuery = supabase
             .from('pemeriksaan_lansias')
-            .select('id', { count: 'exact', head: true })
+            .select('id, lansias!inner(rt, posyandu_id)', { count: 'exact', head: true })
             .eq('lansias.posyandu_id', activePosyanduId)
             .gte('tanggal_periksa', tStart)
             .lte('tanggal_periksa', tEnd);
+          if (rt) lTrendQuery = lTrendQuery.eq('lansias.rt', rt);
+          const { count: lCount } = await lTrendQuery;
 
           trends.push({ month: label, periksa: lCount || 0 });
         }
@@ -462,32 +467,28 @@ export default function AnalysisTabScreen() {
       label1 = 'Total Balita';
 
       value2 = totalHadir.toString();
-      const periksaPercent = totalSasaran > 0 ? Math.round((totalHadir / totalSasaran) * 100) : 0;
-      label2 = `Balita Periksa (${periksaPercent}%)`;
+      label2 = 'Balita Periksa';
       
       const issueCount = nutrisiStats.cat1 + nutrisiStats.cat2;
-      const issuePercent = totalHadir > 0 ? Math.round((issueCount / totalHadir) * 100) : 0;
       value3 = `${issueCount}`;
 
       if (indicator === 'BB/U') {
-        label3 = `BB Kurang/SK (${issuePercent}%)`;
+        label3 = 'BB Kurang/SK';
       } else if (indicator === 'TB/U') {
-        label3 = `Pendek/Stunted (${issuePercent}%)`;
+        label3 = 'Pendek/Stunted';
       } else {
-        label3 = `Gizi Kurang/Buruk (${issuePercent}%)`;
+        label3 = 'Gizi Kurang/Buruk';
       }
     } else {
       value1 = totalSasaran.toString();
       label1 = 'Total Lansia';
 
       value2 = totalHadir.toString();
-      const periksaPercent = totalSasaran > 0 ? Math.round((totalHadir / totalSasaran) * 100) : 0;
-      label2 = `Lansia Periksa (${periksaPercent}%)`;
+      label2 = 'Lansia Periksa';
 
       const riskCount = totalHadir - lansiaStats.normal;
-      const riskPercent = totalHadir > 0 ? Math.round((riskCount / totalHadir) * 100) : 0;
       value3 = `${riskCount}`;
-      label3 = `Ada Keluhan (${riskPercent}%)`;
+      label3 = 'Ada Keluhan';
     }
 
     return (
@@ -551,7 +552,7 @@ export default function AnalysisTabScreen() {
                     <Text style={styles.legendLabel}>{item.name}</Text>
                   </View>
                   <Text style={styles.legendValue}>
-                    {Math.round(item.population)} {isBalita ? 'balita' : 'lansia'} ({totalHadir > 0 ? Math.round((Math.round(item.population) / totalHadir) * 100) : 0}%)
+                    {Math.round(item.population)} {isBalita ? 'balita' : 'lansia'}
                   </Text>
                 </View>
               ))}
@@ -665,18 +666,18 @@ export default function AnalysisTabScreen() {
                   <View style={styles.barLegendRow}>
                     {isBalita ? (
                       <>
-                        {pBaik > 0 && <Text style={styles.barPercentText}>{Math.round(pBaik)}% Normal</Text>}
-                        {(pKurang + pBuruk) > 0 && (
+                        {item.cat3 > 0 && <Text style={styles.barPercentText}>{item.cat3} Normal</Text>}
+                        {(item.cat2 + item.cat1) > 0 && (
                           <Text style={[styles.barPercentText, { color: '#EF4444' }]}>
-                            {Math.round(pKurang + pBuruk)}% Kurang/Rujuk
+                            {item.cat2 + item.cat1} Kurang/Rujuk
                           </Text>
                         )}
-                        {pLebih > 0 && <Text style={[styles.barPercentText, { color: '#3B82F6' }]}>{Math.round(pLebih)}% Lebih</Text>}
+                        {item.cat4 > 0 && <Text style={[styles.barPercentText, { color: '#3B82F6' }]}>{item.cat4} Lebih</Text>}
                       </>
                     ) : (
                       <>
-                        {pNormalLansia > 0 && <Text style={styles.barPercentText}>{Math.round(pNormalLansia)}% Sehat</Text>}
-                        {pResikoLansia > 0 && <Text style={[styles.barPercentText, { color: '#EF4444' }]}>{Math.round(pResikoLansia)}% Rujuk/Risiko</Text>}
+                        {item.normal > 0 && <Text style={styles.barPercentText}>{item.normal} Sehat</Text>}
+                        {item.resiko > 0 && <Text style={[styles.barPercentText, { color: '#EF4444' }]}>{item.resiko} Rujuk/Risiko</Text>}
                       </>
                     )}
                   </View>

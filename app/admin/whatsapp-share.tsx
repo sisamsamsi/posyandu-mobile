@@ -362,6 +362,7 @@ function BalitaHasilCard({
   penimbangan: Penimbangan;
   onSend: () => void;
 }) {
+  const router = useRouter();
   const tanggal = format(new Date(penimbangan.tanggal), 'd MMM yyyy', { locale: idLocale });
   const isBoy = balita.jenis_kelamin === 'Laki-laki';
   const avatarBg = isBoy ? '#E0F2FE' : '#FCE7F3';
@@ -369,44 +370,49 @@ function BalitaHasilCard({
   const initials = balita.nama ? balita.nama.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() : 'B';
 
   return (
-    <Card style={styles.v2BalitaCard}>
-      <View style={styles.v2CardTop}>
-        <View style={[styles.avatarSquircle, { backgroundColor: avatarBg }]}>
-          <Text style={[styles.avatarText, { color: avatarText }]}>{initials}</Text>
+    <TouchableOpacity 
+      activeOpacity={0.9} 
+      onPress={() => router.push(`/balita/${balita.id}`)}
+    >
+      <Card style={styles.v2BalitaCard}>
+        <View style={styles.v2CardTop}>
+          <View style={[styles.avatarSquircle, { backgroundColor: avatarBg }]}>
+            <Text style={[styles.avatarText, { color: avatarText }]}>{initials}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.v2BalitaName}>{balita.nama}</Text>
+            <Text style={styles.v2BalitaSub}>
+              Ortu: {balita.nama_ortu} • {tanggal}
+            </Text>
+          </View>
+          {balita.no_hp_ortu ? (
+            <Badge label="Active" variant="success" />
+          ) : (
+            <Badge label="Missing HP" variant="warning" />
+          )}
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.v2BalitaName}>{balita.nama}</Text>
-          <Text style={styles.v2BalitaSub}>
-            Ortu: {balita.nama_ortu} • {tanggal}
-          </Text>
+        <View style={styles.v2StatsRow}>
+          <View style={styles.v2StatItem}>
+            <Text style={styles.v2StatVal}>{penimbangan.berat_badan.toFixed(2)} kg</Text>
+            <Text style={styles.v2StatLab}>BERAT</Text>
+          </View>
+          <View style={styles.v2StatDiv} />
+          <View style={styles.v2StatItem}>
+            <Text style={styles.v2StatVal}>{penimbangan.tinggi_badan.toFixed(1)} cm</Text>
+            <Text style={styles.v2StatLab}>TINGGI</Text>
+          </View>
+          <View style={styles.v2StatDiv} />
+          <View style={styles.v2StatItem}>
+            <Text style={styles.v2StatVal}>{penimbangan.status_bb_u || 'N/A'}</Text>
+            <Text style={styles.v2StatLab}>HASIL</Text>
+          </View>
         </View>
-        {balita.no_hp_ortu ? (
-          <Badge label="Active" variant="success" />
-        ) : (
-          <Badge label="Missing HP" variant="warning" />
-        )}
-      </View>
-      <View style={styles.v2StatsRow}>
-        <View style={styles.v2StatItem}>
-          <Text style={styles.v2StatVal}>{penimbangan.berat_badan.toFixed(2)} kg</Text>
-          <Text style={styles.v2StatLab}>BERAT</Text>
-        </View>
-        <View style={styles.v2StatDiv} />
-        <View style={styles.v2StatItem}>
-          <Text style={styles.v2StatVal}>{penimbangan.tinggi_badan.toFixed(1)} cm</Text>
-          <Text style={styles.v2StatLab}>TINGGI</Text>
-        </View>
-        <View style={styles.v2StatDiv} />
-        <View style={styles.v2StatItem}>
-          <Text style={styles.v2StatVal}>{penimbangan.status_bb_u || 'N/A'}</Text>
-          <Text style={styles.v2StatLab}>HASIL</Text>
-        </View>
-      </View>
-      <TouchableOpacity style={styles.v2SendBtn} onPress={onSend}>
-        <MessageCircle size={18} color="#0D9488" />
-        <Text style={styles.v2SendBtnText}>Share Ke WhatsApp</Text>
-      </TouchableOpacity>
-    </Card>
+        <TouchableOpacity style={styles.v2SendBtn} onPress={onSend}>
+          <MessageCircle size={18} color="#0D9488" />
+          <Text style={styles.v2SendBtnText}>Share Ke WhatsApp</Text>
+        </TouchableOpacity>
+      </Card>
+    </TouchableOpacity>
   );
 }
 
@@ -417,34 +423,40 @@ function BalitaPengingatCard({
   balita: Balita;
   onSend: () => void;
 }) {
+  const router = useRouter();
   const isBoy = balita.jenis_kelamin === 'Laki-laki';
   const avatarBg = isBoy ? '#E0F2FE' : '#FCE7F3';
   const avatarText = isBoy ? '#0284C7' : '#DB2777';
   const initials = balita.nama ? balita.nama.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() : 'B';
 
   return (
-    <Card style={styles.v2BalitaCard}>
-      <View style={styles.v2CardTop}>
-        <View style={[styles.avatarSquircle, { backgroundColor: avatarBg }]}>
-          <Text style={[styles.avatarText, { color: avatarText }]}>{initials}</Text>
+    <TouchableOpacity 
+      activeOpacity={0.9} 
+      onPress={() => router.push(`/balita/${balita.id}`)}
+    >
+      <Card style={styles.v2BalitaCard}>
+        <View style={styles.v2CardTop}>
+          <View style={[styles.avatarSquircle, { backgroundColor: avatarBg }]}>
+            <Text style={[styles.avatarText, { color: avatarText }]}>{initials}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.v2BalitaName}>{balita.nama}</Text>
+            <Text style={styles.v2BalitaSub}>
+              Ortu: {balita.nama_ortu} • RT {balita.rt}
+            </Text>
+          </View>
+          {balita.no_hp_ortu ? (
+            <Badge label="Ready" variant="success" />
+          ) : (
+            <Badge label="No HP" variant="warning" />
+          )}
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.v2BalitaName}>{balita.nama}</Text>
-          <Text style={styles.v2BalitaSub}>
-            Ortu: {balita.nama_ortu} • RT {balita.rt}
-          </Text>
-        </View>
-        {balita.no_hp_ortu ? (
-          <Badge label="Ready" variant="success" />
-        ) : (
-          <Badge label="No HP" variant="warning" />
-        )}
-      </View>
-      <TouchableOpacity style={styles.v2SendBtnReminder} onPress={onSend}>
-        <Bell size={18} color="#D97706" />
-        <Text style={styles.v2SendBtnTextReminder}>Kirim Pengingat WA</Text>
-      </TouchableOpacity>
-    </Card>
+        <TouchableOpacity style={styles.v2SendBtnReminder} onPress={onSend}>
+          <Bell size={18} color="#D97706" />
+          <Text style={styles.v2SendBtnTextReminder}>Kirim Pengingat WA</Text>
+        </TouchableOpacity>
+      </Card>
+    </TouchableOpacity>
   );
 }
 

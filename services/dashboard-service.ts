@@ -2,6 +2,7 @@
 import { supabase } from '../lib/supabase';
 import { Posyandu } from '../lib/types';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
+import { calculateGrowthTrend } from '../lib/utils';
 
 export interface LansiaHealthBreakdown {
   hipertensi: number;
@@ -24,6 +25,8 @@ export interface DashboardStats {
   lansiaHealthBreakdown: LansiaHealthBreakdown;
   posyanduInfo: Posyandu | null;
   imunisasiCount?: number;
+  pctDS?: number;
+  pctND?: number;
 }
 
 export class DashboardService {
@@ -46,7 +49,9 @@ export class DashboardService {
           kolesterolTinggi: 0,
           asamUratTinggi: 0
         },
-        posyanduInfo: null
+        posyanduInfo: null,
+        pctDS: 0,
+        pctND: 0
       };
     }
 
@@ -69,7 +74,7 @@ export class DashboardService {
     // ── STEP 1: Dapatkan ID Pasien di Posyandu ini ──
     const { data: balitas } = await supabase
       .from('balitas')
-      .select('id')
+      .select('id, tanggal_lahir, jenis_kelamin')
       .eq('posyandu_id', posyanduId)
       .gt('tanggal_lahir', limitDateString);
       
@@ -175,6 +180,40 @@ export class DashboardService {
       posyanduInfo = posData as Posyandu;
     }
 
+    // Query weight history to calculate N/D and D/S
+    const { data: allHistory } = await supabase
+      .from('penimbangans')
+      .select('balita_id, berat_badan, tanggal')
+      .in('balita_id', safeBalitaIds)
+      .order('tanggal', { ascending: false });
+
+    const historyMap = new Map<string, { berat_badan: number; tanggal: string }[]>();
+    (allHistory || []).forEach(h => {
+      const list = historyMap.get(h.balita_id) || [];
+      list.push({ berat_badan: h.berat_badan, tanggal: h.tanggal });
+      historyMap.set(h.balita_id, list);
+    });
+
+    let countN = 0;
+    let countT = 0;
+
+    balitas?.forEach(b => {
+      const history = historyMap.get(b.id) || [];
+      if (history.length > 0) {
+        const latest = history[0];
+        if (latest.tanggal >= startDate && latest.tanggal <= endDate) {
+          const trend = calculateGrowthTrend(history, b.tanggal_lahir, b.jenis_kelamin || 'Perempuan');
+          if (trend === 'N') {
+            countN++;
+          } else if (trend === 'T' || trend === '2T') {
+            countT++;
+          }
+        }
+      }
+    });
+
+    const pctDS = totalBalita && totalBalita > 0 ? Math.round(((balitaVisits || 0) / totalBalita) * 100) : 0;
+    const pctND = balitaVisits && balitaVisits > 0 ? Math.round((countN / balitaVisits) * 100) : 0;
 
     return {
       totalBalita: totalBalita || 0,
@@ -190,6 +229,8 @@ export class DashboardService {
       lansiaHealthBreakdown,
       posyanduInfo,
       imunisasiCount: imunisasiCount || 0,
+      pctDS,
+      pctND,
     };
   }
 

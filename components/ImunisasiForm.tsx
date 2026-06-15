@@ -10,7 +10,8 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
-  Pressable
+  Pressable,
+  TextInput
 } from 'react-native';
 import { X, Calendar as CalendarIcon, Check, Trash2, CheckCircle2 } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -65,9 +66,17 @@ export default function ImunisasiForm({ visible, onClose, balita }: Props) {
       if (error) throw error;
       Alert.alert('Sukses', 'Data imunisasi berhasil disimpan');
       onClose();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      Alert.alert('Error', 'Gagal menyimpan data');
+      if (e.message && (e.message.includes('alasan_tidak_imunisasi') || e.code === '42703')) {
+        Alert.alert(
+          'Error Database',
+          'Kolom "alasan_tidak_imunisasi" tidak ditemukan di database Anda. Silakan jalankan migrasi SQL terbaru di Supabase Anda.',
+          [{ text: 'Mengerti' }]
+        );
+      } else {
+        Alert.alert('Error', 'Gagal menyimpan data');
+      }
     } finally {
       setLoading(false);
     }
@@ -103,7 +112,9 @@ export default function ImunisasiForm({ visible, onClose, balita }: Props) {
             <View style={styles.headerRight}>
               <View style={styles.completenessBadge}>
                 <CheckCircle2 size={14} color={COLORS.tealPrimary} />
-                <Text style={styles.completenessText}>{completeness}%</Text>
+                <Text style={styles.completenessText}>
+                  {formData.alasan_tidak_imunisasi ? '0% (Ditolak)' : `${completeness}%`}
+                </Text>
               </View>
               <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
                 <X size={20} color="#64748B" />
@@ -149,6 +160,72 @@ export default function ImunisasiForm({ visible, onClose, balita }: Props) {
                 </View>
               </View>
             ))}
+
+            {/* Unvaccinated Status Section */}
+            <View style={styles.unvaccinatedSection}>
+              <View style={styles.unvaccinatedHeader}>
+                <Text style={styles.unvaccinatedTitle}>Status Khusus / Tidak Imunisasi</Text>
+                <TouchableOpacity 
+                  style={[
+                    styles.unvaccinatedToggle, 
+                    formData.alasan_tidak_imunisasi ? styles.unvaccinatedToggleActive : null
+                  ]}
+                  onPress={() => {
+                    if (formData.alasan_tidak_imunisasi) {
+                      setFormData(prev => ({ ...prev, alasan_tidak_imunisasi: null }));
+                    } else {
+                      setFormData(prev => ({ ...prev, alasan_tidak_imunisasi: 'Agama/Kepercayaan' }));
+                    }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.unvaccinatedToggleText,
+                    formData.alasan_tidak_imunisasi ? { color: '#FFFFFF' } : { color: '#EF4444' }
+                  ]}>
+                    {formData.alasan_tidak_imunisasi ? 'Tolak Imunisasi Aktif' : 'Tandai Tidak Imunisasi'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {formData.alasan_tidak_imunisasi !== undefined && formData.alasan_tidak_imunisasi !== null && (
+                <View style={styles.reasonsContainer}>
+                  <Text style={styles.reasonsLabel}>Pilih Alasan Utama:</Text>
+                  <View style={styles.reasonsRow}>
+                    {['Agama/Kepercayaan', 'Kondisi Medis', 'Alasan Keluarga', 'Lainnya'].map((reason) => {
+                      const isSelected = formData.alasan_tidak_imunisasi === reason || 
+                        (reason === 'Lainnya' && !['Agama/Kepercayaan', 'Kondisi Medis', 'Alasan Keluarga'].includes(formData.alasan_tidak_imunisasi || ''));
+                      
+                      return (
+                        <TouchableOpacity
+                          key={reason}
+                          style={[styles.reasonChip, isSelected && styles.reasonChipActive]}
+                          onPress={() => {
+                            if (reason === 'Lainnya') {
+                              setFormData(prev => ({ ...prev, alasan_tidak_imunisasi: 'Alasan Lainnya' }));
+                            } else {
+                              setFormData(prev => ({ ...prev, alasan_tidak_imunisasi: reason }));
+                            }
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.reasonChipText, isSelected && styles.reasonChipTextActive]}>
+                            {reason}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <TextInput
+                    style={styles.reasonInput}
+                    placeholder="Tuliskan alasan detail lainnya..."
+                    value={formData.alasan_tidak_imunisasi || ''}
+                    onChangeText={(text) => setFormData(prev => ({ ...prev, alasan_tidak_imunisasi: text }))}
+                  />
+                </View>
+              )}
+            </View>
           </ScrollView>
 
           <View style={styles.footer}>
@@ -373,5 +450,89 @@ const styles = StyleSheet.create({
     fontSize: 14, 
     fontWeight: '800', 
     color: '#FFFFFF',
+  },
+  unvaccinatedSection: {
+    backgroundColor: '#FFF5F5',
+    borderColor: '#FEE2E2',
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 16,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  unvaccinatedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  unvaccinatedTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#991B1B',
+  },
+  unvaccinatedToggle: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#EF4444',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  unvaccinatedToggleActive: {
+    backgroundColor: '#DC2626',
+    borderColor: '#DC2626',
+  },
+  unvaccinatedToggleText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  reasonsContainer: {
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#FEE2E2',
+    paddingTop: 12,
+  },
+  reasonsLabel: {
+    fontSize: 11,
+    color: '#7F1D1D',
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  reasonsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  reasonChip: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#FCA5A5',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  reasonChipActive: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#EF4444',
+  },
+  reasonChipText: {
+    fontSize: 11,
+    color: '#991B1B',
+    fontWeight: '700',
+  },
+  reasonChipTextActive: {
+    fontWeight: '900',
+  },
+  reasonInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#FCA5A5',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: '#991B1B',
+    marginTop: 4,
   }
 });

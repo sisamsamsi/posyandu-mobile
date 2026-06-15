@@ -81,6 +81,7 @@ export interface Imunisasi {
   je_date: string | null;
   booster_penta_date: string | null;
   booster_mr_date: string | null;
+  alasan_tidak_imunisasi?: string | null;
   created_at: string;
   updated_at: string;
 }
