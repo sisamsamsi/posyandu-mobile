@@ -112,7 +112,7 @@ export default function LoginPage() {
               overflow: 'hidden'
             }}
           >
-            <img src="/simpulsehat-logo.png?v=2" alt="SIMPUL SEHAT" style={{ width: '100%', height: 'auto', objectFit: 'contain' }} />
+            <img src="/simpulsehat-logo.png?v=3" alt="SIMPUL SEHAT" style={{ width: '100%', height: 'auto', objectFit: 'contain' }} />
           </div>
         </div>
 

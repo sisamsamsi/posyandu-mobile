@@ -200,8 +200,9 @@ export default function Sidebar({
     setExpandedMenu(prev => (prev === name ? null : name));
   };
 
-  const handleSignOut = () => {
-    alert('Fungsi Keluar (Logout) dinonaktifkan sementara.');
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push('/');
   };
 
   return (
@@ -225,7 +226,7 @@ export default function Sidebar({
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
           <img 
-            src="/simpulsehat-logo.png?v=2" 
+            src="/simpulsehat-logo.png?v=3" 
             alt="SIMPUL SEHAT" 
             style={{ maxHeight: '82px', maxWidth: '100%', width: 'auto', height: 'auto', objectFit: 'contain' }} 
           />
@@ -331,14 +332,10 @@ export default function Sidebar({
           <span className="profile-role" title={puskesmasName}>{puskesmasName}</span>
         </div>
         <button 
-          disabled
+          onClick={handleSignOut}
           className="action-btn"
-          title="Keluar (Nonaktif)"
-          style={{ 
-            color: 'rgba(255, 255, 255, 0.3)', 
-            cursor: 'not-allowed',
-            opacity: 0.5
-          }}
+          title="Keluar"
+          style={{ color: '#ffffff' }}
         >
           <LogOut size={16} />
         </button>
