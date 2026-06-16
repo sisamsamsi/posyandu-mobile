@@ -213,8 +213,8 @@ export default function Sidebar({
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'space-between', 
-          height: '72px', 
-          padding: '0 8px', 
+          height: '90px', 
+          padding: '0 12px', 
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
           borderBottom: '1px solid var(--border-color)',
@@ -227,7 +227,7 @@ export default function Sidebar({
           <img 
             src="/simpulsehat-logo.png?v=2" 
             alt="SIMPUL SEHAT" 
-            style={{ maxHeight: '64px', maxWidth: '100%', width: 'auto', height: 'auto', objectFit: 'contain' }} 
+            style={{ maxHeight: '82px', maxWidth: '100%', width: 'auto', height: 'auto', objectFit: 'contain' }} 
           />
         </div>
         {onClose && (
@@ -331,10 +331,14 @@ export default function Sidebar({
           <span className="profile-role" title={puskesmasName}>{puskesmasName}</span>
         </div>
         <button 
-          onClick={handleSignOut}
+          disabled
           className="action-btn"
-          title="Keluar"
-          style={{ color: '#ffffff' }}
+          title="Keluar (Nonaktif)"
+          style={{ 
+            color: 'rgba(255, 255, 255, 0.3)', 
+            cursor: 'not-allowed',
+            opacity: 0.5
+          }}
         >
           <LogOut size={16} />
         </button>
