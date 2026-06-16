@@ -221,7 +221,7 @@ export default function Sidebar({
           <img 
             src="/simpulsehat-logo.png?v=2" 
             alt="SIMPUL SEHAT" 
-            style={{ maxHeight: '40px', maxWidth: '100%', width: 'auto', height: 'auto', objectFit: 'contain' }} 
+            style={{ maxHeight: '56px', maxWidth: '100%', width: 'auto', height: 'auto', objectFit: 'contain' }} 
           />
         </div>
         {onClose && (
