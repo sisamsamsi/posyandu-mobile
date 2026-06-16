@@ -111,19 +111,21 @@ export default function BalitaServiceDesk() {
     fetchAllData();
   }, []);
 
-  // Filter search results in real-time as searchQuery or allBalitas change
+  // Filter search results in real-time as searchQuery or allBalitas change, excluding graduated balitas (> 60 months) at the time of the weighing (tanggal)
   useEffect(() => {
+    const activeBalitas = allBalitas.filter(b => calculateAgeMonths(b.tanggal_lahir, tanggal) <= 60);
+
     if (!searchQuery.trim()) {
-      setSearchResults(allBalitas);
+      setSearchResults(activeBalitas);
     } else {
       const lower = searchQuery.toLowerCase();
-      const filtered = allBalitas.filter(b => 
+      const filtered = activeBalitas.filter(b => 
         b.nama.toLowerCase().includes(lower) || 
         b.nik.includes(lower)
       );
       setSearchResults(filtered);
     }
-  }, [searchQuery, allBalitas]);
+  }, [searchQuery, allBalitas, tanggal]);
 
   const fetchEditData = async (eId: string) => {
     const { data } = await supabase.from('penimbangans').select('*').eq('id', eId).single();
