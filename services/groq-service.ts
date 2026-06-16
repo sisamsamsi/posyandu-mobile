@@ -52,130 +52,27 @@ export interface ImunisasiStatus {
 }
 
 export class GroqService {
-  private static API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-  private static DEFAULT_MODEL = 'llama-3.3-70b-versatile';
-
-  private static getApiKey(): string {
-    return process.env.EXPO_PUBLIC_GROQ_API_KEY || '';
-  }
-
-  private static async callGemini(messages: any[], isJsonResponse = false): Promise<string> {
-    try {
-      const openrouterApiKey = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY || '';
-      if (!openrouterApiKey) {
-        throw new Error('API Key OpenRouter tidak dikonfigurasi di env.');
-      }
-
-      const body: any = {
-        model: 'google/gemini-2.5-flash',
-        messages,
-        temperature: 0.5,
-        max_tokens: 2000,
-        response_format: isJsonResponse ? { type: 'json_object' } : undefined
-      };
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 detik timeout
-
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openrouterApiKey}`,
-          'HTTP-Referer': 'https://github.com/sisamsamsi/posyandu-mobile',
-          'X-Title': 'Posyandu Mobile'
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('OpenRouter Gemini API error:', errorText);
-        throw new Error(`OpenRouter Gemini API error: ${response.status} - ${errorText}`);
-      }
-
-      const json = await response.json();
-      return json.choices?.[0]?.message?.content || '';
-    } catch (e: any) {
-      console.error('Failed to call OpenRouter Gemini API:', e);
-      if (e.name === 'AbortError') {
-        throw new Error('Timeout koneksi ke layanan AI OpenRouter Gemini.');
-      }
-      throw new Error(e.message || 'Gagal terhubung dengan layanan AI OpenRouter Gemini.');
-    }
-  }
-
-  private static async callOpenAI(messages: any[], isJsonResponse = false): Promise<string> {
-    try {
-      const openaiApiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY || '';
-      if (!openaiApiKey) {
-        throw new Error('API Key OpenAI tidak dikonfigurasi di env.');
-      }
-
-      const body: any = {
-        model: 'gpt-4o-mini',
-        messages,
-        temperature: 0.5,
-        response_format: isJsonResponse ? { type: 'json_object' } : undefined
-      };
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 detik timeout
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openaiApiKey}`
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('OpenAI API error:', errorText);
-        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
-      }
-
-      const json = await response.json();
-      return json.choices?.[0]?.message?.content || '';
-    } catch (e: any) {
-      console.error('Failed to call OpenAI API:', e);
-      if (e.name === 'AbortError') {
-        throw new Error('Timeout koneksi ke layanan AI OpenAI.');
-      }
-      throw new Error(e.message || 'Gagal terhubung dengan layanan AI OpenAI.');
-    }
-  }
-
   private static async callGroq(messages: any[], isJsonResponse = false): Promise<string> {
-    // 1. Coba gunakan Gemini dahulu (Layanan Utama)
     try {
-      console.log('Mencoba layanan AI utama (Gemini)...');
-      return await this.callGemini(messages, isJsonResponse);
-    } catch (geminiError: any) {
-      console.warn('Layanan utama Gemini gagal atau limit, mencoba cadangan:', geminiError.message);
+      console.log('Mengirim permintaan konseling ke server aman (Edge Function)...');
       
-      // 2. Jika Gemini gagal, lakukan failover ke OpenAI (Layanan Cadangan)
-      const openaiApiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY || '';
-      if (openaiApiKey) {
-        try {
-          console.log('Mengaktifkan failover ke layanan cadangan (OpenAI)...');
-          return await this.callOpenAI(messages, isJsonResponse);
-        } catch (openaiError: any) {
-          console.error('Layanan cadangan OpenAI juga gagal:', openaiError.message);
-          throw openaiError;
-        }
+      const { data, error } = await supabase.functions.invoke('counseling', {
+        body: { messages, isJsonResponse }
+      });
+
+      if (error) {
+        console.error('Edge Function returned error:', error);
+        throw error;
       }
-      
-      // Jika tidak ada key OpenAI, lemparkan error asli dari Gemini
-      throw geminiError;
+
+      if (!data || typeof data.content !== 'string') {
+        throw new Error('Respon dari server AI tidak valid.');
+      }
+
+      return data.content;
+    } catch (e: any) {
+      console.error('Gagal terhubung dengan layanan AI:', e);
+      throw new Error(e.message || 'Gagal memproses rekomendasi gizi.');
     }
   }
 

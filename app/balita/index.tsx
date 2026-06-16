@@ -153,7 +153,7 @@ export default function BalitaIndex() {
           activeOpacity={0.8}
         >
           <Text style={[styles.filterChipText, activeFilter === 'baduta' && styles.filterChipTextActive]}>
-            Baduta (< 2 Th) ({counts.baduta})
+            {"Baduta (< 2 Th) ("}{counts.baduta}{")"}
           </Text>
         </TouchableOpacity>
 
@@ -173,7 +173,7 @@ export default function BalitaIndex() {
           activeOpacity={0.8}
         >
           <Text style={[styles.filterChipText, activeFilter === 'lulus' && styles.filterChipTextActive]}>
-            Lulus (> 5 Th) ({counts.lulus})
+            {"Lulus (> 5 Th) ("}{counts.lulus}{")"}
           </Text>
         </TouchableOpacity>
       </ScrollView>

@@ -1,6 +1,9 @@
 import { NextRequest } from 'next/server';
 import { groq } from '@/lib/groq';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,6 +15,11 @@ export async function POST(req: NextRequest) {
         headers: { 'Content-Type': 'application/json' }
       });
     }
+
+    // Initialize a request-specific Supabase client to avoid race conditions with singleton session state
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { persistSession: false }
+    });
 
     // 1. Fetch real context from DB to make AI smarter
     let totalBalitas = 0;

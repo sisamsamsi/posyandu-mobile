@@ -32,7 +32,7 @@ import { useServiceStore } from '../../stores/service-store';
 import { WorkspaceSwitcher } from '../../components/ui/WorkspaceSwitcher';
 import { COLORS } from '../../lib/constants';
 import { supabase } from '../../lib/supabase';
-import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
+import { startOfMonth, endOfMonth, subMonths, format, differenceInMonths } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 
 const screenWidth = Dimensions.get('window').width;

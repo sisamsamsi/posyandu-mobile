@@ -46,3 +46,6 @@ migrate-data.js
 test-db-lansia.js
 test-db.js
 groq-apikey.txt
+backup-april-26.dump
+scratch/
+scripts/
