@@ -6,6 +6,7 @@ import {
   StyleSheet, 
   TouchableOpacity, 
   ActivityIndicator,
+  ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -21,11 +22,52 @@ export default function BalitaIndex() {
   const { getBalitas, loading } = useBalita();
   const [balitas, setBalitas] = useState<Balita[]>([]);
   const [search, setSearch] = useState('');
+  const [activeFilter, setActiveFilter] = useState<'semua' | 'baduta' | 'balita' | 'lulus'>('semua');
 
   const fetchBalitas = async (query?: string) => {
     const data = await getBalitas(query);
     setBalitas(data);
   };
+
+  // Filtered balitas based on age
+  const filteredBalitas = React.useMemo(() => {
+    return balitas.filter(item => {
+      const ageMonths = differenceInMonths(new Date(), new Date(item.tanggal_lahir));
+      if (activeFilter === 'baduta') {
+        return ageMonths < 24;
+      }
+      if (activeFilter === 'balita') {
+        return ageMonths >= 24 && ageMonths <= 60;
+      }
+      if (activeFilter === 'lulus') {
+        return ageMonths > 60;
+      }
+      return true;
+    });
+  }, [balitas, activeFilter]);
+
+  // Counts for filter chips
+  const counts = React.useMemo(() => {
+    let baduta = 0;
+    let balitaCount = 0;
+    let lulusCount = 0;
+    balitas.forEach(b => {
+      const age = differenceInMonths(new Date(), new Date(b.tanggal_lahir));
+      if (age < 24) {
+        baduta++;
+      } else if (age <= 60) {
+        balitaCount++;
+      } else {
+        lulusCount++;
+      }
+    });
+    return {
+      semua: balitas.length,
+      baduta,
+      balita: balitaCount,
+      lulus: lulusCount
+    };
+  }, [balitas]);
 
   useEffect(() => {
     fetchBalitas();
@@ -88,13 +130,61 @@ export default function BalitaIndex() {
         />
       </View>
 
+      {/* Filter Chips for Balita */}
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false} 
+        contentContainerStyle={styles.filterScrollContainer}
+        style={styles.filterScrollView}
+      >
+        <TouchableOpacity 
+          style={[styles.filterChip, activeFilter === 'semua' && styles.filterChipActive]}
+          onPress={() => setActiveFilter('semua')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.filterChipText, activeFilter === 'semua' && styles.filterChipTextActive]}>
+            Semua ({counts.semua})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.filterChip, activeFilter === 'baduta' && styles.filterChipActive]}
+          onPress={() => setActiveFilter('baduta')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.filterChipText, activeFilter === 'baduta' && styles.filterChipTextActive]}>
+            Baduta (< 2 Th) ({counts.baduta})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.filterChip, activeFilter === 'balita' && styles.filterChipActive]}
+          onPress={() => setActiveFilter('balita')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.filterChipText, activeFilter === 'balita' && styles.filterChipTextActive]}>
+            Balita (2-5 Th) ({counts.balita})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.filterChip, activeFilter === 'lulus' && styles.filterChipActive]}
+          onPress={() => setActiveFilter('lulus')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.filterChipText, activeFilter === 'lulus' && styles.filterChipTextActive]}>
+            Lulus (> 5 Th) ({counts.lulus})
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+
       {loading && balitas.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#0D9488" />
         </View>
       ) : (
         <FlatList
-          data={balitas}
+          data={filteredBalitas}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
@@ -216,5 +306,38 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
     shadowRadius: 12,
+  },
+  filterScrollView: {
+    maxHeight: 50,
+    backgroundColor: '#FFFFFF',
+    marginBottom: 8,
+  },
+  filterScrollContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterChipActive: {
+    backgroundColor: '#0D9488',
+    borderColor: '#0D9488',
+  },
+  filterChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  filterChipTextActive: {
+    color: '#FFFFFF',
   },
 });

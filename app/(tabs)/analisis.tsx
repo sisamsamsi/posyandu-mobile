@@ -10,6 +10,7 @@ import {
   Share
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { 
   TrendingUp, 
   Users, 
@@ -43,11 +44,13 @@ const MONTHS_INDO = [
 ];
 
 export default function AnalysisTabScreen() {
+  const router = useRouter();
   const { activeWorkspace, activePosyanduId } = useServiceStore();
   
   // Tab states: 'ringkasan' (Hasil Analisa) or 'detail' (Detail Hasil Analisa & AI)
   const [activeTab, setActiveTab] = useState<'ringkasan' | 'detail'>('ringkasan');
   const [loading, setLoading] = useState(true);
+  const [expandedRt, setExpandedRt] = useState<string | null>(null);
 
   // Filter States
   const [month, setMonth] = useState(new Date().getMonth() + 1);
@@ -93,6 +96,7 @@ export default function AnalysisTabScreen() {
       return;
     }
     setLoading(true);
+    setExpandedRt(null);
     try {
       const date = new Date(year, month - 1, 1);
       const start = startOfMonth(date).toISOString();
@@ -240,37 +244,51 @@ export default function AnalysisTabScreen() {
         // 4. Fetch Distribusi per RT/Wilayah berdasarkan indikator
         let distQuery = supabase
           .from('penimbangans')
-          .select('status_bb_tb, status_bb_u, status_tb_u, balitas!inner(rt, posyandu_id)')
+          .select('status_bb_tb, status_bb_u, status_tb_u, balitas!inner(id, nama, rt, tanggal_lahir, posyandu_id)')
           .eq('balitas.posyandu_id', activePosyanduId)
           .gte('tanggal', start)
           .lte('tanggal', end);
         if (rt) distQuery = distQuery.eq('balitas.rt', rt);
         const { data: distRecords } = await distQuery;
 
-        const rtGroups: Record<string, { total: number, cat1: number, cat2: number, cat3: number, cat4: number }> = {};
+        const rtGroups: Record<string, { total: number, cat1: number, cat2: number, cat3: number, cat4: number, children: any[] }> = {};
         distRecords?.forEach((r: any) => {
           const label = `RT ${r.balitas.rt || '0'}`;
-          if (!rtGroups[label]) rtGroups[label] = { total: 0, cat1: 0, cat2: 0, cat3: 0, cat4: 0 };
+          if (!rtGroups[label]) rtGroups[label] = { total: 0, cat1: 0, cat2: 0, cat3: 0, cat4: 0, children: [] };
           rtGroups[label].total++;
           
+          let statusText = 'Normal';
           if (indicator === 'BB/U') {
             const status = r.status_bb_u || '';
-            if (status.includes('Sangat Kurang')) rtGroups[label].cat1++;
-            else if (status.includes('Kurang')) rtGroups[label].cat2++;
-            else if (status.includes('Normal')) rtGroups[label].cat3++;
+            statusText = status;
+            if (status.includes('Sangat Kurang') || status === 'SK') rtGroups[label].cat1++;
+            else if (status.includes('Kurang') || status === 'K') rtGroups[label].cat2++;
+            else if (status.includes('Normal') || status === 'N') rtGroups[label].cat3++;
             else if (status.includes('Lebih') || status.includes('RL')) rtGroups[label].cat4++;
           } else if (indicator === 'TB/U') {
             const status = r.status_tb_u || '';
+            statusText = status;
             if (status.includes('Sangat Pendek') || status === 'SP') rtGroups[label].cat1++;
             else if (status.includes('Pendek') || status === 'P') rtGroups[label].cat2++;
             else if (status.includes('Normal') || status === 'N') rtGroups[label].cat3++;
             else if (status.includes('Tinggi') || status === 'T') rtGroups[label].cat4++;
           } else if (indicator === 'BB/TB') {
             const status = r.status_bb_tb || '';
+            statusText = status;
             if (status.includes('Buruk')) rtGroups[label].cat1++;
             else if (status.includes('Kurang')) rtGroups[label].cat2++;
             else if (status.includes('Baik') || status.includes('Normal')) rtGroups[label].cat3++;
             else if (status.includes('Lebih') || status.includes('Obesitas') || status.includes('Resiko') || status.includes('Berisiko')) rtGroups[label].cat4++;
+          }
+
+          const age = differenceInMonths(new Date(), new Date(r.balitas.tanggal_lahir));
+          if (!rtGroups[label].children.some((c: any) => c.id === r.balitas.id)) {
+            rtGroups[label].children.push({
+              id: r.balitas.id,
+              nama: r.balitas.nama,
+              usia: age,
+              status: statusText || 'Normal'
+            });
           }
         });
 
@@ -283,9 +301,19 @@ export default function AnalysisTabScreen() {
             g.cat1 = Math.round(g.total * 0.05);
             g.cat4 = g.total - (g.cat1 + g.cat2 + g.cat3);
           }
+          g.children.sort((a, b) => a.nama.localeCompare(b.nama));
         });
 
-        setDistribusiWilayah(Object.entries(rtGroups).map(([name, val]) => ({ name, ...val })));
+        const getRtNumber = (name: string) => {
+          const num = name.replace(/\D/g, '');
+          return num ? parseInt(num, 10) : 999;
+        };
+
+        const sortedDist = Object.entries(rtGroups)
+          .map(([name, val]) => ({ name, ...val }))
+          .sort((a, b) => getRtNumber(a.name) - getRtNumber(b.name));
+
+        setDistribusiWilayah(sortedDist);
       } else {
         // Lansia Workspace calculations
         let sasaranQuery = supabase.from('lansias').select('id', { count: 'exact', head: true }).eq('posyandu_id', activePosyanduId);
@@ -295,7 +323,7 @@ export default function AnalysisTabScreen() {
 
         let query = supabase
           .from('pemeriksaan_lansias')
-          .select('tekanan_darah, gula_darah, kolesterol, asam_urat, lansias!inner(rt, jenis_kelamin, posyandu_id)')
+          .select('tekanan_darah, gula_darah, kolesterol, asam_urat, lansias!inner(id, nama, rt, jenis_kelamin, posyandu_id)')
           .eq('lansias.posyandu_id', activePosyanduId)
           .gte('tanggal_periksa', start)
           .lte('tanggal_periksa', end);
@@ -329,9 +357,6 @@ export default function AnalysisTabScreen() {
           if (isHealthy) normal++;
         });
 
-        // No fallback, use actual counts from database records
-
-
         setLansiaStats({ normal, hipertensi, diabetes, kolesterol: kolesterolVal, asamUrat: asamUratVal });
         setHipertensiCount(hipertensi);
         setDiabetesCount(diabetes);
@@ -359,10 +384,10 @@ export default function AnalysisTabScreen() {
         setTrendData(trends);
 
         // RT Grouping for Lansia
-        const rtGroups: Record<string, { total: number, normal: number, resiko: number }> = {};
+        const rtGroups: Record<string, { total: number, normal: number, resiko: number, children: any[] }> = {};
         records?.forEach((p: any) => {
           const label = `RT ${p.lansias?.rt || '0'}`;
-          if (!rtGroups[label]) rtGroups[label] = { total: 0, normal: 0, resiko: 0 };
+          if (!rtGroups[label]) rtGroups[label] = { total: 0, normal: 0, resiko: 0, children: [] };
           rtGroups[label].total++;
 
           const [sis, dias] = (p.tekanan_darah || '0/0').split('/').map(Number);
@@ -372,8 +397,31 @@ export default function AnalysisTabScreen() {
 
           if (isAtRisk) rtGroups[label].resiko++;
           else rtGroups[label].normal++;
+
+          if (!rtGroups[label].children.some((c: any) => c.id === p.lansias.id)) {
+            rtGroups[label].children.push({
+              id: p.lansias.id,
+              nama: p.lansias.nama,
+              status: isAtRisk ? 'Rujuk/Risiko' : 'Sehat',
+              detail: `TD: ${p.tekanan_darah || '-'}, GDS: ${p.gula_darah || '-'}`
+            });
+          }
         });
-        setDistribusiWilayah(Object.entries(rtGroups).map(([name, val]) => ({ name, ...val })));
+
+        Object.keys(rtGroups).forEach(key => {
+          rtGroups[key].children.sort((a, b) => a.nama.localeCompare(b.nama));
+        });
+
+        const getRtNumber = (name: string) => {
+          const num = name.replace(/\D/g, '');
+          return num ? parseInt(num, 10) : 999;
+        };
+
+        const sortedDist = Object.entries(rtGroups)
+          .map(([name, val]) => ({ name, ...val }))
+          .sort((a, b) => getRtNumber(a.name) - getRtNumber(b.name));
+
+        setDistribusiWilayah(sortedDist);
       }
     } catch (e) {
       console.error(e);
@@ -642,45 +690,89 @@ export default function AnalysisTabScreen() {
               const pResikoLansia = (item.resiko / total) * 100;
 
               return (
-                <View key={idx} style={styles.distributionRow}>
-                  <View style={styles.distHeaderRow}>
-                    <Text style={styles.distLabelName}>{item.name}</Text>
-                    <Text style={styles.distSubText}>{item.total} sasaran</Text>
-                  </View>
-                  
-                  {/* Stacked bar rendering */}
-                  {isBalita ? (
-                    <View style={styles.barContainer}>
-                      {pBaik > 0 && <View style={[styles.barSegment, { flex: pBaik, backgroundColor: '#10B981' }]} />}
-                      {pKurang > 0 && <View style={[styles.barSegment, { flex: pKurang, backgroundColor: '#F97316' }]} />}
-                      {pBuruk > 0 && <View style={[styles.barSegment, { flex: pBuruk, backgroundColor: '#EF4444' }]} />}
-                      {pLebih > 0 && <View style={[styles.barSegment, { flex: pLebih, backgroundColor: '#3B82F6' }]} />}
+                <View key={idx} style={{ marginBottom: 16 }}>
+                  <TouchableOpacity 
+                    style={styles.distributionRow}
+                    onPress={() => setExpandedRt(expandedRt === item.name ? null : item.name)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.distHeaderRow}>
+                      <Text style={styles.distLabelName}>{item.name}</Text>
+                      <Text style={styles.distSubText}>{item.total} sasaran (Tap Detail)</Text>
                     </View>
-                  ) : (
-                    <View style={styles.barContainer}>
-                      {pNormalLansia > 0 && <View style={[styles.barSegment, { flex: pNormalLansia, backgroundColor: '#10B981' }]} />}
-                      {pResikoLansia > 0 && <View style={[styles.barSegment, { flex: pResikoLansia, backgroundColor: '#EF4444' }]} />}
+                    
+                    {/* Stacked bar rendering */}
+                    {isBalita ? (
+                      <View style={styles.barContainer}>
+                        {pBaik > 0 && <View style={[styles.barSegment, { flex: pBaik, backgroundColor: '#10B981' }]} />}
+                        {pKurang > 0 && <View style={[styles.barSegment, { flex: pKurang, backgroundColor: '#F97316' }]} />}
+                        {pBuruk > 0 && <View style={[styles.barSegment, { flex: pBuruk, backgroundColor: '#EF4444' }]} />}
+                        {pLebih > 0 && <View style={[styles.barSegment, { flex: pLebih, backgroundColor: '#3B82F6' }]} />}
+                      </View>
+                    ) : (
+                      <View style={styles.barContainer}>
+                        {pNormalLansia > 0 && <View style={[styles.barSegment, { flex: pNormalLansia, backgroundColor: '#10B981' }]} />}
+                        {pResikoLansia > 0 && <View style={[styles.barSegment, { flex: pResikoLansia, backgroundColor: '#EF4444' }]} />}
+                      </View>
+                    )}
+                    
+                    <View style={styles.barLegendRow}>
+                      {isBalita ? (
+                        <>
+                          {item.cat3 > 0 && <Text style={styles.barPercentText}>{item.cat3} Normal</Text>}
+                          {(item.cat2 + item.cat1) > 0 && (
+                            <Text style={[styles.barPercentText, { color: '#EF4444' }]}>
+                              {item.cat2 + item.cat1} Kurang/Rujuk
+                            </Text>
+                          )}
+                          {item.cat4 > 0 && <Text style={[styles.barPercentText, { color: '#3B82F6' }]}>{item.cat4} Lebih</Text>}
+                        </>
+                      ) : (
+                        <>
+                          {item.normal > 0 && <Text style={styles.barPercentText}>{item.normal} Sehat</Text>}
+                          {item.resiko > 0 && <Text style={[styles.barPercentText, { color: '#EF4444' }]}>{item.resiko} Rujuk/Risiko</Text>}
+                        </>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Expanded list of individuals for the selected RT */}
+                  {expandedRt === item.name && (
+                    <View style={styles.expandedWargaContainer}>
+                      <Text style={styles.expandedWargaHeader}>
+                        {isBalita ? 'Data Balita Terdaftar:' : 'Data Lansia Terdaftar:'}
+                      </Text>
+                      {item.children && item.children.length > 0 ? (
+                        item.children.map((warga: any, wIdx: number) => (
+                          <TouchableOpacity 
+                            key={wIdx} 
+                            style={styles.wargaRow}
+                            onPress={() => router.push(`/${activeWorkspace}/${warga.id}`)}
+                            activeOpacity={0.7}
+                          >
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.wargaName}>{warga.nama}</Text>
+                              <Text style={styles.wargaSubText}>
+                                {isBalita ? `${warga.usia} bulan` : warga.detail}
+                              </Text>
+                            </View>
+                            <Badge 
+                              label={warga.status}
+                              variant={
+                                warga.status === 'Normal' || warga.status === 'Gizi Baik' || warga.status === 'Sehat'
+                                  ? 'success' 
+                                  : warga.status.includes('Lebih') || warga.status === 'Tinggi'
+                                    ? 'info'
+                                    : 'warning'
+                              }
+                            />
+                          </TouchableOpacity>
+                        ))
+                      ) : (
+                        <Text style={styles.wargaEmptyText}>Belum ada data bulan ini.</Text>
+                      )}
                     </View>
                   )}
-                  
-                  <View style={styles.barLegendRow}>
-                    {isBalita ? (
-                      <>
-                        {item.cat3 > 0 && <Text style={styles.barPercentText}>{item.cat3} Normal</Text>}
-                        {(item.cat2 + item.cat1) > 0 && (
-                          <Text style={[styles.barPercentText, { color: '#EF4444' }]}>
-                            {item.cat2 + item.cat1} Kurang/Rujuk
-                          </Text>
-                        )}
-                        {item.cat4 > 0 && <Text style={[styles.barPercentText, { color: '#3B82F6' }]}>{item.cat4} Lebih</Text>}
-                      </>
-                    ) : (
-                      <>
-                        {item.normal > 0 && <Text style={styles.barPercentText}>{item.normal} Sehat</Text>}
-                        {item.resiko > 0 && <Text style={[styles.barPercentText, { color: '#EF4444' }]}>{item.resiko} Rujuk/Risiko</Text>}
-                      </>
-                    )}
-                  </View>
                 </View>
               );
             })
@@ -1218,6 +1310,47 @@ const styles = StyleSheet.create({
   aiCardGroupAlert: {
     borderColor: '#FEE2E2',
     backgroundColor: '#FEF2F2',
+  },
+  expandedWargaContainer: {
+    marginTop: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  expandedWargaHeader: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#475569',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  wargaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  wargaName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  wargaSubText: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  wargaEmptyText: {
+    fontSize: 12,
+    color: '#94A3B8',
+    textAlign: 'center',
+    paddingVertical: 12,
+    fontWeight: '500',
   },
   aiAlertHeader: {
     flexDirection: 'row',

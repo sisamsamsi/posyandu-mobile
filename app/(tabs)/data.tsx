@@ -6,7 +6,8 @@ import {
   StyleSheet, 
   TouchableOpacity, 
   FlatList, 
-  ActivityIndicator 
+  ActivityIndicator,
+  ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -29,6 +30,7 @@ export default function DataMasterScreen() {
 
   const [search, setSearch] = useState('');
   const [listData, setListData] = useState<any[]>([]);
+  const [activeFilter, setActiveFilter] = useState<'semua' | 'baduta' | 'balita' | 'lulus'>('semua');
 
   const theme = {
     primary: isBalita ? COLORS.tealPrimary : COLORS.indigoPrimary,
@@ -50,6 +52,7 @@ export default function DataMasterScreen() {
   };
 
   useEffect(() => {
+    setActiveFilter('semua');
     fetchData();
   }, [activeWorkspace, activePosyanduId]);
 
@@ -57,6 +60,48 @@ export default function DataMasterScreen() {
     setSearch(text);
     fetchData(text);
   };
+
+  // Filtered balitas based on age
+  const filteredData = React.useMemo(() => {
+    if (!isBalita) return listData;
+    return listData.filter(item => {
+      const ageMonths = differenceInMonths(new Date(), new Date(item.tanggal_lahir));
+      if (activeFilter === 'baduta') {
+        return ageMonths < 24;
+      }
+      if (activeFilter === 'balita') {
+        return ageMonths >= 24 && ageMonths <= 60;
+      }
+      if (activeFilter === 'lulus') {
+        return ageMonths > 60;
+      }
+      return true;
+    });
+  }, [listData, activeFilter, isBalita]);
+
+  // Counts for filters
+  const counts = React.useMemo(() => {
+    if (!isBalita) return { semua: 0, baduta: 0, balita: 0, lulus: 0 };
+    let baduta = 0;
+    let balitaCount = 0;
+    let lulusCount = 0;
+    listData.forEach(b => {
+      const age = differenceInMonths(new Date(), new Date(b.tanggal_lahir));
+      if (age < 24) {
+        baduta++;
+      } else if (age <= 60) {
+        balitaCount++;
+      } else {
+        lulusCount++;
+      }
+    });
+    return {
+      semua: listData.length,
+      baduta,
+      balita: balitaCount,
+      lulus: lulusCount
+    };
+  }, [listData, isBalita]);
 
   const getInitials = (name: string) => {
     if (!name) return isBalita ? 'B' : 'L';
@@ -140,15 +185,65 @@ export default function DataMasterScreen() {
         />
       </View>
 
+      {/* Filter Chips for Balita */}
+      {isBalita && (
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          contentContainerStyle={styles.filterScrollContainer}
+          style={styles.filterScrollView}
+        >
+          <TouchableOpacity 
+            style={[styles.filterChip, activeFilter === 'semua' && { backgroundColor: theme.primary, borderColor: theme.primary }]}
+            onPress={() => setActiveFilter('semua')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.filterChipText, activeFilter === 'semua' && styles.filterChipTextActive]}>
+              Semua ({counts.semua})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.filterChip, activeFilter === 'baduta' && { backgroundColor: theme.primary, borderColor: theme.primary }]}
+            onPress={() => setActiveFilter('baduta')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.filterChipText, activeFilter === 'baduta' && styles.filterChipTextActive]}>
+              Baduta (< 2 Th) ({counts.baduta})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.filterChip, activeFilter === 'balita' && { backgroundColor: theme.primary, borderColor: theme.primary }]}
+            onPress={() => setActiveFilter('balita')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.filterChipText, activeFilter === 'balita' && styles.filterChipTextActive]}>
+              Balita (2-5 Th) ({counts.balita})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.filterChip, activeFilter === 'lulus' && { backgroundColor: theme.primary, borderColor: theme.primary }]}
+            onPress={() => setActiveFilter('lulus')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.filterChipText, activeFilter === 'lulus' && styles.filterChipTextActive]}>
+              Lulus (> 5 Th) ({counts.lulus})
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      )}
+
       {/* List Container */}
-      {loading && listData.length === 0 ? (
+      {loading && filteredData.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.primary} />
           <Text style={styles.loadingText}>Memuat data warga...</Text>
         </View>
       ) : (
         <FlatList
-          data={listData}
+          data={filteredData}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
@@ -344,5 +439,34 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.2,
     shadowRadius: 10,
+  },
+  filterScrollView: {
+    maxHeight: 50,
+    backgroundColor: '#FFFFFF',
+    marginBottom: 8,
+  },
+  filterScrollContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  filterChipTextActive: {
+    color: '#FFFFFF',
   },
 });
