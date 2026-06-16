@@ -18,6 +18,13 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
+const getInitials = (name: string) => {
+  if (!name) return 'OP';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+};
+
 interface SidebarProps {
   adminName?: string;
   puskesmasName?: string;
@@ -193,9 +200,8 @@ export default function Sidebar({
     setExpandedMenu(prev => (prev === name ? null : name));
   };
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push('/');
+  const handleSignOut = () => {
+    alert('Fungsi Keluar (Logout) dinonaktifkan sementara.');
   };
 
   return (
@@ -208,7 +214,7 @@ export default function Sidebar({
           alignItems: 'center', 
           justifyContent: 'space-between', 
           height: '72px', 
-          padding: '0 16px', 
+          padding: '0 8px', 
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
           borderBottom: '1px solid var(--border-color)',
@@ -221,7 +227,7 @@ export default function Sidebar({
           <img 
             src="/simpulsehat-logo.png?v=2" 
             alt="SIMPUL SEHAT" 
-            style={{ maxHeight: '56px', maxWidth: '100%', width: 'auto', height: 'auto', objectFit: 'contain' }} 
+            style={{ maxHeight: '64px', maxWidth: '100%', width: 'auto', height: 'auto', objectFit: 'contain' }} 
           />
         </div>
         {onClose && (
@@ -306,11 +312,20 @@ export default function Sidebar({
 
       {/* User Profile Card */}
       <div className="sidebar-profile">
-        <img 
-          src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80" 
-          alt="Profile Avatar" 
+        <div 
           className="profile-avatar"
-        />
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'var(--color-primary)',
+            color: '#ffffff',
+            fontWeight: '600',
+            fontSize: '12px'
+          }}
+        >
+          {getInitials(adminName)}
+        </div>
         <div className="profile-info" style={{ flex: 1 }}>
           <span className="profile-name" title={adminName}>{adminName}</span>
           <span className="profile-role" title={puskesmasName}>{puskesmasName}</span>
