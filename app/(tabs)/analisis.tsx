@@ -43,6 +43,49 @@ const MONTHS_INDO = [
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
 ];
 
+// Helper to determine status badge colors based on nutritional/health indicators
+const getBadgeVariant = (status: string): 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'info' => {
+  if (!status) return 'primary';
+  const s = status.toLowerCase();
+  
+  if (s.includes('normal') || s.includes('sehat') || s.includes('baik') || s === 'n') {
+    return 'success';
+  }
+  
+  if (
+    s.includes('sangat pendek') || 
+    s.includes('pendek') || 
+    s.includes('sangat kurang') || 
+    s.includes('buruk') ||
+    s === 'sp' || 
+    s === 'p' || 
+    s === 'sk'
+  ) {
+    return 'danger';
+  }
+  
+  if (
+    s.includes('lebih') || 
+    s.includes('obesitas') || 
+    s.includes('tinggi') || 
+    s === 'rl' || 
+    s === 't'
+  ) {
+    return 'info';
+  }
+  
+  if (
+    s.includes('kurang') || 
+    s.includes('risiko') || 
+    s.includes('resiko') || 
+    s === 'k'
+  ) {
+    return 'warning';
+  }
+  
+  return 'primary';
+};
+
 export default function AnalysisTabScreen() {
   const router = useRouter();
   const { activeWorkspace, activePosyanduId } = useServiceStore();
@@ -119,14 +162,20 @@ export default function AnalysisTabScreen() {
         // 2. Fetch penimbangans
         let query = supabase
           .from('penimbangans')
-          .select('status_bb_tb, status_bb_u, status_tb_u, balitas!inner(rt, posyandu_id)')
+          .select('status_bb_tb, status_bb_u, status_tb_u, balitas!inner(rt, posyandu_id, tanggal_lahir)')
           .eq('balitas.posyandu_id', activePosyanduId)
           .gte('tanggal', start)
           .lte('tanggal', end);
         if (rt) query = query.eq('balitas.rt', rt);
         const { data: records } = await query;
 
-        const checkedCount = records?.length || 0;
+        // Filter out balita who have graduated (> 60 months)
+        const activeRecords = (records || []).filter((r: any) => {
+          const age = differenceInMonths(new Date(), new Date(r.balitas.tanggal_lahir));
+          return age <= 60;
+        });
+
+        const checkedCount = activeRecords.length;
         setTotalHadir(checkedCount);
 
         // Calculate dynamic case counts for all 3 categories for the AI recommendations
@@ -134,7 +183,7 @@ export default function AnalysisTabScreen() {
         let st = 0;
         let ws = 0;
 
-        records?.forEach((r: any) => {
+        activeRecords.forEach((r: any) => {
           const sBb = r.status_bb_u || '';
           if (sBb.includes('Sangat Kurang') || sBb.includes('Kurang') || sBb === 'SK' || sBb === 'K') uw++;
 
@@ -147,7 +196,6 @@ export default function AnalysisTabScreen() {
 
         // No fallback, use actual counts from database records
 
-
         setUnderweightCount(uw);
         setStuntingCount(st);
         setWastingCount(ws);
@@ -158,7 +206,7 @@ export default function AnalysisTabScreen() {
         let cat3 = 0; // Normal / Normal / Gizi Baik
         let cat4 = 0; // Risiko Lebih / Tinggi / Lebih & Obesitas
 
-        records?.forEach((r: any) => {
+        activeRecords.forEach((r: any) => {
           if (indicator === 'BB/U') {
             const status = r.status_bb_u || '';
             if (status.includes('Sangat Kurang') || status === 'SK') cat1++;
@@ -200,18 +248,24 @@ export default function AnalysisTabScreen() {
 
           let trendQuery = supabase
             .from('penimbangans')
-            .select('status_bb_tb, status_bb_u, status_tb_u, balitas!inner(rt, posyandu_id)')
+            .select('status_bb_tb, status_bb_u, status_tb_u, balitas!inner(rt, posyandu_id, tanggal_lahir)')
             .eq('balitas.posyandu_id', activePosyanduId)
             .gte('tanggal', tStart)
             .lte('tanggal', tEnd);
           if (rt) trendQuery = trendQuery.eq('balitas.rt', rt);
-          const { data: tRecords } = await trendQuery;
+          const { data: tRecordsRaw } = await trendQuery;
+
+          // Filter out balita who have graduated (> 60 months)
+          const tRecords = (tRecordsRaw || []).filter((r: any) => {
+            const age = differenceInMonths(new Date(), new Date(r.balitas.tanggal_lahir));
+            return age <= 60;
+          });
 
           let tNormalBaik = 0;
           let tKurangBuruk = 0;
           let tTinggiLebih = 0;
 
-          tRecords?.forEach((r: any) => {
+          tRecords.forEach((r: any) => {
             if (indicator === 'BB/U') {
               const status = r.status_bb_u || '';
               if (status.includes('Normal') || status === 'N') tNormalBaik++;
@@ -231,7 +285,7 @@ export default function AnalysisTabScreen() {
           });
 
           // Fallback simulation for trends
-          if (tRecords && tRecords.length > 0 && (tNormalBaik + tKurangBuruk + tTinggiLebih) === 0) {
+          if (tRecords.length > 0 && (tNormalBaik + tKurangBuruk + tTinggiLebih) === 0) {
             tNormalBaik = Math.round(tRecords.length * 0.8);
             tKurangBuruk = Math.round(tRecords.length * 0.15);
             tTinggiLebih = tRecords.length - (tNormalBaik + tKurangBuruk);
@@ -253,6 +307,9 @@ export default function AnalysisTabScreen() {
 
         const rtGroups: Record<string, { total: number, cat1: number, cat2: number, cat3: number, cat4: number, children: any[] }> = {};
         distRecords?.forEach((r: any) => {
+          const age = differenceInMonths(new Date(), new Date(r.balitas.tanggal_lahir));
+          if (age > 60) return; // Skip balita yang sudah lulus (> 5 tahun)
+
           const label = `RT ${r.balitas.rt || '0'}`;
           if (!rtGroups[label]) rtGroups[label] = { total: 0, cat1: 0, cat2: 0, cat3: 0, cat4: 0, children: [] };
           rtGroups[label].total++;
@@ -281,7 +338,6 @@ export default function AnalysisTabScreen() {
             else if (status.includes('Lebih') || status.includes('Obesitas') || status.includes('Resiko') || status.includes('Berisiko')) rtGroups[label].cat4++;
           }
 
-          const age = differenceInMonths(new Date(), new Date(r.balitas.tanggal_lahir));
           if (!rtGroups[label].children.some((c: any) => c.id === r.balitas.id)) {
             rtGroups[label].children.push({
               id: r.balitas.id,
@@ -758,13 +814,7 @@ export default function AnalysisTabScreen() {
                             </View>
                             <Badge 
                               label={warga.status}
-                              variant={
-                                warga.status === 'Normal' || warga.status === 'Gizi Baik' || warga.status === 'Sehat'
-                                  ? 'success' 
-                                  : warga.status.includes('Lebih') || warga.status === 'Tinggi'
-                                    ? 'info'
-                                    : 'warning'
-                              }
+                              variant={getBadgeVariant(warga.status)}
                             />
                           </TouchableOpacity>
                         ))

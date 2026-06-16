@@ -441,14 +441,14 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
   },
   filterScrollView: {
-    maxHeight: 50,
+    height: 40,
     backgroundColor: '#FFFFFF',
     marginBottom: 8,
   },
   filterScrollContainer: {
     flexDirection: 'row',
     paddingHorizontal: 24,
-    paddingBottom: 12,
+    alignItems: 'center',
     gap: 8,
   },
   filterChip: {
