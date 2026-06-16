@@ -837,3 +837,145 @@ button, input, select, textarea {
   color: var(--text-muted);
   margin-top: 4px;
 }
+
+/* =========================================================================
+   RESPONSIVE DESIGN (MEDIA QUERIES)
+   ========================================================================= */
+
+@media (max-width: 1024px) {
+  .grid-cards-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  /* APP STRUCTURAL ADJUSTMENTS */
+  .app-container {
+    position: relative;
+  }
+  
+  /* Sidebar Drawer on Mobile */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 999;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.25);
+  }
+  
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  
+  /* Toggle and Close Buttons visibility */
+  .sidebar-toggle {
+    display: flex !important;
+  }
+  
+  .sidebar-close-btn {
+    display: flex !important;
+  }
+  
+  /* Main wrapper shouldn't squeeze since sidebar is fixed */
+  .main-wrapper {
+    width: 100%;
+    min-width: 0;
+  }
+  
+  /* Overlay Backdrop when sidebar open */
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(2px);
+    z-index: 990;
+    display: block;
+  }
+  
+  /* Header Adjustments */
+  .main-header {
+    height: auto;
+    min-height: 64px;
+    padding: 12px 16px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .header-title-section {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+  
+  .header-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+  }
+  
+  .header-select {
+    width: 100%;
+  }
+  
+  /* Content Viewport Padding */
+  .content-viewport {
+    padding: 16px;
+  }
+  
+  /* Grid Adaptations */
+  .grid-cards-4 {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .grid-dashboard-main {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .detail-container {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    height: auto;
+  }
+  
+  /* Filter bar wraps elements */
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px;
+  }
+  
+  .filter-left {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  
+  .search-input-wrapper {
+    width: 100%;
+  }
+  
+  .toggle-switch-container {
+    width: 100%;
+  }
+  
+  .toggle-btn {
+    flex: 1;
+    text-align: center;
+  }
+  
+  /* Make lists scrollable/shrink nicely */
+  .table-container {
+    border-radius: var(--border-radius-sm);
+  }
+}
+

@@ -13,18 +13,23 @@ import {
   Settings,
   LogOut,
   ChevronDown,
-  FileUp
+  FileUp,
+  X
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 interface SidebarProps {
   adminName?: string;
   puskesmasName?: string;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 export default function Sidebar({ 
   adminName: propAdminName, 
-  puskesmasName: propPuskesmasName 
+  puskesmasName: propPuskesmasName,
+  isOpen = false,
+  onClose
 }: SidebarProps = {}) {
   const pathname = usePathname();
   const router = useRouter();
@@ -194,16 +199,16 @@ export default function Sidebar({
   };
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
       {/* Brand Logo Section */}
       <div 
         className="sidebar-brand" 
         style={{ 
           display: 'flex', 
           alignItems: 'center', 
-          justifyContent: 'center', 
+          justifyContent: 'space-between', 
           height: '72px', 
-          padding: '0 8px', 
+          padding: '0 16px', 
           boxSizing: 'border-box',
           backgroundColor: '#ffffff',
           borderBottom: '1px solid var(--border-color)',
@@ -212,11 +217,31 @@ export default function Sidebar({
           overflow: 'hidden'
         }}
       >
-        <img 
-          src="/simpulsehat-logo.png?v=2" 
-          alt="SIMPUL SEHAT" 
-          style={{ width: '100%', maxWidth: '264px', height: 'auto', objectFit: 'contain' }} 
-        />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+          <img 
+            src="/simpulsehat-logo.png?v=2" 
+            alt="SIMPUL SEHAT" 
+            style={{ maxHeight: '40px', maxWidth: '100%', width: 'auto', height: 'auto', objectFit: 'contain' }} 
+          />
+        </div>
+        {onClose && (
+          <button 
+            onClick={onClose} 
+            className="sidebar-close-btn"
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text-main)',
+              padding: '4px',
+              display: 'none',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <X size={20} />
+          </button>
+        )}
       </div>
 
       {/* Navigation Menu */}

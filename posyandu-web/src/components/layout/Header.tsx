@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { Bell, Building2 } from 'lucide-react';
+import { Bell, Building2, Menu } from 'lucide-react';
 import { useFilters } from '@/context/FilterContext';
 
-export default function Header() {
+export default function Header({ onToggleSidebar }: { onToggleSidebar?: () => void } = {}) {
   const pathname = usePathname();
   const { 
     selectedDesa, 
@@ -112,9 +112,31 @@ export default function Header() {
   return (
     <header className="main-header">
       {/* Left: Dynamic Breadcrumb and Page Title */}
-      <div className="header-title-section">
-        <span className="header-breadcrumbs">{breadcrumbs}</span>
-        <h1 className="header-title" style={{ fontSize: '15px', fontWeight: 600 }}>{title}</h1>
+      <div className="header-title-section" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {onToggleSidebar && (
+          <button 
+            onClick={onToggleSidebar} 
+            className="sidebar-toggle"
+            aria-label="Toggle Sidebar"
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '6px',
+              borderRadius: '6px',
+              display: 'none',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--text-main)'
+            }}
+          >
+            <Menu size={20} />
+          </button>
+        )}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <span className="header-breadcrumbs">{breadcrumbs}</span>
+          <h1 className="header-title" style={{ fontSize: '15px', fontWeight: 600 }}>{title}</h1>
+        </div>
       </div>
 
       {/* Right: Controls (Global Filters, Puskesmas Dropdown & Notifications) */}
