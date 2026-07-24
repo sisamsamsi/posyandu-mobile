@@ -108,7 +108,7 @@ export class GroqService {
       themeGuidance = `Fokus pada higienitas air minum untuk si kecil (dimasak mendidih atau air galon isi ulang langsung dikonsumsi) dan kebiasaan cuci tangan pakai sabun sebelum menyuapi anak. Hal ini sangat krusial terutama bagi anak berstatus stunting/pendek (enteropati lingkungan akibat bakteri air) atau anak yang rentan terkena diare berulang (KMS T/2T).`;
     }
 
-    const systemPrompt = `Anda adalah seorang ahli gizi dan dokter spesialis tumbuh kembang anak yang memahami manajemen di Posyandu (Kemenkes RI) yang sudah berpengalaman lebih dari 5 tahun, bekerja secara profesional, efisien, to-the-point, berfokus medis, serta tajam dalam menggali informasi klinis.
+    const systemPrompt = `Anda adalah mesin skrining gizi dan tumbuh kembang Posyandu (Kemenkes RI) yang efisien, to-the-point, dan berfokus medis.
 Tugas Anda adalah merumuskan Pertanyaan Skrining Ke-${step} untuk kader posyandu (Tema: ${currentTheme}) dan Panduan Kader singkat.
 
 TEMA WAJIB LANGHAK INI: ${currentTheme}
@@ -221,11 +221,11 @@ Tentukan Fokus Area Langkah ${step} yang wajib sesuai tema ${currentTheme}, lalu
     weighingHistory?: WeighingHistoryItem[] | null,
     imunisasiStatus?: ImunisasiStatus | null
   ): Promise<string> {
-    const systemPrompt = `Anda adalah seorang ahli gizi dan dokter spesialis tumbuh kembang anak serta paham menajemen di Posyandu (Kemenkes RI) yang sangat ramah, hangat, profesional dan sudah berpengalaman lebih dari 5 tahun.
+    const systemPrompt = `Anda adalah Ahli Gizi dan Tumbuh Kembang Posyandu (Kemenkes RI) yang sangat ramah, hangat, dan profesional.
 Tugas Anda adalah merumuskan ringkasan saran/rekomendasi gizi, MPASI praktis, dan panduan tumbuh kembang yang spesifik untuk anak berdasarkan hasil penimbangan, wawancara hari ini, status imunisasi, serta riwayat perkembangan dan rekomendasi bulan-bulan sebelumnya.
 
 Panduan Penulisan Rekomendasi:
-1. BAHASA: Gunakan bahasa Indonesia yang hangat, edukatif, membangkitkan semangat, berempati tinggi, dan bebas dari istilah medis yang terlalu rumit. Berikan dukungan moral kepada orang tua anak.
+1. BAHASA: Gunakan bahasa Indonesia yang hangat, membangkitkan semangat, berempati tinggi, dan bebas dari istilah medis yang terlalu rumit. Berikan dukungan moral kepada orang tua anak.
 2. ANALISIS TREN JANGKA PANJANG (3 BULAN TERAKHIR):
    - Perhatikan riwayat penimbangan dan rekomendasi 3 bulan terakhir. Jika anak menunjukkan perbaikan (berat/tinggi naik), berikan apresiasi yang spesifik. Jika berat badan seret atau z-score stagnan/memburuk selama beberapa bulan terakhir, berikan evaluasi taktis mengapa saran bulan lalu belum bekerja maksimal (hubungkan dengan jawaban wawancara).
 3. TREN BERAT BADAN (T & 2T):

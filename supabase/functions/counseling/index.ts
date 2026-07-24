@@ -48,37 +48,34 @@ serve(async (req) => {
       })
     }
 
-    // 4. Retrieve OpenRouter/Gemini API Key from environment variables securely
-    const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY') || Deno.env.get('GROQ_API_KEY')
-    if (!openRouterApiKey) {
-      return new Response(JSON.stringify({ error: 'OpenRouter API Key is not configured on the server environment.' }), {
+    // 4. Retrieve Groq API Key from environment variables securely
+    const groqApiKey = Deno.env.get('GROQ_API_KEY')
+    if (!groqApiKey) {
+      return new Response(JSON.stringify({ error: 'Groq API Key is not configured on the server environment.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // 5. Query the OpenRouter API for Gemini 2.5 Flash
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    // 5. Query the Groq API
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openRouterApiKey}`,
-        'HTTP-Referer': 'https://simpulsehat.kemkes.go.id',
-        'X-Title': 'Simpul Sehat',
+        'Authorization': `Bearer ${groqApiKey}`,
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'llama-3.3-70b-versatile',
         messages,
         temperature: 0.5,
-        max_tokens: 2000,
         response_format: isJsonResponse ? { type: 'json_object' } : undefined,
       }),
     })
 
     if (!response.ok) {
       const errText = await response.text()
-      console.error('OpenRouter API returned error status:', response.status, errText)
-      return new Response(JSON.stringify({ error: `OpenRouter API Error: ${errText}` }), {
+      console.error('Groq API returned error status:', response.status, errText)
+      return new Response(JSON.stringify({ error: `Groq API Error: ${errText}` }), {
         status: response.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })

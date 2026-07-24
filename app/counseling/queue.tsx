@@ -365,17 +365,17 @@ export default function CounselingQueueScreen() {
     const isStunted = statusTbU.includes('Pendek');
     const canCounsel = trend === 'T' || trend === '2T' || isStunted;
 
-    let buttonText = 'Mulai Penyuluhan';
+    let buttonText = 'Mulai Penyuluhan AI';
     let buttonDisabled = false;
 
     if (item.counselingDone) {
-      buttonText = 'Buka Riwayat';
+      buttonText = 'Buka Riwayat Penyuluhan';
       buttonDisabled = false;
     } else if (!isWeighed) {
-      buttonText = 'Belum Ditimbang';
+      buttonText = 'Belum Ditimbang (Meja 3)';
       buttonDisabled = true;
     } else if (!canCounsel) {
-      buttonText = 'Tumbuh Normal';
+      buttonText = 'Tumbuh Normal (Tidak Perlu AI)';
       buttonDisabled = true;
     }
 
@@ -406,8 +406,14 @@ export default function CounselingQueueScreen() {
             <Text style={styles.subText}>
               {item.balita.jenis_kelamin} • {ageMonths} bulan
             </Text>
-        <View style={{ flexDirection: 'row', gap: 6, marginTop: 6, alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', gap: 6, marginTop: 6, alignItems: 'center' }}>
               {renderTrendBadge(trend)}
+              <TouchableOpacity 
+                style={styles.kmsTextLink} 
+                onPress={() => handleOpenKms(item.balita)}
+              >
+                <Text style={styles.kmsTextLinkText}>Lihat KMS</Text>
+              </TouchableOpacity>
             </View>
           </View>
           {item.counselingDone && (
@@ -441,31 +447,19 @@ export default function CounselingQueueScreen() {
           </View>
         )}
 
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              { flex: 1, backgroundColor: '#1E3A8A', borderColor: '#1E3A8A', borderWidth: 1 }
-            ]}
-            onPress={() => handleOpenKms(item.balita)}
-          >
-            <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 }}>Lihat KMS</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[buttonStyle, { flex: 1.5, marginTop: 0 }]}
-            onPress={() => handleStartCounseling(item)}
-            disabled={buttonDisabled}
-          >
-            <Text style={buttonTextStyle}>{buttonText}</Text>
-            {!buttonDisabled && !item.counselingDone && (
-              <ChevronRight size={18} color="#FFF" />
-            )}
-            {item.counselingDone && (
-              <ChevronRight size={18} color="#09A477" />
-            )}
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={buttonStyle}
+          onPress={() => handleStartCounseling(item)}
+          disabled={buttonDisabled}
+        >
+          <Text style={buttonTextStyle}>{buttonText}</Text>
+          {!buttonDisabled && !item.counselingDone && (
+            <ChevronRight size={18} color="#FFF" />
+          )}
+          {item.counselingDone && (
+            <ChevronRight size={18} color="#09A477" />
+          )}
+        </TouchableOpacity>
       </TouchableOpacity>
     );
   };

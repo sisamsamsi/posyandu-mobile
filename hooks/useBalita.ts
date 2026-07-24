@@ -49,6 +49,7 @@ export const useBalita = () => {
           imunisasi(*)
         `)
         .eq('id', id)
+        .eq('posyandu_id', activePosyanduId || '')
         .single();
 
       if (error) throw error;

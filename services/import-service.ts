@@ -5,7 +5,7 @@ import * as Sharing from 'expo-sharing';
 import { supabase } from '../lib/supabase';
 import { ZScoreEngine } from './zscore-engine';
 import { whoService } from './who-service';
-import { calculateAgeMonthsDecimal, calculateAgeMonths } from '../lib/utils';
+import { calculateAgeMonthsDecimal } from '../lib/utils';
 import { normalizeKey, cleanNik, cleanGender, parseExcelDate } from './eppgbm-utils';
 
 export class ImportService {
@@ -303,15 +303,7 @@ export class ImportService {
         throw new Error('Tidak ada data Balita untuk Posyandu ini pada periode tersebut.');
       }
 
-      // Filter out graduated children (>= 60 months old at the selected report date)
-      const refDate = new Date(year, month - 1, 1);
-      const activeBalitas = balitas.filter(b => calculateAgeMonths(b.tanggal_lahir, refDate) < 60);
-
-      if (activeBalitas.length === 0) {
-        throw new Error('Tidak ada data Balita aktif untuk Posyandu ini pada periode tersebut.');
-      }
-
-      const balitaIds = activeBalitas.map(b => b.id);
+      const balitaIds = balitas.map(b => b.id);
 
       // 2. Fetch all weighings for this month
       const { data: weighings, error: wError } = await supabase
@@ -332,17 +324,17 @@ export class ImportService {
       });
 
       // 3. Map to Excel structure (standard draft)
-      const exportData = activeBalitas.map((b, index) => {
+      const exportData = balitas.map((b, index) => {
         const w = weighMap.get(b.id);
         return {
           'No': index + 1,
-          'NIK Balita': `'${b.nik}`,
+          'NIK Balita': b.nik,
           'Nama Balita': b.nama,
-          'Tanggal Lahir': `'${b.tanggal_lahir}`,
+          'Tanggal Lahir': b.tanggal_lahir,
           'Jenis Kelamin': b.jenis_kelamin === 'Laki-laki' ? 'L' : 'P',
           'Anak Ke': b.anak_ke || 1,
-          'No KK': b.no_kk ? `'${b.no_kk}` : '',
-          'NIK Orang Tua': b.nik_ortu ? `'${b.nik_ortu}` : '',
+          'No KK': b.no_kk || '',
+          'NIK Orang Tua': b.nik_ortu || '',
           'Usia Kehamilan Lahir (minggu)': b.usia_kehamilan_lahir || '',
           'Berat Lahir (kg)': b.bb_lahir || '',
           'Tinggi Lahir (cm)': b.tb_lahir || '',

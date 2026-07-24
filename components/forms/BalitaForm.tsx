@@ -130,7 +130,6 @@ export const BalitaForm: React.FC<BalitaFormProps> = ({
   const handleFormSubmit = () => {
     const finalData = {
       ...formData,
-      rt: formData.rt ? parseInt(formData.rt.toString()) : 1,
       bb_lahir: bbLahirText ? parseFloat(bbLahirText.replace(',', '.')) : null,
       tb_lahir: tbLahirText ? parseFloat(tbLahirText.replace(',', '.')) : null,
       lk_lahir: lkLahirText ? parseFloat(lkLahirText.replace(',', '.')) : null,
@@ -401,15 +400,8 @@ export const BalitaForm: React.FC<BalitaFormProps> = ({
                 <MapPin size={18} color={focusedField === 'rt' ? COLORS.tealPrimary : '#94A3B8'} />
                 <TextInput
                   style={styles.input}
-                  value={formData.rt !== undefined && formData.rt !== null ? formData.rt.toString() : ''}
-                  onChangeText={(val) => {
-                    if (val === '') {
-                      handleChange('rt', '');
-                    } else {
-                      const parsed = parseInt(val.replace(/[^0-9]/g, ''));
-                      handleChange('rt', isNaN(parsed) ? '' : parsed);
-                    }
-                  }}
+                  value={formData.rt?.toString()}
+                  onChangeText={(val) => handleChange('rt', parseInt(val) || 1)}
                   keyboardType="numeric"
                   onFocus={() => setFocusedField('rt')}
                   onBlur={() => setFocusedField(null)}

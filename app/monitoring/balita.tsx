@@ -70,7 +70,7 @@ export default function MonitoringBalitaScreen() {
 
   const getStatus = (balita: Balita) => {
     const age = calculateAgeMonths(balita.tanggal_lahir);
-    if (age >= 60) return { label: 'Lulus', variant: 'info' as const, icon: <LogOut size={16} color="#06B6D4" /> };
+    if (age > 60) return { label: 'Lulus', variant: 'info' as const, icon: <LogOut size={16} color="#06B6D4" /> };
     if (attendance.includes(balita.id)) return { label: 'Sudah', variant: 'success' as const, icon: <CheckCircle2 size={16} color="#22C55E" /> };
     return { label: 'Belum', variant: 'warning' as const, icon: <AlertCircle size={16} color="#F59E0B" /> };
   };
@@ -118,9 +118,9 @@ export default function MonitoringBalitaScreen() {
 
   const stats = {
     total: balitas.length,
-    sudah: balitas.filter(b => calculateAgeMonths(b.tanggal_lahir) < 60 && attendance.includes(b.id)).length,
-    belum: balitas.filter(b => calculateAgeMonths(b.tanggal_lahir) < 60 && !attendance.includes(b.id)).length,
-    lulus: balitas.filter(b => calculateAgeMonths(b.tanggal_lahir) >= 60).length,
+    sudah: balitas.filter(b => calculateAgeMonths(b.tanggal_lahir) <= 60 && attendance.includes(b.id)).length,
+    belum: balitas.filter(b => calculateAgeMonths(b.tanggal_lahir) <= 60 && !attendance.includes(b.id)).length,
+    lulus: balitas.filter(b => calculateAgeMonths(b.tanggal_lahir) > 60).length,
   };
 
   return (

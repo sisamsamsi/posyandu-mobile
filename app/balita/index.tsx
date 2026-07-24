@@ -9,7 +9,7 @@ import {
   ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useBalita } from '../../hooks/useBalita';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { Plus, ArrowLeft, ChevronRight } from 'lucide-react-native';
@@ -37,10 +37,10 @@ export default function BalitaIndex() {
         return ageMonths < 24;
       }
       if (activeFilter === 'balita') {
-        return ageMonths >= 24 && ageMonths < 60;
+        return ageMonths >= 24 && ageMonths <= 60;
       }
       if (activeFilter === 'lulus') {
-        return ageMonths >= 60;
+        return ageMonths > 60;
       }
       return true;
     });
@@ -55,7 +55,7 @@ export default function BalitaIndex() {
       const age = differenceInMonths(new Date(), new Date(b.tanggal_lahir));
       if (age < 24) {
         baduta++;
-      } else if (age < 60) {
+      } else if (age <= 60) {
         balitaCount++;
       } else {
         lulusCount++;
@@ -69,15 +69,9 @@ export default function BalitaIndex() {
     };
   }, [balitas]);
 
-  const navigation = useNavigation();
-
   useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      fetchBalitas(search);
-    });
-    fetchBalitas(search);
-    return unsubscribe;
-  }, [navigation, search]);
+    fetchBalitas();
+  }, []);
 
   const handleSearch = (text: string) => {
     setSearch(text);
@@ -179,7 +173,7 @@ export default function BalitaIndex() {
           activeOpacity={0.8}
         >
           <Text style={[styles.filterChipText, activeFilter === 'lulus' && styles.filterChipTextActive]}>
-                        {"Lulus (≥ 5 Th) ("}{counts.lulus}{")"}
+            {"Lulus (> 5 Th) ("}{counts.lulus}{")"}
           </Text>
         </TouchableOpacity>
       </ScrollView>
