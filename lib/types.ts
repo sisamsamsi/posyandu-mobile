@@ -24,6 +24,7 @@ export interface Posyandu {
   // Logo
   logo_url: string | null;
   invite_code?: string; // New field
+  satusehat_org_id?: string | null;
   created_at: string;
 }
 
@@ -54,6 +55,9 @@ export interface Balita {
   buku_kia_bayi_kecil?: boolean | null;
   tatalaksana_bblr?: boolean | null;
   imd?: boolean | null;
+  satusehat_patient_id?: string | null;
+  is_synced?: boolean | null;
+  synced_at?: string | null;
   created_at:string;
   posyandu?: Posyandu;
   penimbangans?: Penimbangan[];
@@ -104,6 +108,11 @@ export interface Penimbangan {
   zscore_bb_tb: number | null;
   status_bb_tb: string | null;
   catatan: string | null;
+  satusehat_encounter_id?: string | null;
+  satusehat_observation_id?: string | null;
+  is_synced?: boolean | null;
+  synced_at?: string | null;
+  sync_error_message?: string | null;
   created_at: string;
   balita?: Balita;
 }

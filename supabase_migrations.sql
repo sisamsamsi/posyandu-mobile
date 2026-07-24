@@ -84,3 +84,19 @@ CREATE INDEX IF NOT EXISTS idx_anomali_tgl ON data_anomali_logs(tanggal_data);
 
 -- 5. Tambah kolom alasan_tidak_imunisasi di tabel imunisasi untuk menandai yang tidak imunisasi sama sekali
 ALTER TABLE imunisasi ADD COLUMN IF NOT EXISTS alasan_tidak_imunisasi TEXT;
+
+-- 6. Tambah Kolom Integrasi SATUSEHAT / e-PPGBM (Non-Destruktif)
+ALTER TABLE posyandus ADD COLUMN IF NOT EXISTS satusehat_org_id VARCHAR(100);
+ALTER TABLE balitas ADD COLUMN IF NOT EXISTS satusehat_patient_id VARCHAR(100);
+ALTER TABLE balitas ADD COLUMN IF NOT EXISTS is_synced BOOLEAN DEFAULT FALSE;
+ALTER TABLE balitas ADD COLUMN IF NOT EXISTS synced_at TIMESTAMP WITH TIME ZONE;
+
+ALTER TABLE penimbangans ADD COLUMN IF NOT EXISTS satusehat_encounter_id VARCHAR(100);
+ALTER TABLE penimbangans ADD COLUMN IF NOT EXISTS satusehat_observation_id VARCHAR(100);
+ALTER TABLE penimbangans ADD COLUMN IF NOT EXISTS is_synced BOOLEAN DEFAULT FALSE;
+ALTER TABLE penimbangans ADD COLUMN IF NOT EXISTS synced_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE penimbangans ADD COLUMN IF NOT EXISTS sync_error_message TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_balitas_satusehat_id ON balitas(satusehat_patient_id);
+CREATE INDEX IF NOT EXISTS idx_penimbangans_is_synced ON penimbangans(is_synced);
+

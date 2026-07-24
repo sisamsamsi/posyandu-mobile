@@ -11,7 +11,7 @@ import {
   Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
 import { 
   ArrowLeft, 
   Edit, 
@@ -34,6 +34,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useBalita } from '../../hooks/useBalita';
 import { usePenimbangan } from '../../hooks/usePenimbangan';
 import { ImunisasiService } from '../../services/imunisasi-service';
+import { SatuSehatService } from '../../services/satusehat-service';
 import { Balita, WHOReferenceRow, RiskCalculationResult, Penimbangan } from '../../lib/types';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -325,10 +326,22 @@ export default function BalitaDetail() {
     }
   };
 
+  const navigation = useNavigation();
+
   useEffect(() => {
-    fetchAllData();
-    loadLocalPhoto();
-  }, [id, photoRefreshKey]);
+    const fetchLatest = () => {
+      fetchAllData();
+      loadLocalPhoto();
+    };
+
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchLatest();
+    });
+
+    fetchLatest();
+
+    return unsubscribe;
+  }, [id, navigation, photoRefreshKey]);
 
   const handleMoreActions = () => {
     Alert.alert(
@@ -478,8 +491,40 @@ export default function BalitaDetail() {
               <TableRow label="Alamat" value={`${balita.alamat} (RT ${balita.rt || 1})`} />
               <TableRow label="Nama Ayah" value={balita.nama_ayah || '-'} />
               <TableRow label="Nama Ibu" value={balita.nama_ortu || '-'} />
-              <TableRow label="No. HP Orang Tua" value={balita.no_hp_ortu || '-'} isLast />
+              <TableRow label="No. HP Orang Tua" value={balita.no_hp_ortu || '-'} />
+              <TableRow label="Status SATUSEHAT" value={balita.is_synced ? '✅ Terintegrasi SATUSEHAT' : '⏳ Belum Terintegrasi'} isLast />
             </Card>
+
+            {latestMeasurement && (
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#09A477',
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  borderRadius: 12,
+                  marginVertical: 8,
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  gap: 8,
+                }}
+                onPress={async () => {
+                  const res = await SatuSehatService.syncPenimbanganToSatusehat(latestMeasurement.id);
+                  if (res.success) {
+                    Alert.alert('Sukses', 'Data penimbangan berhasil tersinkronisasi dengan SATUSEHAT Kemenkes.');
+                    if (id) {
+                      getBalitaById(id as string).then(data => data && setBalita(data));
+                    }
+                  } else {
+                    Alert.alert('Gagal Sinkronisasi', res.message);
+                  }
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
+                  ⚡ Sinkronkan Penimbangan ke SATUSEHAT
+                </Text>
+              </TouchableOpacity>
+            )}
 
             <View style={styles.statsGrid}>
               <Card style={styles.statCard}>
@@ -491,6 +536,7 @@ export default function BalitaDetail() {
                 <Text style={styles.statValue}>{balita.tb_lahir || '-'} <Text style={styles.unit}>cm</Text></Text>
               </Card>
             </View>
+
           </View>
         );
 
@@ -866,6 +912,12 @@ export default function BalitaDetail() {
           >
             <Edit size={20} color="#1E293B" />
           </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={handleDelete} 
+            style={styles.headerAction}
+          >
+            <Trash2 size={20} color="#EF4444" />
+          </TouchableOpacity>
           <TouchableOpacity onPress={handleMoreActions} style={styles.headerAction}>
             <MoreVertical size={20} color="#1E293B" />
           </TouchableOpacity>
@@ -1020,31 +1072,36 @@ export default function BalitaDetail() {
           <TabItem 
             active={activeTab === 'grafik'} 
             label="KMS Grafik" 
-            icon={<TrendingUp size={20} color={activeTab === 'grafik' ? '#09A477' : '#94A3B8'} />}
+            activeColor="#2563EB"
+            icon={<TrendingUp size={20} color={activeTab === 'grafik' ? '#2563EB' : 'rgba(37, 99, 235, 0.5)'} />}
             onPress={() => setActiveTab('grafik')} 
           />
           <TabItem 
             active={activeTab === 'riwayat'} 
             label="Riwayat" 
-            icon={<History size={20} color={activeTab === 'riwayat' ? '#09A477' : '#94A3B8'} />}
+            activeColor="#D97706"
+            icon={<History size={20} color={activeTab === 'riwayat' ? '#D97706' : 'rgba(217, 119, 6, 0.5)'} />}
             onPress={() => setActiveTab('riwayat')} 
           />
           <TabItem 
             active={activeTab === 'imunisasi'} 
             label="Imunisasi" 
-            icon={<Syringe size={20} color={activeTab === 'imunisasi' ? '#09A477' : '#94A3B8'} />}
+            activeColor="#8B5CF6"
+            icon={<Syringe size={20} color={activeTab === 'imunisasi' ? '#8B5CF6' : 'rgba(139, 92, 246, 0.5)'} />}
             onPress={() => setActiveTab('imunisasi')} 
           />
           <TabItem 
             active={activeTab === 'risiko'} 
             label="Catatan" 
-            icon={<AlertCircle size={20} color={activeTab === 'risiko' ? '#09A477' : '#94A3B8'} />}
+            activeColor="#EF4444"
+            icon={<AlertCircle size={20} color={activeTab === 'risiko' ? '#EF4444' : 'rgba(239, 68, 68, 0.5)'} />}
             onPress={() => setActiveTab('risiko')} 
           />
           <TabItem 
             active={activeTab === 'profil'} 
             label="Lainnya" 
-            icon={<User size={20} color={activeTab === 'profil' ? '#09A477' : '#94A3B8'} />}
+            activeColor="#09A477"
+            icon={<User size={20} color={activeTab === 'profil' ? '#09A477' : 'rgba(9, 164, 119, 0.5)'} />}
             onPress={() => setActiveTab('profil')} 
           />
         </View>
@@ -1086,13 +1143,30 @@ const TableRow = ({ label, value, isLast }: { label: string; value: string | num
   </View>
 );
 
-const TabItem = ({ active, label, icon, onPress }: { active: boolean, label: string, icon: React.ReactNode, onPress: () => void }) => (
+const TabItem = ({ 
+  active, 
+  label, 
+  icon, 
+  activeColor,
+  onPress 
+}: { 
+  active: boolean, 
+  label: string, 
+  icon: React.ReactNode, 
+  activeColor: string,
+  onPress: () => void 
+}) => (
   <TouchableOpacity 
-    style={[styles.tabItem, active && styles.activeTabItem]} 
+    style={styles.tabItem} 
     onPress={onPress}
   >
     {icon}
-    <Text style={[styles.tabLabel, active && styles.activeTabLabel]}>{label}</Text>
+    <Text style={[
+      styles.tabLabel, 
+      active && { color: activeColor, fontWeight: '800' }
+    ]}>
+      {label}
+    </Text>
   </TouchableOpacity>
 );
 

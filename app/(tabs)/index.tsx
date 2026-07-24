@@ -287,8 +287,8 @@ export default function DashboardScreen() {
     },
     {
       label: 'Imunisasi',
-      icon: <Syringe size={18} color="#2563EB" />,
-      bgColor: '#EFF6FF',
+      icon: <Syringe size={18} color="#8B5CF6" />,
+      bgColor: '#F3E8FF',
       onPress: () => router.push('/imunisasi'),
     },
     {
@@ -299,20 +299,20 @@ export default function DashboardScreen() {
     },
     {
       label: 'Penimbangan',
-      icon: <Activity size={18} color="#7C3AED" />,
-      bgColor: '#F5F3FF',
+      icon: <Activity size={18} color="#6366F1" />,
+      bgColor: '#EEF2FF',
       onPress: () => router.push('/service-desk/balita'),
     },
     {
       label: 'Pengguna',
-      icon: <Users size={18} color="#2563EB" />,
-      bgColor: '#EFF6FF',
+      icon: <Users size={18} color="#D97706" />,
+      bgColor: '#FEF3C7',
       onPress: () => router.push('/settings'),
     },
     {
       label: 'Pengaturan',
-      icon: <Settings size={18} color="#475569" />,
-      bgColor: '#F8FAFC',
+      icon: <Settings size={18} color="#64748B" />,
+      bgColor: '#F1F5F9',
       onPress: () => router.push('/settings'),
     },
     {
@@ -323,21 +323,15 @@ export default function DashboardScreen() {
     },
     {
       label: 'Kirim WA',
-      icon: <MessageCircle size={18} color="#22C55E" />,
-      bgColor: '#F0FDF4',
+      icon: <MessageCircle size={18} color="#059669" />,
+      bgColor: '#E6F4EA',
       onPress: () => router.push('/admin/whatsapp-share'),
     },
     {
       label: 'Monitoring',
-      icon: <ClipboardCheck size={18} color="#F97316" />,
+      icon: <ClipboardCheck size={18} color="#EA580C" />,
       bgColor: '#FFF7ED',
       onPress: () => router.push('/monitoring/balita'),
-    },
-    {
-      label: 'Import Data',
-      icon: <FileUp size={18} color="#0EA5E9" />,
-      bgColor: '#E0F2FE',
-      onPress: () => router.push('/admin/import-data'),
     },
   ] : [
     {
@@ -354,7 +348,7 @@ export default function DashboardScreen() {
     },
     {
       label: 'Monitoring',
-      icon: <ClipboardCheck size={18} color="#F97316" />,
+      icon: <ClipboardCheck size={18} color="#EA580C" />,
       bgColor: '#FFF7ED',
       onPress: () => router.push('/monitoring/lansia'),
     },
@@ -366,21 +360,15 @@ export default function DashboardScreen() {
     },
     {
       label: 'Kirim WA',
-      icon: <MessageCircle size={18} color="#22C55E" />,
-      bgColor: '#F0FDF4',
+      icon: <MessageCircle size={18} color="#059669" />,
+      bgColor: '#E6F4EA',
       onPress: () => router.push('/admin/whatsapp-share'),
     },
     {
       label: 'Pengaturan',
-      icon: <Settings size={18} color="#475569" />,
-      bgColor: '#F8FAFC',
+      icon: <Settings size={18} color="#64748B" />,
+      bgColor: '#F1F5F9',
       onPress: () => router.push('/settings'),
-    },
-    {
-      label: 'Import Data',
-      icon: <FileUp size={18} color="#0EA5E9" />,
-      bgColor: '#E0F2FE',
-      onPress: () => router.push('/admin/import-data'),
     },
   ];
 
@@ -514,7 +502,7 @@ export default function DashboardScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.otaBannerTitle}>Pembaruan Sistem Tersedia!</Text>
                 <Text style={styles.otaBannerDesc}>
-                  Klik di sini untuk memasang perbaikan klinis penting & enkripsi RLS terbaru secara instan.
+                  Klik di sini untuk memasang hasil perbaikan Bimtek posyandu hari ini secara instan.
                 </Text>
               </View>
               <View style={styles.otaBannerAction}>
@@ -818,27 +806,8 @@ export default function DashboardScreen() {
             
             <Text style={styles.otaTitle}>Pembaruan Sistem SIMPUL SEHAT</Text>
             <Text style={styles.otaSubtitle}>
-              Versi terbaru telah siap! Pembaruan ini mencakup perbaikan klinis penting & enkripsi tenant baru.
+              Pembaruan aplikasi terbaru siap dipasang demi meningkatkan performa, stabilitas, dan kenyamanan pelayanan Posyandu Anda.
             </Text>
-
-            <View style={styles.otaFeaturesList}>
-              <View style={styles.otaFeatureItem}>
-                <View style={styles.otaFeatureDot} />
-                <Text style={styles.otaFeatureText}>Optimalisasi kalkulasi Z-score asimetris WHO.</Text>
-              </View>
-              <View style={styles.otaFeatureItem}>
-                <View style={styles.otaFeatureDot} />
-                <Text style={styles.otaFeatureText}>Akurasi tekanan darah & status KBM/KMS.</Text>
-              </View>
-              <View style={styles.otaFeatureItem}>
-                <View style={styles.otaFeatureDot} />
-                <Text style={styles.otaFeatureText}>Perbaikan kebocoran data multi-tenant (RLS).</Text>
-              </View>
-              <View style={styles.otaFeatureItem}>
-                <View style={styles.otaFeatureDot} />
-                <Text style={styles.otaFeatureText}>Perbaikan PDF export & navigasi kalender.</Text>
-              </View>
-            </View>
 
             <TouchableOpacity 
               style={[styles.otaBtnDownload, isDownloadingUpdate && { opacity: 0.8 }]} 

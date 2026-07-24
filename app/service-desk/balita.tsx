@@ -16,7 +16,7 @@ import {
   Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
 import { 
   ArrowLeft, 
   Search, 
@@ -101,15 +101,33 @@ export default function BalitaServiceDesk() {
     }
   }, [editId]);
 
-  // Fetch all Balitas on mount for real-time local search
+  const navigation = useNavigation();
+
+  // Fetch all Balitas on focus for real-time local search
   useEffect(() => {
     const fetchAllData = async () => {
       const data = await getBalitas();
       setAllBalitas(data);
       setSearchResults(data);
+      
+      // Also update selectedBalita if it is currently selected, to get its updated phone number/RT
+      if (selectedBalita) {
+        const updatedSelected = data.find(b => b.id === selectedBalita.id);
+        if (updatedSelected) {
+          setSelectedBalita(updatedSelected);
+        }
+      }
     };
+
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchAllData();
+    });
+
+    // Fetch on initial mount
     fetchAllData();
-  }, []);
+
+    return unsubscribe;
+  }, [navigation, selectedBalita?.id]);
 
   // Filter search results in real-time as searchQuery or allBalitas change, excluding graduated balitas (> 60 months) at the time of the weighing (tanggal)
   useEffect(() => {

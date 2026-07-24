@@ -57,10 +57,10 @@ export const getIndoMonthName = (monthIndex: number): string => {
 };
 
 /**
- * Check if a toddler is "Lulus" (Age > 60 months)
+ * Check if a toddler is "Lulus" (Age >= 60 months / >= 5 years)
  */
 export const isBalitaLulus = (birthDate: string): boolean => {
-  return calculateAgeMonths(birthDate) > 60;
+  return calculateAgeMonths(birthDate) >= 60;
 };
 
 /**
