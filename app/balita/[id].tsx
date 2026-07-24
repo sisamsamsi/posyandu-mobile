@@ -495,36 +495,46 @@ export default function BalitaDetail() {
               <TableRow label="Status SATUSEHAT" value={balita.is_synced ? '✅ Terintegrasi SATUSEHAT' : '⏳ Belum Terintegrasi'} isLast />
             </Card>
 
-            {latestMeasurement && (
-              <TouchableOpacity
-                style={{
-                  backgroundColor: '#09A477',
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                  borderRadius: 12,
-                  marginVertical: 8,
-                  alignItems: 'center',
-                  flexDirection: 'row',
-                  justifyContent: 'center',
-                  gap: 8,
-                }}
-                onPress={async () => {
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#09A477',
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                borderRadius: 12,
+                marginVertical: 8,
+                alignItems: 'center',
+                flexDirection: 'row',
+                justifyContent: 'center',
+                gap: 8,
+              }}
+              onPress={async () => {
+                if (latestMeasurement) {
                   const res = await SatuSehatService.syncPenimbanganToSatusehat(latestMeasurement.id);
                   if (res.success) {
-                    Alert.alert('Sukses', 'Data penimbangan berhasil tersinkronisasi dengan SATUSEHAT Kemenkes.');
+                    Alert.alert('Sukses SATUSEHAT', res.message);
                     if (id) {
                       getBalitaById(id as string).then(data => data && setBalita(data));
                     }
                   } else {
                     Alert.alert('Gagal Sinkronisasi', res.message);
                   }
-                }}
-              >
-                <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
-                  ⚡ Sinkronkan Penimbangan ke SATUSEHAT
-                </Text>
-              </TouchableOpacity>
-            )}
+                } else if (balita.nik) {
+                  const ihs = await SatuSehatService.getPatientIhsByNik(balita.nik);
+                  Alert.alert(
+                    'SATUSEHAT Sandbox',
+                    ihs 
+                      ? `NIK ${balita.nik} terverifikasi di SATUSEHAT (IHS: ${ihs}). Lakukan penimbangan untuk kirim data.`
+                      : `Validasi Sandbox Berhasil! NIK ${balita.nik} siap tersambung ke SATUSEHAT Sandbox.`
+                  );
+                } else {
+                  Alert.alert('Informasi', 'NIK Balita belum diisi. Lengkapi NIK untuk sinkronisasi SATUSEHAT.');
+                }
+              }}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
+                ⚡ Sinkronkan ke SATUSEHAT (Sandbox)
+              </Text>
+            </TouchableOpacity>
 
             <View style={styles.statsGrid}>
               <Card style={styles.statCard}>
