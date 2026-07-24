@@ -281,8 +281,7 @@ export default function BalitaDetail() {
 
         // Calculate Risk if there is penimbangan data
         const validPenimbangans = (data.penimbangans || []).filter(p => 
-          new Date(p.tanggal).getTime() <= new Date().getTime() && 
-          (p.berat_badan > 0 || p.tinggi_badan > 0)
+          Number(p.berat_badan) > 0 || Number(p.tinggi_badan) > 0
         );
         const latest = [...validPenimbangans].sort((a,b) => 
           new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
@@ -468,8 +467,7 @@ export default function BalitaDetail() {
 
   const renderTabContent = () => {
     const validPenimbangans = (balita.penimbangans || []).filter(p => 
-      new Date(p.tanggal).getTime() <= new Date().getTime() && 
-      (p.berat_badan > 0 || p.tinggi_badan > 0)
+      Number(p.berat_badan) > 0 || Number(p.tinggi_badan) > 0
     );
     const latestMeasurement = [...validPenimbangans].sort((a,b) => 
       new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
