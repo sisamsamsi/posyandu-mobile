@@ -16,8 +16,13 @@
       },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://tuxwriojdglxfrcjayzz.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_kDrINbNmCoGC3e3tjAoihQ_HNyau6Gd",
-        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "915119317105-qp78aupkgcb0vbdntqs0kv6hqfuplea8.apps.googleusercontent.com"
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1eHdyaW9qZGdseGZyY2pheXp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4MjYwMTgsImV4cCI6MjA5MTQwMjAxOH0.JSz33sXBsktp-iXl1AjpX6q73eCWIPXSR-WATnMTIBQ",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "915119317105-qp78aupkgcb0vbdntqs0kv6hqfuplea8.apps.googleusercontent.com",
+        "EXPO_PUBLIC_SATUSEHAT_ENV": "sandbox",
+        "EXPO_PUBLIC_SATUSEHAT_BASE_URL": "https://api-satusehat-stg.dto.kemkes.go.id",
+        "EXPO_PUBLIC_SATUSEHAT_ORG_ID": "abb8926a-5160-4c10-bfbd-b6186cb6ecfe",
+        "EXPO_PUBLIC_SATUSEHAT_CLIENT_ID": "XljSoAWQAcYjTLkqVsYiduLoquxTfYdBgZponSB2DGttgUSD",
+        "EXPO_PUBLIC_SATUSEHAT_CLIENT_SECRET": "0leopGQiq7A15PqN8ZZlwQ6rszDbxyloOtfWVN4SGa1lgdjTeg8KxvKdlxQnl0Av"
       }
     },
     "production": {
@@ -25,8 +30,13 @@
       "channel": "production",
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://tuxwriojdglxfrcjayzz.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_kDrINbNmCoGC3e3tjAoihQ_HNyau6Gd",
-        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "915119317105-qp78aupkgcb0vbdntqs0kv6hqfuplea8.apps.googleusercontent.com"
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1eHdyaW9qZGdseGZyY2pheXp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4MjYwMTgsImV4cCI6MjA5MTQwMjAxOH0.JSz33sXBsktp-iXl1AjpX6q73eCWIPXSR-WATnMTIBQ",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "915119317105-qp78aupkgcb0vbdntqs0kv6hqfuplea8.apps.googleusercontent.com",
+        "EXPO_PUBLIC_SATUSEHAT_ENV": "sandbox",
+        "EXPO_PUBLIC_SATUSEHAT_BASE_URL": "https://api-satusehat-stg.dto.kemkes.go.id",
+        "EXPO_PUBLIC_SATUSEHAT_ORG_ID": "abb8926a-5160-4c10-bfbd-b6186cb6ecfe",
+        "EXPO_PUBLIC_SATUSEHAT_CLIENT_ID": "XljSoAWQAcYjTLkqVsYiduLoquxTfYdBgZponSB2DGttgUSD",
+        "EXPO_PUBLIC_SATUSEHAT_CLIENT_SECRET": "0leopGQiq7A15PqN8ZZlwQ6rszDbxyloOtfWVN4SGa1lgdjTeg8KxvKdlxQnl0Av"
       }
     }
   },
