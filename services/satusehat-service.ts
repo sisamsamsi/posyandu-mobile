@@ -41,16 +41,14 @@ export class SatuSehatService {
     }
 
     const url = `${this.baseUrl}/oauth2/v1/accesstoken?grant_type=client_credentials`;
-    const params = new URLSearchParams();
-    params.append('client_id', this.clientId);
-    params.append('client_secret', this.clientSecret);
+    const body = `client_id=${encodeURIComponent(this.clientId)}&client_secret=${encodeURIComponent(this.clientSecret)}`;
 
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: params.toString(),
+      body,
     });
 
     if (!response.ok) {
