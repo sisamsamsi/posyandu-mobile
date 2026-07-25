@@ -25,6 +25,21 @@ export class SatuSehatService {
     return process.env.EXPO_PUBLIC_SATUSEHAT_ORG_ID || 'abb8926a-5160-4c10-bfbd-b6186cb6ecfe';
   }
 
+  private static isRefNotFound(data: any): boolean {
+    const issue = data.issue?.[0];
+    if (!issue) return false;
+    const code = String(issue.code || '').toLowerCase();
+    const text = String(issue.details?.text || '').toLowerCase();
+    const diag = String(issue.diagnostics || '').toLowerCase();
+
+    return (
+      code === 'reference_not_found' ||
+      text === 'reference_not_found' ||
+      text.includes('reference') ||
+      diag.includes('reference target')
+    );
+  }
+
   /**
    * Mengambil OAuth2 Access Token dari Kemenkes SATUSEHAT (dengan in-memory caching)
    */
@@ -102,134 +117,6 @@ export class SatuSehatService {
       console.error('Error fetching Patient IHS by NIK:', error);
       return null;
     }
-  }
-
-  /**
-   * Membuat Kunjungan (Encounter) di Posyandu / Fasyankes
-   */
-  static async createEncounter(params: {
-    patientIhsId: string;
-    practitionerIhsId?: string;
-    orgId?: string;
-    date: string;
-  }): Promise<string> {
-    const token = await this.getAuthToken();
-    const orgId = params.orgId || this.defaultOrgId;
-    const practitionerId = params.practitionerIhsId || '1000000001'; // Default practitioner jika belum di-bind
-    const startTime = `${params.date}T08:00:00+07:00`;
-    const endTime = `${params.date}T11:00:00+07:00`;
-
-    const encounterPayload = {
-      resourceType: 'Encounter',
-      status: 'finished',
-      identifier: [
-        {
-          system: `http://sys-ids.kemkes.go.id/encounter/${orgId}`,
-          value: `ENC-${Date.now()}-${params.patientIhsId.slice(0, 8)}`,
-        },
-      ],
-      class: {
-        system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-        code: 'AMB',
-        display: 'ambulatory',
-      },
-      subject: {
-        reference: `Patient/${params.patientIhsId}`,
-      },
-      participant: [
-        {
-          type: [
-            {
-              coding: [
-                {
-                  system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
-                  code: 'PPRF',
-                  display: 'primary performer',
-                },
-              ],
-            },
-          ],
-          individual: {
-            reference: `Practitioner/${practitionerId}`,
-          },
-        },
-      ],
-      period: {
-        start: startTime,
-        end: endTime,
-      },
-      statusHistory: [
-        {
-          status: 'arrived',
-          period: {
-            start: startTime,
-            end: startTime,
-          },
-        },
-        {
-          status: 'in-progress',
-          period: {
-            start: startTime,
-            end: endTime,
-          },
-        },
-        {
-          status: 'finished',
-          period: {
-            start: endTime,
-            end: endTime,
-          },
-        },
-      ],
-      location: [
-        {
-          location: {
-            reference: 'Location/1000000001',
-            display: 'Posyandu Balita',
-          },
-        },
-      ],
-      diagnosis: [
-        {
-          condition: {
-            reference: 'Condition/1000000001',
-            display: 'Pemeriksaan Kesehatan Anak Rutin',
-          },
-          use: {
-            coding: [
-              {
-                system: 'http://terminology.hl7.org/CodeSystem/diagnosis-role',
-                code: 'DD',
-                display: 'Discharge diagnosis',
-              },
-            ],
-          },
-          rank: 1,
-        },
-      ],
-      serviceProvider: {
-        reference: `Organization/${orgId}`,
-      },
-    };
-
-    const response = await fetch(`${this.baseUrl}/fhir-r4/v1/Encounter`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-  private static isRefNotFound(data: any): boolean {
-    const issue = data.issue?.[0];
-    if (!issue) return false;
-    const code = String(issue.code || '').toLowerCase();
-    const text = String(issue.details?.text || '').toLowerCase();
-    const diag = String(issue.diagnostics || '').toLowerCase();
-
-    return (
-      code === 'reference_not_found' ||
-      text === 'reference_not_found' ||
-      text.includes('reference') ||
-      diag.includes('reference target')
-    );
   }
 
   /**
