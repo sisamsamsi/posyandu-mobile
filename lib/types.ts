@@ -23,8 +23,8 @@ export interface Posyandu {
   alamat_posyandu_lansia: string | null;
   // Logo
   logo_url: string | null;
-  satusehat_org_id?: string | null;
   invite_code?: string; // New field
+  satusehat_org_id?: string | null;
   created_at: string;
 }
 

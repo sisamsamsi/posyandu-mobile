@@ -70,10 +70,10 @@ export default function DataMasterScreen() {
         return ageMonths < 24;
       }
       if (activeFilter === 'balita') {
-        return ageMonths >= 24 && ageMonths <= 60;
+        return ageMonths >= 24 && ageMonths < 60;
       }
       if (activeFilter === 'lulus') {
-        return ageMonths > 60;
+        return ageMonths >= 60;
       }
       return true;
     });
@@ -89,7 +89,7 @@ export default function DataMasterScreen() {
       const age = differenceInMonths(new Date(), new Date(b.tanggal_lahir));
       if (age < 24) {
         baduta++;
-      } else if (age <= 60) {
+      } else if (age < 60) {
         balitaCount++;
       } else {
         lulusCount++;
@@ -229,7 +229,7 @@ export default function DataMasterScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.filterChipText, activeFilter === 'lulus' && styles.filterChipTextActive]}>
-              {"Lulus (> 5 Th) ("}{counts.lulus}{")"}
+                            {"Lulus (≥ 5 Th) ("}{counts.lulus}{")"}
             </Text>
           </TouchableOpacity>
         </ScrollView>

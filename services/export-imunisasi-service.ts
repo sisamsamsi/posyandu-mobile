@@ -17,8 +17,8 @@ export class ExportImunisasiService {
         NO: index + 1,
         "NAMA ANAK": b.nama,
         "NAMA ORTU": b.nama_ortu || b.nama_ibu || b.nama_ayah || "-",
-        "TGL LAHIR": format(new Date(b.tanggal_lahir), "dd/MM/yyyy"),
-        NIK: b.nik,
+        "TGL LAHIR": "'" + format(new Date(b.tanggal_lahir), "dd/MM/yyyy"),
+        NIK: "'" + b.nik,
         RT: b.rt,
         "HB0 (24 jam)": b.imunisasi?.hb0_date
           ? format(new Date(b.imunisasi.hb0_date), "dd/MM/yyyy")
@@ -132,8 +132,8 @@ export class ExportImunisasiService {
           NO: index + 1,
           "NAMA ANAK": b.nama,
           "NAMA ORTU": b.nama_ortu || b.nama_ibu || b.nama_ayah || "-",
-          "TGL LAHIR": format(new Date(b.tanggal_lahir), "dd/MM/yyyy"),
-          NIK: b.nik,
+          "TGL LAHIR": "'" + format(new Date(b.tanggal_lahir), "dd/MM/yyyy"),
+          NIK: "'" + b.nik,
           RT: b.rt,
           "HB0 (24 jam)": b.imunisasi?.hb0_date
             ? format(new Date(b.imunisasi.hb0_date), "dd/MM/yyyy")

@@ -259,7 +259,7 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
       },
       {
         data: balitaDataRaw as number[],
-        color: () => '#0F766E', // Child Curve Dark Teal
+        color: () => '#1E40AF', // Child Curve Navy Blue
         strokeWidth: 3.5,
         withDots: true,
       },
@@ -441,7 +441,7 @@ export const GrowthChart: React.FC<GrowthChartProps> = ({
             <Text style={styles.legendText}>3 SD</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.dot, { backgroundColor: '#0F766E' }]} />
+            <View style={[styles.dot, { backgroundColor: '#1E40AF' }]} />
             <Text style={styles.legendText}>Hasil Pengukuran</Text>
           </View>
         </View>
