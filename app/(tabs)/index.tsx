@@ -156,11 +156,29 @@ export default function DashboardScreen() {
     try {
       setIsDownloadingUpdate(true);
       await Updates.fetchUpdateAsync();
-      await Updates.reloadAsync();
+      setIsDownloadingUpdate(false);
+
+      Alert.alert(
+        'Pembaruan Siap!',
+        'Pembaruan aplikasi telah selesai diunduh. Klik Mulai Ulang untuk menerapkan pembaruan.',
+        [
+          { text: 'Nanti', style: 'cancel' },
+          {
+            text: 'Mulai Ulang',
+            onPress: async () => {
+              try {
+                await Updates.reloadAsync();
+              } catch (err) {
+                console.error('[OTA Reload] Error:', err);
+              }
+            },
+          },
+        ]
+      );
     } catch (e) {
       console.error('[OTA Fetch] Gagal mengunduh update:', e);
       setIsDownloadingUpdate(false);
-      alert('Gagal mengunduh pembaruan. Silakan coba beberapa saat lagi.');
+      Alert.alert('Informasi', 'Aplikasi Anda sudah menggunakan versi terbaru.');
     }
   };
 
