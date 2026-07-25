@@ -507,20 +507,29 @@ export default function DashboardScreen() {
         {/* ============================= */}
         {/* OTA UPDATE BANNER PENDING     */}
         {/* ============================= */}
-        {updateAvailable && (
+        {updateAvailable && !updateDismissed && (
           <TouchableOpacity 
             style={styles.otaBannerContainer}
-            onPress={() => setUpdateDismissed(false)}
+            onPress={handleDownloadAndReload}
             activeOpacity={0.9}
+            disabled={isDownloadingUpdate}
           >
             <View style={styles.otaBannerContent}>
               <View style={styles.otaBannerIconContainer}>
-                <Sparkles size={18} color="#0D9488" />
+                {isDownloadingUpdate ? (
+                  <ActivityIndicator size="small" color="#0D9488" />
+                ) : (
+                  <Sparkles size={18} color="#0D9488" />
+                )}
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.otaBannerTitle}>Pembaruan Sistem Tersedia!</Text>
+                <Text style={styles.otaBannerTitle}>
+                  {isDownloadingUpdate ? 'Mengunduh Pembaruan...' : 'Pembaruan Sistem Tersedia!'}
+                </Text>
                 <Text style={styles.otaBannerDesc}>
-                  Klik di sini untuk memasang hasil perbaikan Bimtek posyandu hari ini secara instan.
+                  {isDownloadingUpdate 
+                    ? 'Mohon tunggu sejenak, aplikasi sedang menyiapkan versi terbaru.' 
+                    : 'Klik di sini untuk memasang hasil perbaikan sistem terbaru secara instan.'}
                 </Text>
               </View>
               <View style={styles.otaBannerAction}>
@@ -803,60 +812,7 @@ export default function DashboardScreen() {
         </View>
       </Modal>
 
-      {/* ============================= */}
-      {/* OTA UPDATE DIALOG             */}
-      {/* ============================= */}
-      <Modal
-        visible={updateAvailable && !updateDismissed}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setUpdateDismissed(true)}
-      >
-        <View style={styles.otaOverlay}>
-          <View style={styles.otaGlassCard}>
-            <View style={styles.otaSparkleContainer}>
-              <Sparkles size={120} color="rgba(20, 184, 166, 0.05)" />
-            </View>
-            
-            <View style={styles.otaGlassHeaderBadge}>
-              <Sparkles size={32} color="#0D9488" />
-            </View>
-            
-            <Text style={styles.otaTitle}>Pembaruan Sistem SIMPUL SEHAT</Text>
-            <Text style={styles.otaSubtitle}>
-              Pembaruan aplikasi terbaru siap dipasang demi meningkatkan performa, stabilitas, dan kenyamanan pelayanan Posyandu Anda.
-            </Text>
 
-            <TouchableOpacity 
-              style={[styles.otaBtnDownload, isDownloadingUpdate && { opacity: 0.8 }]} 
-              onPress={handleDownloadAndReload}
-              disabled={isDownloadingUpdate}
-              activeOpacity={0.8}
-            >
-              {isDownloadingUpdate ? (
-                <>
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                  <Text style={styles.otaBtnDownloadText}>Memasang Pembaruan...</Text>
-                </>
-              ) : (
-                <>
-                  <RefreshCw size={20} color="#FFFFFF" />
-                  <Text style={styles.otaBtnDownloadText}>Unduh & Muat Ulang</Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            {!isDownloadingUpdate && (
-              <TouchableOpacity 
-                style={styles.otaBtnDismiss} 
-                onPress={() => setUpdateDismissed(true)}
-              >
-                <Text style={styles.otaBtnDismissText}>Nanti Saja</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      </Modal>
 
       {/* ============================= */}
       {/* POSYANDU PICKER MODAL         */}
