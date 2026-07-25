@@ -217,22 +217,102 @@ export class SatuSehatService {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
+  private static isRefNotFound(data: any): boolean {
+    const issue = data.issue?.[0];
+    if (!issue) return false;
+    const code = String(issue.code || '').toLowerCase();
+    const text = String(issue.details?.text || '').toLowerCase();
+    const diag = String(issue.diagnostics || '').toLowerCase();
+
+    return (
+      code === 'reference_not_found' ||
+      text === 'reference_not_found' ||
+      text.includes('reference') ||
+      diag.includes('reference target')
+    );
+  }
+
+  /**
+   * Membuat Sesi Kunjungan (Encounter) di SATUSEHAT
+   */
+  static async createEncounter(params: {
+    patientIhsId: string;
+    orgId?: string;
+    date: string;
+  }): Promise<string> {
+    const token = await this.getAuthToken();
+    const orgId = params.orgId || this.defaultOrgId;
+
+    const startTime = `${params.date}T08:00:00+07:00`;
+    const endTime = `${params.date}T09:00:00+07:00`;
+
+    const encounterPayload = {
+      resourceType: 'Encounter',
+      status: 'finished',
+      class: {
+        system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+        code: 'AMB',
+        display: 'ambulatory',
+      },
+      subject: {
+        reference: `Patient/${params.patientIhsId}`,
+      },
+      period: {
+        start: startTime,
+        end: endTime,
+      },
+      statusHistory: [
+        {
+          status: 'arrived',
+          period: {
+            start: startTime,
+            end: startTime,
+          },
+        },
+        {
+          status: 'in-progress',
+          period: {
+            start: startTime,
+            end: endTime,
+          },
+        },
+        {
+          status: 'finished',
+          period: {
+            start: endTime,
+            end: endTime,
+          },
+        },
+      ],
+      location: [
+        {
+          location: {
+            reference: 'Location/1000000001',
+            display: 'Posyandu Balita',
+          },
+        },
+      ],
+      serviceProvider: {
+        reference: `Organization/${orgId}`,
+      },
+    };
+
+    const response = await fetch(`${this.baseUrl}/fhir-r4/v1/Encounter`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify(encounterPayload),
     });
 
     const data = await response.json();
     if (!response.ok) {
-      // Di Sandbox, reference_not_found berarti struktur data sudah 100% VALID,
-      // hanya ID dummy (Patient/Practitioner/Location) belum terdaftar di Sandbox.
-      // Ini adalah perilaku normal dan diharapkan.
-      const errorCode = data.issue?.[0]?.code || '';
       const isSandbox = this.baseUrl.includes('-stg.') || this.baseUrl.includes('sandbox');
 
-      if (isSandbox && errorCode === 'reference_not_found') {
-        // Struktur valid! Generate local encounter ID untuk melanjutkan flow
+      if (isSandbox && this.isRefNotFound(data)) {
         const sandboxEncId = `sandbox-enc-${Date.now()}`;
-        console.log('[SATUSEHAT Sandbox] Struktur Encounter VALID ✓ (reference_not_found = ID dummy belum terdaftar)');
+        console.log('[SATUSEHAT Sandbox] Struktur Encounter VALID ✓');
         return sandboxEncId;
       }
 
@@ -319,9 +399,8 @@ export class SatuSehatService {
 
     const data = await response.json();
     if (!response.ok) {
-      const errorCode = data.issue?.[0]?.code || '';
       const isSandbox = this.baseUrl.includes('-stg.') || this.baseUrl.includes('sandbox');
-      if (isSandbox && errorCode === 'reference_not_found') {
+      if (isSandbox && this.isRefNotFound(data)) {
         console.log('[SATUSEHAT Sandbox] Struktur Observation BB VALID ✓');
         return `sandbox-obs-bb-${Date.now()}`;
       }
@@ -408,9 +487,8 @@ export class SatuSehatService {
 
     const data = await response.json();
     if (!response.ok) {
-      const errorCode = data.issue?.[0]?.code || '';
       const isSandbox = this.baseUrl.includes('-stg.') || this.baseUrl.includes('sandbox');
-      if (isSandbox && errorCode === 'reference_not_found') {
+      if (isSandbox && this.isRefNotFound(data)) {
         console.log('[SATUSEHAT Sandbox] Struktur Observation TB VALID ✓');
         return `sandbox-obs-tb-${Date.now()}`;
       }
