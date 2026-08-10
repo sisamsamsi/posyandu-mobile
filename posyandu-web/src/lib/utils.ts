@@ -93,3 +93,32 @@ export const calculateGrowthTrend = (
 
   return 'N';
 };
+
+/**
+ * Helper untuk mengambil data Supabase dengan paginasi (melampaui limit default 1000 row PostgREST).
+ */
+export async function fetchAllPaginated<T>(
+  fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>
+): Promise<T[]> {
+  let allData: T[] = [];
+  let page = 0;
+  const pageSize = 1000;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data, error } = await fetchPage(page * pageSize, (page + 1) * pageSize - 1);
+    if (error || !data || data.length === 0) {
+      hasMore = false;
+    } else {
+      allData = allData.concat(data);
+      if (data.length < pageSize) {
+        hasMore = false;
+      } else {
+        page++;
+      }
+    }
+  }
+
+  return allData;
+}
+

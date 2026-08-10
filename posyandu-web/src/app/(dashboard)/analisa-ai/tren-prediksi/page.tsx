@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useFilters } from '@/context/FilterContext';
 import { TrendingUp } from 'lucide-react';
+import { fetchAllPaginated } from '@/lib/utils';
 import SubmenuPlaceholder, { StatItem } from '@/components/layout/SubmenuPlaceholder';
 
 interface TrendRecord {
@@ -35,16 +36,19 @@ export default function TrenPrediksiPage() {
     async function fetchData() {
       try {
         setLoading(true);
-        // Query penimbangans & pemeriksaan_lansias
-        const { data: penimbangans, error: pError } = await supabase
-          .from('penimbangans')
-          .select('tanggal, status_tb_u, balita:balitas(tanggal_lahir, posyandu_id, posyandu:posyandus(kelurahan))');
-        if (pError) throw pError;
-
-        const { data: pemeriksaans, error: lError } = await supabase
-          .from('pemeriksaan_lansias')
-          .select('tanggal_periksa, lansia:lansias(posyandu_id, posyandu:posyandus(kelurahan))');
-        if (lError) throw lError;
+        // Query penimbangans & pemeriksaan_lansias with pagination
+        const [penimbangans, pemeriksaans] = await Promise.all([
+          fetchAllPaginated<any>((from, to) => 
+            supabase.from('penimbangans')
+              .select('tanggal, status_tb_u, balita:balitas(tanggal_lahir, posyandu_id, posyandu:posyandus(kelurahan))')
+              .range(from, to)
+          ),
+          fetchAllPaginated<any>((from, to) => 
+            supabase.from('pemeriksaan_lansias')
+              .select('tanggal_periksa, lansia:lansias(posyandu_id, posyandu:posyandus(kelurahan))')
+              .range(from, to)
+          )
+        ]);
 
         // Group by month
         const monthlyStats: Record<string, { balita: number; lansia: number; stunting: number }> = {};

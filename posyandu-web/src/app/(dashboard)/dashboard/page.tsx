@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFilters } from '@/context/FilterContext';
 import { supabase } from '@/lib/supabase';
-import { calculateAgeMonths, getKBMValue } from '@/lib/utils';
+import { calculateAgeMonths, getKBMValue, fetchAllPaginated } from '@/lib/utils';
 import { 
   Baby, 
   Activity, 
@@ -128,13 +128,22 @@ export default function Dashboard() {
 
         const safePosyanduIds = posyanduIds.length > 0 ? posyanduIds : ['00000000-0000-0000-0000-000000000000'];
 
-        // Query balitas and lansias in these posyandus
-        const [balitasRes, lansiasRes] = await Promise.all([
-          supabase.from('balitas').select('id, nama, jenis_kelamin, posyandu_id, tanggal_lahir, created_at, posyandu:posyandus(nama_posyandu, kelurahan), penimbangans(id, tanggal, berat_badan, tinggi_badan)').in('posyandu_id', safePosyanduIds),
-          supabase.from('lansias').select('id, nama, jenis_kelamin, posyandu_id, created_at, posyandu:posyandus(nama_posyandu, kelurahan), pemeriksaan_lansias(id, tanggal_periksa, tekanan_darah, gula_darah, kolesterol)').in('posyandu_id', safePosyanduIds)
+        // Query balitas and lansias in these posyandus with pagination
+        const [allBalitas, allLansias] = await Promise.all([
+          fetchAllPaginated<any>((from, to) => 
+            supabase.from('balitas')
+              .select('id, nama, jenis_kelamin, posyandu_id, tanggal_lahir, created_at, posyandu:posyandus(nama_posyandu, kelurahan), penimbangans(id, tanggal, berat_badan, tinggi_badan)')
+              .in('posyandu_id', safePosyanduIds)
+              .range(from, to)
+          ),
+          fetchAllPaginated<any>((from, to) => 
+            supabase.from('lansias')
+              .select('id, nama, jenis_kelamin, posyandu_id, created_at, posyandu:posyandus(nama_posyandu, kelurahan), pemeriksaan_lansias(id, tanggal_periksa, tekanan_darah, gula_darah, kolesterol)')
+              .in('posyandu_id', safePosyanduIds)
+              .range(from, to)
+          )
         ]);
 
-        const allBalitas = balitasRes.data || [];
         const activeBalitas = allBalitas.filter(b => {
           const dob = new Date(b.tanggal_lahir);
           const refDate = new Date(year, monthNum - 1, 1);
@@ -144,7 +153,7 @@ export default function Dashboard() {
           const age = months <= 0 ? 0 : months;
           return age < 60;
         });
-        const activeLansias = lansiasRes.data || [];
+        const activeLansias = allLansias;
 
         const activeBalitaIds = activeBalitas.map(b => b.id);
         const activeLansiaIds = activeLansias.map(l => l.id);
@@ -158,29 +167,34 @@ export default function Dashboard() {
         const prevLastDay = new Date(prevYear, prevMonthNum, 0).getDate();
         const prevEndDate = `${prevYear}-${String(prevMonthNum).padStart(2, '0')}-${String(prevLastDay).padStart(2, '0')}`;
 
-        // Fetch monthly weighings, checks, and previous month's weighings
-        const [penimbangansRes, pemeriksaanRes, prevPenimbangansRes] = await Promise.all([
-          supabase.from('penimbangans')
-            .select('*')
-            .in('balita_id', safeBalitaIds)
-            .gte('tanggal', startDate)
-            .lte('tanggal', endDate),
-          supabase.from('pemeriksaan_lansias')
-            .select('*, lansia:lansias(jenis_kelamin)')
-            .in('lansia_id', safeLansiaIds)
-            .gte('tanggal_periksa', startDate)
-            .lte('tanggal_periksa', endDate),
-          supabase.from('penimbangans')
-            .select('balita_id, berat_badan, tanggal')
-            .in('balita_id', safeBalitaIds)
-            .gte('tanggal', prevStartDate)
-            .lte('tanggal', prevEndDate)
-            .order('tanggal', { ascending: false })
+        // Fetch monthly weighings, checks, and previous month's weighings with pagination
+        const [monthlyPenimbangans, monthlyPemeriksaans, prevPenimbangans] = await Promise.all([
+          fetchAllPaginated<any>((from, to) => 
+            supabase.from('penimbangans')
+              .select('*')
+              .in('balita_id', safeBalitaIds)
+              .gte('tanggal', startDate)
+              .lte('tanggal', endDate)
+              .range(from, to)
+          ),
+          fetchAllPaginated<any>((from, to) => 
+            supabase.from('pemeriksaan_lansias')
+              .select('*, lansia:lansias(jenis_kelamin)')
+              .in('lansia_id', safeLansiaIds)
+              .gte('tanggal_periksa', startDate)
+              .lte('tanggal_periksa', endDate)
+              .range(from, to)
+          ),
+          fetchAllPaginated<any>((from, to) => 
+            supabase.from('penimbangans')
+              .select('balita_id, berat_badan, tanggal')
+              .in('balita_id', safeBalitaIds)
+              .gte('tanggal', prevStartDate)
+              .lte('tanggal', prevEndDate)
+              .order('tanggal', { ascending: false })
+              .range(from, to)
+          )
         ]);
-
-        const monthlyPenimbangans = penimbangansRes.data || [];
-        const monthlyPemeriksaans = pemeriksaanRes.data || [];
-        const prevPenimbangans = prevPenimbangansRes.data || [];
 
         const totalBalita = activeBalitas.length;
         const totalLansia = activeLansias.length;
@@ -386,11 +400,14 @@ export default function Dashboard() {
         }
         const trendStartDate = `${trends[0].year}-${String(trends[0].month).padStart(2, '0')}-01`;
         
-        const { data: trendData } = await supabase.from('penimbangans')
-          .select('tanggal, status_tb_u')
-          .in('balita_id', safeBalitaIds)
-          .gte('tanggal', trendStartDate)
-          .lte('tanggal', endDate);
+        const trendData = await fetchAllPaginated<any>((from, to) =>
+          supabase.from('penimbangans')
+            .select('tanggal, status_tb_u')
+            .in('balita_id', safeBalitaIds)
+            .gte('tanggal', trendStartDate)
+            .lte('tanggal', endDate)
+            .range(from, to)
+        );
 
         (trendData || []).forEach(p => {
           const pDate = new Date(p.tanggal);
@@ -414,11 +431,14 @@ export default function Dashboard() {
         }
         const tensiStartDate = `${tensiTrends[0].year}-${String(tensiTrends[0].month).padStart(2, '0')}-01`;
 
-        const { data: tensiData } = await supabase.from('pemeriksaan_lansias')
-          .select('tanggal_periksa, tekanan_darah')
-          .in('lansia_id', safeLansiaIds)
-          .gte('tanggal_periksa', tensiStartDate)
-          .lte('tanggal_periksa', endDate);
+        const tensiData = await fetchAllPaginated<any>((from, to) =>
+          supabase.from('pemeriksaan_lansias')
+            .select('tanggal_periksa, tekanan_darah')
+            .in('lansia_id', safeLansiaIds)
+            .gte('tanggal_periksa', tensiStartDate)
+            .lte('tanggal_periksa', endDate)
+            .range(from, to)
+        );
 
         (tensiData || []).forEach(p => {
           const pDate = new Date(p.tanggal_periksa);
@@ -453,13 +473,15 @@ export default function Dashboard() {
             let checkedMembers = 0;
             if (toggleMode === 'balita') {
               const posyBalitaIds = new Set(posyBalitas.map(b => b.id));
-              checkedMembers = monthlyPenimbangans.filter(p => posyBalitaIds.has(p.balita_id)).length;
+              const checkedSet = new Set(monthlyPenimbangans.filter(p => posyBalitaIds.has(p.balita_id)).map(p => p.balita_id));
+              checkedMembers = checkedSet.size;
             } else {
               const posyLansiaIds = new Set(posyLansias.map(l => l.id));
-              checkedMembers = monthlyPemeriksaans.filter(p => posyLansiaIds.has(p.lansia_id)).length;
+              const checkedSet = new Set(monthlyPemeriksaans.filter(p => posyLansiaIds.has(p.lansia_id)).map(p => p.lansia_id));
+              checkedMembers = checkedSet.size;
             }
 
-            const percent = totalMembers > 0 ? Math.round((checkedMembers / totalMembers) * 100) : 0;
+            const percent = totalMembers > 0 ? Math.min(100, Math.round((checkedMembers / totalMembers) * 100)) : 0;
             
             let statusBadge = <span className="badge badge-danger">Belum Melapor</span>;
             if (percent === 100 && totalMembers > 0) {
