@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import { View, ActivityIndicator, StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { COLORS } from '../lib/constants';
+import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold } from '@expo-google-fonts/inter';
 
 function RootLayoutNav() {
   const { session, initialized, initialize } = useAuthStore();
@@ -49,7 +50,15 @@ function RootLayoutNav() {
   }, [session, initialized, segments, activeWorkspace]);
 
 
-  if (!initialized) {
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
+  });
+
+  if (!initialized || !fontsLoaded) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background }}>
         <ActivityIndicator size="large" color={COLORS.primary} />

@@ -122,21 +122,53 @@ export const usePenimbangan = () => {
     }
   };
 
-  /**
-   * Add a new penimbangan record
-   */
   const addPenimbangan = async (payload: Partial<Penimbangan>) => {
     try {
       setLoading(true);
       setError(null);
-      const { data, error } = await supabase
-        .from('penimbangans')
-        .insert(payload)
-        .select()
-        .single();
+      
+      if (!payload.balita_id || !payload.tanggal) {
+        throw new Error('Balita ID dan Tanggal wajib diisi.');
+      }
 
-      if (error) throw error;
-      return data as Penimbangan;
+      const date = new Date(payload.tanggal);
+      const start = startOfMonth(date).toISOString();
+      const end = endOfMonth(date).toISOString();
+
+      // Cek apakah balita ini sudah ditimbang di bulan dan tahun yang sama
+      const { data: existingData, error: checkError } = await supabase
+        .from('penimbangans')
+        .select('id')
+        .eq('balita_id', payload.balita_id)
+        .gte('tanggal', start)
+        .lte('tanggal', end)
+        .maybeSingle();
+
+      if (checkError) throw checkError;
+
+      let result;
+      if (existingData) {
+        // Jika sudah ada, lakukan UPDATE (mencegah duplikasi)
+        const { data, error } = await supabase
+          .from('penimbangans')
+          .update(payload)
+          .eq('id', existingData.id)
+          .select()
+          .single();
+        if (error) throw error;
+        result = data;
+      } else {
+        // Jika belum ada, lakukan INSERT
+        const { data, error } = await supabase
+          .from('penimbangans')
+          .insert(payload)
+          .select()
+          .single();
+        if (error) throw error;
+        result = data;
+      }
+
+      return result as Penimbangan;
     } catch (err: any) {
       setError(err.message);
       throw err;

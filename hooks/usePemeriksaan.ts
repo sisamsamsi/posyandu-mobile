@@ -94,21 +94,53 @@ export const usePemeriksaan = () => {
     }
   };
 
-  /**
-   * Add a new pemeriksaan record
-   */
   const addPemeriksaan = async (payload: Partial<PemeriksaanLansia>) => {
     try {
       setLoading(true);
       setError(null);
-      const { data, error } = await supabase
-        .from('pemeriksaan_lansias')
-        .insert(payload)
-        .select()
-        .single();
 
-      if (error) throw error;
-      return data as PemeriksaanLansia;
+      if (!payload.lansia_id || !payload.tanggal_periksa) {
+        throw new Error('Lansia ID dan Tanggal Periksa wajib diisi.');
+      }
+
+      const date = new Date(payload.tanggal_periksa);
+      const start = startOfMonth(date).toISOString();
+      const end = endOfMonth(date).toISOString();
+
+      // Cek apakah lansia ini sudah diperiksa di bulan dan tahun yang sama
+      const { data: existingData, error: checkError } = await supabase
+        .from('pemeriksaan_lansias')
+        .select('id')
+        .eq('lansia_id', payload.lansia_id)
+        .gte('tanggal_periksa', start)
+        .lte('tanggal_periksa', end)
+        .maybeSingle();
+
+      if (checkError) throw checkError;
+
+      let result;
+      if (existingData) {
+        // Jika sudah ada, lakukan UPDATE (mencegah duplikasi)
+        const { data, error } = await supabase
+          .from('pemeriksaan_lansias')
+          .update(payload)
+          .eq('id', existingData.id)
+          .select()
+          .single();
+        if (error) throw error;
+        result = data;
+      } else {
+        // Jika belum ada, lakukan INSERT
+        const { data, error } = await supabase
+          .from('pemeriksaan_lansias')
+          .insert(payload)
+          .select()
+          .single();
+        if (error) throw error;
+        result = data;
+      }
+
+      return result as PemeriksaanLansia;
     } catch (err: any) {
       setError(err.message);
       throw err;
