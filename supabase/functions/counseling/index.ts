@@ -28,10 +28,12 @@ serve(async (req) => {
 
     const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false }, // Prevent Deno from trying to use localStorage
     })
 
-    // Verify token validity by calling getUser
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
+    // Verify token validity by calling getUser with the explicit JWT
+    const token = authHeader.replace(/^Bearer\s+/i, '')
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token)
     if (userError || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized: Invalid user session token' }), {
         status: 401,

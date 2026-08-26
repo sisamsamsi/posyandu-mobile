@@ -170,7 +170,9 @@ Tentukan Fokus Area Langkah ${step} yang wajib sesuai tema ${currentTheme}, lalu
     ];
 
     try {
-      const response = await this.callGroq(messages, true);
+      let response = await this.callGroq(messages, true);
+      // Clean up markdown block if Gemini wraps it
+      response = response.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
       const parsed = JSON.parse(response);
       if (parsed && typeof parsed.focus_area === 'string' && typeof parsed.question === 'string' && typeof parsed.guidance === 'string') {
         return parsed as AdaptiveQuestion;
