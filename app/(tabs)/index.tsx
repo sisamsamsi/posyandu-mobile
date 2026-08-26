@@ -155,14 +155,20 @@ export default function DashboardScreen() {
   const handleDownloadAndReload = async () => {
     try {
       setIsDownloadingUpdate(true);
-      await Updates.fetchUpdateAsync();
+      const result = await Updates.fetchUpdateAsync();
       setIsDownloadingUpdate(false);
+
+      if (!result.isNew) {
+        setUpdateDismissed(true);
+        Alert.alert('Informasi', 'Pembaruan sudah diterapkan atau Anda sudah di versi terbaru. Silakan muat ulang aplikasi (tutup dan buka kembali).');
+        return;
+      }
 
       Alert.alert(
         'Pembaruan Siap!',
         'Pembaruan aplikasi telah selesai diunduh. Klik Mulai Ulang untuk menerapkan pembaruan.',
         [
-          { text: 'Nanti', style: 'cancel' },
+          { text: 'Nanti', style: 'cancel', onPress: () => setUpdateDismissed(true) },
           {
             text: 'Mulai Ulang',
             onPress: async () => {
@@ -178,7 +184,8 @@ export default function DashboardScreen() {
     } catch (e) {
       console.error('[OTA Fetch] Gagal mengunduh update:', e);
       setIsDownloadingUpdate(false);
-      Alert.alert('Informasi', 'Aplikasi Anda sudah menggunakan versi terbaru.');
+      setUpdateDismissed(true);
+      Alert.alert('Informasi', 'Gagal mengunduh pembaruan. Anda masih menggunakan versi stabil saat ini.');
     }
   };
 
