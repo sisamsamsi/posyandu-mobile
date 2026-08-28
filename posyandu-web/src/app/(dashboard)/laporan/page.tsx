@@ -343,8 +343,12 @@ export default function LaporanPage() {
       ];
 
       const rows = filteredData.map((row, index) => {
-        const caraUkur = row.tinggi_badan ? (row.tinggi_badan < 85 ? 'terlentang' : 'berdiri') : '';
-        const ageInMonths = calculateAgeMonths(row.tanggal_lahir, new Date(yNum, mNum - 1, 15));
+        let caraUkur = '';
+        if (row.tanggal_pengukuran && (row.tinggi_badan || row.berat_badan)) {
+          const measDate = new Date(row.tanggal_pengukuran);
+          const ageAtMeasurement = calculateAgeMonths(row.tanggal_lahir, measDate);
+          caraUkur = ageAtMeasurement < 24 ? 'terlentang' : 'berdiri';
+        }
 
         return [
           index + 1,
@@ -355,18 +359,18 @@ export default function LaporanPage() {
           row.tinggi_badan ?? '',
           row.lingkar_lengan ?? '',
           row.lingkar_kepala ?? '',
-          0,
-          caraUkur,
-          ((mNum === 2 || mNum === 8) && ageInMonths >= 6) ? 'ya' : 'tidak',
-          ageInMonths >= 0 ? 'ya' : 'tidak',
-          ageInMonths >= 1 ? 'ya' : 'tidak',
-          ageInMonths >= 2 ? 'ya' : 'tidak',
-          ageInMonths >= 3 ? 'ya' : 'tidak',
-          ageInMonths >= 4 ? 'ya' : 'tidak',
-          ageInMonths >= 5 ? 'ya' : 'tidak',
-          ageInMonths >= 6 ? 'ya' : 'tidak',
-          'ya',
-          'tidak'
+          '', // Pitting_edema kosong
+          caraUkur, // CARAUKUR: umur < 24 bln terlentang (PB), umur >= 24 bln berdiri (TB)
+          '', // vita kosong
+          '', // asi_bulan_0 kosong
+          '', // asi_bulan_1 kosong
+          '', // asi_bulan_2 kosong
+          '', // asi_bulan_3 kosong
+          '', // asi_bulan_4 kosong
+          '', // asi_bulan_5 kosong
+          '', // asi_bulan_6 kosong
+          '', // kelas_ibu_balita kosong
+          ''  // mbg kosong
         ];
       });
 

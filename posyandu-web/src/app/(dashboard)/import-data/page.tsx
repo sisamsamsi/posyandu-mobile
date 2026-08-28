@@ -131,8 +131,8 @@ export default function ImportDataPage() {
       ];
       const exampleRow = [
         1, makeTextCell('3402081501230001'), 'Contoh Nama Balita',
-        '2024-02-15', 8.5, 72.0, 14.2, 44.5, 0, 'berdiri',
-        'ya', 'ya', 'ya', 'ya', 'ya', 'ya', 'ya', 'tidak', 'ya', 'tidak'
+        '2024-02-15', 8.5, 72.0, 14.2, 44.5, '', 'terlentang',
+        '', '', '', '', '', '', '', '', '', ''
       ];
       const ws = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
       const wb = XLSX.utils.book_new();

@@ -128,40 +128,40 @@ export class ImportService {
             72.0,
             14.2,
             44.5,
-            0,
-            'berdiri',
-            'ya',
-            'ya',
-            'ya',
-            'ya',
-            'ya',
-            'ya',
-            'ya',
-            'tidak',
-            'ya',
-            'tidak'
+            '',
+            'terlentang',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            ''
           ],
           [
             2,
             this.makeTextCell('3402086005230002'),
             'Citra Lestari',
             '2024-02-15',
-            7.8,
-            68.5,
-            13.8,
-            43.0,
-            0,
-            'terlentang',
-            'tidak',
-            'ya',
-            'ya',
-            'ya',
-            'ya',
-            'ya',
-            'ya',
-            'tidak',
-            'tidak',
-            'ya'
+            12.5,
+            88.5,
+            15.8,
+            47.0,
+            '',
+            'berdiri',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            ''
           ]
         ];
 
@@ -530,8 +530,12 @@ export class ImportService {
 
       activeBalitas.forEach((b, index) => {
         const w = weighMap.get(b.id);
-        const caraUkur = w ? (w.tinggi_badan < 85 ? 'terlentang' : 'berdiri') : '';
-        const ageInMonths = calculateAgeMonths(b.tanggal_lahir, new Date(year, month - 1, 15));
+        let caraUkur = '';
+        if (w && (w.tinggi_badan || w.berat_badan)) {
+          const measDate = w.tanggal ? new Date(w.tanggal) : new Date(year, month - 1, 15);
+          const ageInMonths = calculateAgeMonths(b.tanggal_lahir, measDate);
+          caraUkur = ageInMonths < 24 ? 'terlentang' : 'berdiri';
+        }
 
         dataRows.push([
           index + 1,
@@ -542,18 +546,18 @@ export class ImportService {
           w ? w.tinggi_badan : '',
           w ? (w.lingkar_lengan || '') : '',
           w ? (w.lingkar_kepala || '') : '',
-          0,
-          caraUkur,
-          (month === 2 || month === 8) && ageInMonths >= 6 ? 'ya' : 'tidak',
-          ageInMonths >= 0 ? 'ya' : 'tidak',
-          ageInMonths >= 1 ? 'ya' : 'tidak',
-          ageInMonths >= 2 ? 'ya' : 'tidak',
-          ageInMonths >= 3 ? 'ya' : 'tidak',
-          ageInMonths >= 4 ? 'ya' : 'tidak',
-          ageInMonths >= 5 ? 'ya' : 'tidak',
-          ageInMonths >= 6 ? 'ya' : 'tidak',
-          'ya',
-          'tidak'
+          '', // Pitting_edema kosong
+          caraUkur, // Umur < 24 bln: terlentang (PB), Umur >= 24 bln: berdiri (TB)
+          '', // vita kosong
+          '', // asi_bulan_0 kosong
+          '', // asi_bulan_1 kosong
+          '', // asi_bulan_2 kosong
+          '', // asi_bulan_3 kosong
+          '', // asi_bulan_4 kosong
+          '', // asi_bulan_5 kosong
+          '', // asi_bulan_6 kosong
+          '', // kelas_ibu_balita kosong
+          ''  // mbg kosong
         ]);
       });
 
