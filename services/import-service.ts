@@ -10,6 +10,16 @@ import { normalizeKey, cleanNik, cleanGender, parseExcelDate } from './eppgbm-ut
 
 export class ImportService {
   /**
+   * Helper to format cell value as text string without prepending single quotes
+   */
+  private static makeTextCell(value: any) {
+    if (value === null || value === undefined || value === '') {
+      return { t: 's', v: '' };
+    }
+    return { t: 's', v: String(value).trim(), z: '@' };
+  }
+
+  /**
    * Parses an Excel file from a URI and returns data objects
    */
   static async parseExcel(fileUri: string): Promise<any[]> {
@@ -29,82 +39,176 @@ export class ImportService {
   }
 
   /**
-   * Generates and shares a template Excel file
+   * Generates and shares template Excel 97-2003 (.xls) files matching official e-PPGBM headers
    */
-  static async downloadTemplate(type: 'balita' | 'lansia') {
+  static async downloadTemplate(type: 'balita' | 'balita_identitas' | 'balita_ukur' | 'lansia') {
     try {
-      // Data template yang sudah disesuaikan dengan field tabel database (lib/types.ts)
-      const data = type === 'balita' ? [
-        {
-          nik: '1234567890123456',
-          nama: 'Ananda Bagus',
-          tempat_lahir: 'Bantul',
-          tanggal_lahir: '2023-01-01',
-          jenis_kelamin: 'Laki-laki',
-          nama_ortu: 'Siti Aminah',
-          nama_ibu: 'Siti Aminah',
-          nama_ayah: 'Ahmad Muzaki',
-          no_hp_ortu: '6281234567890',
-          alamat: 'Jl. Merdeka No. 10',
-          rt: 1,
-          bb_lahir: 3.2,
-          tb_lahir: 50,
-          anak_ke: 1
-        },
-        {
-          nik: '1234567890123457',
-          nama: 'Citra Lestari',
-          tempat_lahir: 'Yogyakarta',
-          tanggal_lahir: '2023-05-20',
-          jenis_kelamin: 'Perempuan',
-          nama_ortu: 'Budi Santoso',
-          nama_ibu: 'Lestari',
-          nama_ayah: 'Budi Santoso',
-          no_hp_ortu: '6289876543210',
-          alamat: 'Jl. Mawar No. 5',
-          rt: 2,
-          bb_lahir: 2.8,
-          tb_lahir: 48,
-          anak_ke: 2
-        }
-      ] : [
-        {
-          nik: '1234567890123456',
-          nama: 'Bapak Ahmad',
-          tanggal_lahir: '1960-05-15',
-          jenis_kelamin: 'Laki-laki',
-          alamat: 'Jl. Mawar No. 5',
-          rt: 2,
-          penyakit_bawaan: 'Hipertensi, Diabetes'
-        },
-        {
-          nik: '1234567890123458',
-          nama: 'Ibu Sumarni',
-          tanggal_lahir: '1955-10-10',
-          jenis_kelamin: 'Perempuan',
-          alamat: 'Jl. Melati No. 12',
-          rt: 1,
-          penyakit_bawaan: 'Asam Urat'
-        }
-      ];
+      const wb = XLSX.utils.book_new();
+      let filename = `template_${type}_${Date.now()}.xls`;
 
-      const worksheet = XLSX.utils.json_to_sheet(data);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Template');
-      
-      const wbout = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
-      const filename = `template_${type}_${Date.now()}.xlsx`;
-      
+      if (type === 'balita_identitas' || type === 'balita') {
+        const headers = [
+          'No', 'anak_ke', 'tgl_lahir', 'jenis_kelamin', 'nomor_KK', 'NIK',
+          'nama_anak', 'usia_hamil', 'berat_lahir', 'panjang_lahir', 'lingkar_kepala_lahir',
+          'kia', 'kia_bayi_kecil', 'imd', 'nama_ortu', 'nik_ortu', 'hp_ortu',
+          'alamat', 'rt', 'rw', 'hapus', 'pindah'
+        ];
+
+        const rows: any[][] = [
+          headers,
+          [
+            1,
+            1,
+            '2023-01-15',
+            'Laki-laki',
+            this.makeTextCell('3402081234560001'),
+            this.makeTextCell('3402081501230001'),
+            'Ananda Bagus',
+            38,
+            3.2,
+            50,
+            34.0,
+            'Ya',
+            'Tidak',
+            'Ya',
+            'Ahmad Muzaki',
+            this.makeTextCell('3402081010850001'),
+            this.makeTextCell('081234567890'),
+            'Jl. Merdeka No. 10',
+            1,
+            3,
+            '',
+            ''
+          ],
+          [
+            2,
+            2,
+            '2023-05-20',
+            'Perempuan',
+            this.makeTextCell('3402081234560002'),
+            this.makeTextCell('3402086005230002'),
+            'Citra Lestari',
+            37,
+            2.9,
+            48,
+            33.5,
+            'Ya',
+            'Tidak',
+            'Tidak',
+            'Budi Santoso',
+            this.makeTextCell('3402081111860002'),
+            this.makeTextCell('089876543210'),
+            'Jl. Mawar No. 5',
+            2,
+            1,
+            '',
+            ''
+          ]
+        ];
+
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+        filename = `Template_ePPGBM_Identitas_Balita_${Date.now()}.xls`;
+      } else if (type === 'balita_ukur') {
+        const headers = [
+          'No', 'NIK', 'nama_anak', 'TANGGALUKUR', 'BERAT', 'TINGGI', 'LILA',
+          'lingkar_kepala', 'Pitting_edema', 'CARAUKUR', 'vita', 'asi_bulan_0',
+          'asi_bulan_1', 'asi_bulan_2', 'asi_bulan_3', 'asi_bulan_4', 'asi_bulan_5',
+          'asi_bulan_6', 'kelas_ibu_balita', 'mbg'
+        ];
+
+        const rows: any[][] = [
+          headers,
+          [
+            1,
+            this.makeTextCell('3402081501230001'),
+            'Ananda Bagus',
+            '2024-02-15',
+            8.5,
+            72.0,
+            14.2,
+            44.5,
+            0,
+            'berdiri',
+            'ya',
+            'ya',
+            'ya',
+            'ya',
+            'ya',
+            'ya',
+            'ya',
+            'tidak',
+            'ya',
+            'tidak'
+          ],
+          [
+            2,
+            this.makeTextCell('3402086005230002'),
+            'Citra Lestari',
+            '2024-02-15',
+            7.8,
+            68.5,
+            13.8,
+            43.0,
+            0,
+            'terlentang',
+            'tidak',
+            'ya',
+            'ya',
+            'ya',
+            'ya',
+            'ya',
+            'ya',
+            'tidak',
+            'tidak',
+            'ya'
+          ]
+        ];
+
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, ws, 'Data Pengukuran');
+        filename = `Template_ePPGBM_Pengukuran_Balita_${Date.now()}.xls`;
+      } else {
+        // Lansia Template
+        const headers = ['No', 'NIK', 'Nama', 'Tanggal Lahir', 'Jenis Kelamin', 'Alamat', 'RT', 'Penyakit Bawaan'];
+        const rows: any[][] = [
+          headers,
+          [
+            1,
+            this.makeTextCell('3402081505600001'),
+            'Bapak Ahmad',
+            '1960-05-15',
+            'Laki-laki',
+            'Jl. Mawar No. 5',
+            2,
+            'Hipertensi, Diabetes'
+          ],
+          [
+            2,
+            this.makeTextCell('3402085010550002'),
+            'Ibu Sumarni',
+            '1955-10-10',
+            'Perempuan',
+            'Jl. Melati No. 12',
+            1,
+            'Asam Urat'
+          ]
+        ];
+
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, ws, 'Template Lansia');
+        filename = `Template_Lansia_${Date.now()}.xls`;
+      }
+
+      const wbout = XLSX.write(wb, { type: 'base64', bookType: 'biff8' });
       const file = new File(Paths.cache, filename);
-      file.write(wbout, {
-        encoding: 'base64',
-      });
+      file.write(wbout, { encoding: 'base64' });
 
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(file.uri, {
-          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          mimeType: 'application/vnd.ms-excel',
           dialogTitle: `Unduh Template ${type.toUpperCase()}`,
-          UTI: 'com.microsoft.excel.xlsx'
+          UTI: 'com.microsoft.excel.xls'
         });
       } else {
         throw new Error('Fitur berbagi tidak tersedia di perangkat ini');
@@ -155,47 +259,53 @@ export class ImportService {
         // 1. Clean NIK
         const nik = cleanNik(row.nik);
         if (!nik) {
-          errors.push(`NIK tidak valid (harus 16 digit) untuk: ${row.nama || 'Tanpa Nama'}`);
+          errors.push(`NIK tidak valid (harus 16 digit) untuk: ${row.nama || row.nama_anak || 'Tanpa Nama'}`);
           continue;
         }
 
         // 2. Clean Gender and Date of Birth
         const gender = cleanGender(row.jenis_kelamin);
         const parsedDob = parseExcelDate(row.tanggal_lahir);
-        if (!parsedDob) {
-          errors.push(`Tanggal lahir tidak valid untuk: ${row.nama || 'Tanpa Nama'}`);
-          continue;
-        }
 
-        // 3. Check for child profile existence in DB
+        // 3. Check for profile existence in DB
         const { data: existing } = await supabase
           .from(table)
-          .select('id')
+          .select('id, tanggal_lahir, jenis_kelamin')
           .eq('nik', nik)
           .maybeSingle();
 
         let targetId = existing?.id || null;
+        const targetDob = existing?.tanggal_lahir || parsedDob;
+        const targetGender = existing?.jenis_kelamin || gender;
 
-        if (!existing) {
+        if (!existing && parsedDob) {
           // Prepare new record payload
           const payload: any = {
             posyandu_id: posyanduId,
             nik,
-            nama: String(row.nama || '').trim() || 'Tanpa Nama',
+            nama: String(row.nama || row.nama_anak || '').trim() || 'Tanpa Nama',
             tanggal_lahir: parsedDob,
             jenis_kelamin: gender,
             alamat: row.alamat ? String(row.alamat).trim() : null,
             rt: row.rt ? parseInt(row.rt, 10) || null : null,
+            rw: row.rw ? String(row.rw).trim() : null,
           };
 
           if (type === 'balita') {
+            payload.no_kk = row.nomor_kk ? String(row.nomor_kk).trim() : null;
             payload.nama_ortu = row.nama_ortu ? String(row.nama_ortu).trim() : (row.nama_ibu ? String(row.nama_ibu).trim() : '');
             payload.nama_ibu = row.nama_ibu ? String(row.nama_ibu).trim() : null;
             payload.nama_ayah = row.nama_ayah ? String(row.nama_ayah).trim() : null;
-            payload.bb_lahir = row.bb_lahir ? parseFloat(String(row.bb_lahir).replace(',', '.')) || null : null;
-            payload.tb_lahir = row.tb_lahir ? parseFloat(String(row.tb_lahir).replace(',', '.')) || null : null;
+            payload.nik_ortu = row.nik_ortu ? cleanNik(row.nik_ortu) : null;
             payload.no_hp_ortu = row.no_hp_ortu ? String(row.no_hp_ortu).trim() : null;
             payload.anak_ke = row.anak_ke ? parseInt(row.anak_ke, 10) || null : null;
+            payload.usia_kehamilan_lahir = row.usia_hamil ? parseInt(row.usia_hamil, 10) || null : null;
+            payload.bb_lahir = row.bb_lahir ? parseFloat(String(row.bb_lahir).replace(',', '.')) || null : null;
+            payload.tb_lahir = row.tb_lahir ? parseFloat(String(row.tb_lahir).replace(',', '.')) || null : null;
+            payload.lk_lahir = row.lingkar_kepala_lahir ? parseFloat(String(row.lingkar_kepala_lahir).replace(',', '.')) || null : null;
+            payload.buku_kia = row.kia !== undefined ? (String(row.kia).toLowerCase() === 'ya' || row.kia === true || row.kia === 1) : null;
+            payload.buku_kia_bayi_kecil = row.kia_bayi_kecil !== undefined ? (String(row.kia_bayi_kecil).toLowerCase() === 'ya' || row.kia_bayi_kecil === true || row.kia_bayi_kecil === 1) : null;
+            payload.imd = row.imd !== undefined ? (String(row.imd).toLowerCase() === 'ya' || row.imd === true || row.imd === 1) : null;
           } else {
             if (row.penyakit_bawaan) {
               payload.penyakit_bawaan = String(row.penyakit_bawaan).split(',').map((s: string) => s.trim()).filter((s: string) => s !== '');
@@ -213,12 +323,12 @@ export class ImportService {
           if (insertError) throw insertError;
           targetId = inserted.id;
           importedCount++;
-        } else {
+        } else if (existing) {
           skippedCount++;
         }
 
         // 4. Handle monthly measurements if available (Balita only)
-        if (type === 'balita' && targetId) {
+        if (type === 'balita' && targetId && targetDob) {
           const parsedMeasDate = parseExcelDate(row.tanggal_pengukuran);
           const weightVal = row.berat_badan ? parseFloat(String(row.berat_badan).replace(',', '.')) : null;
           const heightVal = row.tinggi_badan ? parseFloat(String(row.tinggi_badan).replace(',', '.')) : null;
@@ -233,20 +343,20 @@ export class ImportService {
               .maybeSingle();
 
             if (!existingMeas) {
-              const bbStd = gender === 'Laki-laki' ? bbL : bbP;
-              const tbStd = gender === 'Laki-laki' ? tbL : tbP;
-              const imtStd = gender === 'Laki-laki' ? imtL : imtP;
-              const bbtbStd = gender === 'Laki-laki' ? bbtbL : bbtbP;
+              const bbStd = targetGender === 'Laki-laki' ? bbL : bbP;
+              const tbStd = targetGender === 'Laki-laki' ? tbL : tbP;
+              const imtStd = targetGender === 'Laki-laki' ? imtL : imtP;
+              const bbtbStd = targetGender === 'Laki-laki' ? bbtbL : bbtbP;
 
-              const ageMonthsDecimal = calculateAgeMonthsDecimal(parsedDob, parsedMeasDate);
+              const ageMonthsDecimal = calculateAgeMonthsDecimal(targetDob, parsedMeasDate);
               const bmiVal = weightVal / ((heightVal / 100) ** 2);
 
-              const bbResult = ZScoreEngine.calculate(bbStd, gender === 'Laki-laki' ? 'L' : 'P', ageMonthsDecimal, weightVal, 'BB/U');
-              const tbResult = ZScoreEngine.calculate(tbStd, gender === 'Laki-laki' ? 'L' : 'P', ageMonthsDecimal, heightVal, 'TB/U');
-              const imtResult = ZScoreEngine.calculate(imtStd, gender === 'Laki-laki' ? 'L' : 'P', ageMonthsDecimal, bmiVal, 'IMT/U');
-              const bbtbResult = ZScoreEngine.calculate(bbtbStd, gender === 'Laki-laki' ? 'L' : 'P', heightVal, weightVal, 'BB/TB', ageMonthsDecimal);
+              const bbResult = ZScoreEngine.calculate(bbStd, targetGender === 'Laki-laki' ? 'L' : 'P', ageMonthsDecimal, weightVal, 'BB/U');
+              const tbResult = ZScoreEngine.calculate(tbStd, targetGender === 'Laki-laki' ? 'L' : 'P', ageMonthsDecimal, heightVal, 'TB/U');
+              const imtResult = ZScoreEngine.calculate(imtStd, targetGender === 'Laki-laki' ? 'L' : 'P', ageMonthsDecimal, bmiVal, 'IMT/U');
+              const bbtbResult = ZScoreEngine.calculate(bbtbStd, targetGender === 'Laki-laki' ? 'L' : 'P', heightVal, weightVal, 'BB/TB', ageMonthsDecimal);
 
-              const measPayload = {
+              const measPayload: any = {
                 balita_id: targetId,
                 tanggal: parsedMeasDate,
                 berat_badan: weightVal,
@@ -274,7 +384,7 @@ export class ImportService {
           }
         }
       } catch (err: any) {
-        errors.push(`Error pada ${item.nama || 'Row'}: ${err.message}`);
+        errors.push(`Error pada ${item.nama || item.nama_anak || 'Row'}: ${err.message}`);
       }
     }
 
@@ -282,15 +392,11 @@ export class ImportService {
   }
 
   /**
-   * Generates and exports Balita measurements data in e-PPGBM Excel format
+   * FILE 1: Ekspor Identitas Balita ke Format Resmi e-PPGBM Kemenkes (.xls 2003)
+   * 22 Kolom Exact Case, Sheet1, NIK sebagai Text murni tanpa tanda petik
    */
-  static async exportToEPPGBM(posyanduId: string, month: number, year: number, posyanduName: string) {
+  static async exportEPPGBMIdentitas(posyanduId: string, posyanduName: string) {
     try {
-      const startDate = new Date(year, month - 1, 1);
-      const startStr = startDate.toISOString().split('T')[0];
-      const endStr = new Date(year, month, 0).toISOString().split('T')[0];
-
-      // 1. Fetch all balitas under the Posyandu
       const { data: balitas, error: bError } = await supabase
         .from('balitas')
         .select('*')
@@ -298,12 +404,95 @@ export class ImportService {
         .order('nama', { ascending: true });
 
       if (bError) throw bError;
+      if (!balitas || balitas.length === 0) {
+        throw new Error('Tidak ada data Balita untuk Posyandu ini.');
+      }
 
+      const headers = [
+        'No', 'anak_ke', 'tgl_lahir', 'jenis_kelamin', 'nomor_KK', 'NIK',
+        'nama_anak', 'usia_hamil', 'berat_lahir', 'panjang_lahir', 'lingkar_kepala_lahir',
+        'kia', 'kia_bayi_kecil', 'imd', 'nama_ortu', 'nik_ortu', 'hp_ortu',
+        'alamat', 'rt', 'rw', 'hapus', 'pindah'
+      ];
+
+      const dataRows: any[][] = [headers];
+
+      balitas.forEach((b, index) => {
+        dataRows.push([
+          index + 1,
+          b.anak_ke || 1,
+          b.tanggal_lahir || '',
+          b.jenis_kelamin || 'Laki-laki',
+          this.makeTextCell(b.no_kk || ''),
+          this.makeTextCell(b.nik),
+          b.nama || '',
+          b.usia_kehamilan_lahir || 37,
+          b.bb_lahir !== null && b.bb_lahir !== undefined ? b.bb_lahir : '',
+          b.tb_lahir !== null && b.tb_lahir !== undefined ? b.tb_lahir : '',
+          b.lk_lahir !== null && b.lk_lahir !== undefined ? b.lk_lahir : '',
+          b.buku_kia ? 'Ya' : 'Tidak',
+          b.buku_kia_bayi_kecil ? 'Ya' : 'Tidak',
+          b.imd ? 'Ya' : 'Tidak',
+          b.nama_ibu || b.nama_ortu || b.nama_ayah || '',
+          this.makeTextCell(b.nik_ortu || ''),
+          this.makeTextCell(b.no_hp_ortu || ''),
+          b.alamat || '',
+          b.rt !== null && b.rt !== undefined ? b.rt : '',
+          b.rw || '1',
+          '',
+          ''
+        ]);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(dataRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+
+      const wbout = XLSX.write(wb, { type: 'base64', bookType: 'biff8' });
+      const cleanName = posyanduName.replace(/\s+/g, '_');
+      const filename = `ePPGBM_Identitas_${cleanName}_${Date.now()}.xls`;
+
+      const file = new File(Paths.cache, filename);
+      file.write(wbout, { encoding: 'base64' });
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(file.uri, {
+          mimeType: 'application/vnd.ms-excel',
+          dialogTitle: `Ekspor Identitas e-PPGBM (${posyanduName})`,
+          UTI: 'com.microsoft.excel.xls'
+        });
+      } else {
+        throw new Error('Fitur berbagi file tidak tersedia di perangkat ini');
+      }
+    } catch (error: any) {
+      console.error('Identitas export error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * FILE 2: Ekspor Pengukuran Bulanan ke Format Resmi e-PPGBM Kemenkes (.xls 2003)
+   * 20 Kolom Exact Case, Data Pengukuran, NIK sebagai Text murni tanpa tanda petik
+   */
+  static async exportEPPGBMPengukuran(posyanduId: string, month: number, year: number, posyanduName: string) {
+    try {
+      const startDate = new Date(year, month - 1, 1);
+      const startStr = startDate.toISOString().split('T')[0];
+      const endStr = new Date(year, month, 0).toISOString().split('T')[0];
+
+      // 1. Fetch balitas
+      const { data: balitas, error: bError } = await supabase
+        .from('balitas')
+        .select('*')
+        .eq('posyandu_id', posyanduId)
+        .order('nama', { ascending: true });
+
+      if (bError) throw bError;
       if (!balitas || balitas.length === 0) {
         throw new Error('Tidak ada data Balita untuk Posyandu ini pada periode tersebut.');
       }
 
-      // Filter out graduated children (>= 60 months old at the selected report date)
+      // Filter balita aktif (<60 bulan)
       const refDate = new Date(year, month - 1, 1);
       const activeBalitas = balitas.filter(b => calculateAgeMonths(b.tanggal_lahir, refDate) < 60);
 
@@ -313,7 +502,7 @@ export class ImportService {
 
       const balitaIds = activeBalitas.map(b => b.id);
 
-      // 2. Fetch all weighings for this month
+      // 2. Fetch weighings for the month
       const { data: weighings, error: wError } = await supabase
         .from('penimbangans')
         .select('*')
@@ -325,93 +514,84 @@ export class ImportService {
 
       const weighMap = new Map<string, any>();
       (weighings || []).forEach(w => {
-        // Keep the latest measurement if multiple exist in the same month
         if (!weighMap.has(w.balita_id) || w.tanggal > weighMap.get(w.balita_id).tanggal) {
           weighMap.set(w.balita_id, w);
         }
       });
 
-      // 3. Map to Excel structure (standard draft)
-      const exportData = activeBalitas.map((b, index) => {
+      const headers = [
+        'No', 'NIK', 'nama_anak', 'TANGGALUKUR', 'BERAT', 'TINGGI', 'LILA',
+        'lingkar_kepala', 'Pitting_edema', 'CARAUKUR', 'vita', 'asi_bulan_0',
+        'asi_bulan_1', 'asi_bulan_2', 'asi_bulan_3', 'asi_bulan_4', 'asi_bulan_5',
+        'asi_bulan_6', 'kelas_ibu_balita', 'mbg'
+      ];
+
+      const dataRows: any[][] = [headers];
+
+      activeBalitas.forEach((b, index) => {
         const w = weighMap.get(b.id);
-        return {
-          'No': index + 1,
-          'NIK Balita': `'${b.nik}`,
-          'Nama Balita': b.nama,
-          'Tanggal Lahir': `'${b.tanggal_lahir}`,
-          'Jenis Kelamin': b.jenis_kelamin === 'Laki-laki' ? 'L' : 'P',
-          'Anak Ke': b.anak_ke || 1,
-          'No KK': b.no_kk ? `'${b.no_kk}` : '',
-          'NIK Orang Tua': b.nik_ortu ? `'${b.nik_ortu}` : '',
-          'Usia Kehamilan Lahir (minggu)': b.usia_kehamilan_lahir || '',
-          'Berat Lahir (kg)': b.bb_lahir || '',
-          'Tinggi Lahir (cm)': b.tb_lahir || '',
-          'Lingkar Kepala Lahir (cm)': b.lk_lahir || '',
-          'Buku KIA': b.buku_kia ? 'Ya' : 'Tidak',
-          'Buku KIA Bayi Kecil': b.buku_kia_bayi_kecil ? 'Ya' : 'Tidak',
-          'Mendapat Tatalaksana BBLR': b.tatalaksana_bblr ? 'Ya' : 'Tidak',
-          'IMD': b.imd ? 'Ya' : 'Tidak',
-          'Nama Ibu': b.nama_ibu || b.nama_ortu || '',
-          'Nama Ayah': b.nama_ayah || '',
-          'No HP Orang Tua': b.no_hp_ortu || '',
-          'Alamat': b.alamat || '',
-          'RT': b.rt || '',
-          'RW': b.rw || '1',
-          'Tanggal Pengukuran': w ? w.tanggal : '',
-          'Berat Badan (kg)': w ? w.berat_badan : '',
-          'Tinggi Badan (cm)': w ? w.tinggi_badan : '',
-          'Cara Pengukuran': w ? (w.tinggi_badan < 85 ? 'Telentang' : 'Berdiri') : '',
-          'LILA (cm)': w ? w.lingkar_lengan || '' : '',
-          'Lingkar Kepala (cm)': w ? w.lingkar_kepala || '' : '',
-          'Z-Score BB/U': w ? w.zscore_bb_u || '' : '',
-          'Status BB/U': w ? w.status_bb_u || '' : '',
-          'Z-Score TB/U': w ? w.zscore_tb_u || '' : '',
-          'Status TB/U': w ? w.status_tb_u || '' : '',
-          'Z-Score BB/TB': w ? w.zscore_bb_tb || '' : '',
-          'Status BB/TB': w ? w.status_bb_tb || '' : '',
-          'Catatan': w ? w.catatan || '' : ''
-        };
+        const caraUkur = w ? (w.tinggi_badan < 85 ? 'terlentang' : 'berdiri') : '';
+        const ageInMonths = calculateAgeMonths(b.tanggal_lahir, new Date(year, month - 1, 15));
+
+        dataRows.push([
+          index + 1,
+          this.makeTextCell(b.nik),
+          b.nama || '',
+          w ? w.tanggal : '',
+          w ? w.berat_badan : '',
+          w ? w.tinggi_badan : '',
+          w ? (w.lingkar_lengan || '') : '',
+          w ? (w.lingkar_kepala || '') : '',
+          0,
+          caraUkur,
+          (month === 2 || month === 8) && ageInMonths >= 6 ? 'ya' : 'tidak',
+          ageInMonths >= 0 ? 'ya' : 'tidak',
+          ageInMonths >= 1 ? 'ya' : 'tidak',
+          ageInMonths >= 2 ? 'ya' : 'tidak',
+          ageInMonths >= 3 ? 'ya' : 'tidak',
+          ageInMonths >= 4 ? 'ya' : 'tidak',
+          ageInMonths >= 5 ? 'ya' : 'tidak',
+          ageInMonths >= 6 ? 'ya' : 'tidak',
+          'ya',
+          'tidak'
+        ]);
       });
 
-      // 4. Create worksheet and workbook
-      const worksheet = XLSX.utils.json_to_sheet(exportData);
-      
-      // Auto-fit column widths
-      const maxLens = Object.keys(exportData[0]).map(key => {
-        return Math.max(
-          key.length,
-          ...exportData.map(row => String((row as any)[key] || '').length)
-        );
-      });
-      worksheet['!cols'] = maxLens.map(len => ({ wch: len + 3 }));
+      const ws = XLSX.utils.aoa_to_sheet(dataRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Data Pengukuran');
 
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Data e-PPGBM');
-
-      // 5. Write file
-      const wbout = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
+      const wbout = XLSX.write(wb, { type: 'base64', bookType: 'biff8' });
       const monthLabel = [
         'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
         'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
       ][month - 1];
-      const filename = `Laporan_ePPGBM_${posyanduName.replace(/\s+/g, '_')}_${monthLabel}_${year}.xlsx`;
+      const cleanName = posyanduName.replace(/\s+/g, '_');
+      const filename = `ePPGBM_Pengukuran_${cleanName}_${monthLabel}_${year}.xls`;
 
       const file = new File(Paths.cache, filename);
       file.write(wbout, { encoding: 'base64' });
 
-      // 6. Share file
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(file.uri, {
-          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          dialogTitle: `Ekspor Excel e-PPGBM - ${monthLabel} ${year}`,
-          UTI: 'com.microsoft.excel.xlsx'
+          mimeType: 'application/vnd.ms-excel',
+          dialogTitle: `Ekspor Pengukuran e-PPGBM - ${monthLabel} ${year}`,
+          UTI: 'com.microsoft.excel.xls'
         });
       } else {
         throw new Error('Fitur berbagi file tidak tersedia di perangkat ini');
       }
     } catch (error: any) {
-      console.error('Excel export error:', error);
+      console.error('Pengukuran export error:', error);
       throw error;
     }
   }
+
+  /**
+   * Compatibility alias for legacy calls
+   */
+  static async exportToEPPGBM(posyanduId: string, month: number, year: number, posyanduName: string) {
+    return this.exportEPPGBMPengukuran(posyanduId, month, year, posyanduName);
+  }
 }
+

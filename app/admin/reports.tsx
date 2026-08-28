@@ -49,7 +49,8 @@ export default function ReportsScreen() {
   const { getLinkedPosyandus } = usePosyandu();
   const [activePosyandu, setActivePosyandu] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [exportingExcel, setExportingExcel] = useState(false);
+  const [exportingIdentitas, setExportingIdentitas] = useState(false);
+  const [exportingUkur, setExportingUkur] = useState(false);
   const [fetchingPosyandu, setFetchingPosyandu] = useState(true);
   
   const now = new Date();
@@ -151,7 +152,7 @@ export default function ReportsScreen() {
       
       // Move (rename) and share
       await sourceFile.move(destinationFile);
-      const finalUri = destinationFile.uri; // ✅ Ambil URI dari file tujuan, bukan sumber yang sudah dipindahkan
+      const finalUri = destinationFile.uri;
       
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(finalUri, { UTI: '.pdf', mimeType: 'application/pdf' });
@@ -165,20 +166,35 @@ export default function ReportsScreen() {
     }
   };
 
-  const handleGenerateExcel = async () => {
+  const handleExportIdentitas = async () => {
     if (!activePosyandu) return;
     try {
-      setExportingExcel(true);
-      await ImportService.exportToEPPGBM(
+      setExportingIdentitas(true);
+      await ImportService.exportEPPGBMIdentitas(
+        activePosyandu.id,
+        resolvedPosyanduName
+      );
+    } catch (error: any) {
+      Alert.alert('Error', 'Gagal ekspor data identitas: ' + error.message);
+    } finally {
+      setExportingIdentitas(false);
+    }
+  };
+
+  const handleExportPengukuran = async () => {
+    if (!activePosyandu) return;
+    try {
+      setExportingUkur(true);
+      await ImportService.exportEPPGBMPengukuran(
         activePosyandu.id,
         selectedMonth,
         selectedYear,
         resolvedPosyanduName
       );
     } catch (error: any) {
-      Alert.alert('Error', 'Gagal membuat laporan Excel: ' + error.message);
+      Alert.alert('Error', 'Gagal ekspor data pengukuran: ' + error.message);
     } finally {
-      setExportingExcel(false);
+      setExportingUkur(false);
     }
   };
 
@@ -246,22 +262,41 @@ export default function ReportsScreen() {
         </TouchableOpacity>
 
         {!isLansia && (
-          <TouchableOpacity 
-            style={[
-              styles.v2GenerateBtn, 
-              { backgroundColor: '#0D9488', marginTop: 12 }, 
-              (exportingExcel || loading) && styles.disabledBtn
-            ]} 
-            onPress={handleGenerateExcel}
-            disabled={exportingExcel || loading}
-          >
-            {exportingExcel ? <ActivityIndicator color="#FFF" /> : (
-              <>
-                <FileDown size={22} color="#FFF" />
-                <Text style={styles.v2GenerateBtnText}>Export Excel (e-PPGBM)</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          <View style={{ marginTop: 12, gap: 10 }}>
+            <TouchableOpacity 
+              style={[
+                styles.v2GenerateBtn, 
+                { backgroundColor: '#0D9488' }, 
+                (exportingUkur || loading) && styles.disabledBtn
+              ]} 
+              onPress={handleExportPengukuran}
+              disabled={exportingUkur || loading}
+            >
+              {exportingUkur ? <ActivityIndicator color="#FFF" /> : (
+                <>
+                  <FileDown size={20} color="#FFF" />
+                  <Text style={styles.v2GenerateBtnText}>Export e-PPGBM Pengukuran (.xls)</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[
+                styles.v2GenerateBtn, 
+                { backgroundColor: '#0F766E' }, 
+                (exportingIdentitas || loading) && styles.disabledBtn
+              ]} 
+              onPress={handleExportIdentitas}
+              disabled={exportingIdentitas || loading}
+            >
+              {exportingIdentitas ? <ActivityIndicator color="#FFF" /> : (
+                <>
+                  <FileDown size={20} color="#FFF" />
+                  <Text style={styles.v2GenerateBtnText}>Export e-PPGBM Identitas (.xls)</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         )}
 
         <View style={styles.infoSection}>

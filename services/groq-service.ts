@@ -280,6 +280,65 @@ Berikan rekomendasi gizi dan stimulasi tumbuh kembang yang personal, integratif,
       { role: 'user', content: userPrompt }
     ];
 
-    return await this.callGroq(messages, false);
+    try {
+      return await this.callGroq(messages, false);
+    } catch (e) {
+      console.warn('GroqService.generateRecommendations failed, fallback to clinical standard advice:', e);
+      return this.generateOfflineFallbackRecommendations(
+        balita,
+        metrics,
+        ageMonths,
+        qaList,
+        catatanKader,
+        bbTrend,
+        imunisasiStatus
+      );
+    }
+  }
+
+  /**
+   * Fallback otomatis rekomendasi gizi klinis standar Kemenkes RI jika server AI sedang down/kehabisan kredit.
+   */
+  private static generateOfflineFallbackRecommendations(
+    balita: Balita,
+    metrics: ZScoreData,
+    ageMonths: number,
+    qaList: InterviewQA[],
+    catatanKader?: string,
+    bbTrend?: 'N' | 'T' | '2T' | '-',
+    imunisasiStatus?: ImunisasiStatus | null
+  ): string {
+    const lines: string[] = [];
+
+    // 1. Evaluasi Tumbuh Kembang & KMS
+    if (bbTrend === '2T') {
+      lines.push('1. **Perhatian Berat Badan (2T - Tidak Naik 2 Kali)**: Pertumbuhan berat badan ' + balita.nama + ' memerlukan perhatian intensif karena mengalami stagnasi/turun 2 bulan berturut-turut. Disarankan untuk segera berkonsultasi ke Puskesmas/Tenaga Kesehatan terdekat.');
+    } else if (bbTrend === 'T') {
+      lines.push('1. **Evaluasi Kenaikan Berat Badan (T)**: Berat badan ' + balita.nama + ' bulan ini belum mencapai kenaikan minimal (KBM). Perlu ditingkatkan kepadatan energi dan porsi makan hariannya.');
+    } else {
+      lines.push('1. **Pemantauan Tumbuh Kembang**: Pertumbuhan ' + balita.nama + ' terpantau baik. Pertahankan pola makan seimbang dan terus pantau di Posyandu setiap bulan.');
+    }
+
+    // 2. Asupan Protein Hewani & Gizi Seimbang
+    if (metrics.status_tb_u && (metrics.status_tb_u.toLowerCase().includes('pendek') || metrics.status_tb_u.toLowerCase().includes('stunting'))) {
+      lines.push('2. **Prioritas Protein Hewani (Cegah Stunting)**: Berikan minimal 1-2 porsi protein hewani setiap hari (seperti telur, hati ayam, ikan kembung, atau daging) untuk merangsang hormon pertumbuhan tinggi badan.');
+    } else {
+      lines.push('2. **Pola Makan & Padat Gizi**: Pastikan asupan makanan utama 3x sehari ditambah 2x selingan padat gizi, dengan komposisi lengkap karbohidrat, protein hewani, sayur, dan lemak sehat (minyak/santan).');
+    }
+
+    // 3. Feeding Rules & Sanitasi
+    lines.push('3. **Kebiasaan Makan & Higienitas**: Terapkan jadwal makan teratur dengan durasi maksimal 30 menit tanpa distraksi gawai/mainan. Pastikan air minum selalu dimasak mendidih dan cuci tangan pakai sabun sebelum menyiapkan makanan.');
+
+    // 4. Imunisasi & Catatan Khusus
+    if (imunisasiStatus && imunisasiStatus.missing && imunisasiStatus.missing.length > 0) {
+      lines.push('4. **Kelengkapan Imunisasi**: Ingatkan orang tua untuk melengkapi vaksin yang belum didapatkan (' + imunisasiStatus.missing.slice(0, 2).join(', ') + ') pada jadwal Posyandu berikutnya.');
+    } else if (catatanKader && catatanKader.trim().length > 0) {
+      lines.push('4. **Catatan Kader**: Berdasarkan observasi lapangan "' + catatanKader.trim() + '", terus berikan pendampingan rutin dan motivasi kepada keluarga.');
+    } else {
+      lines.push('4. **Tindak Lanjut**: Datang kembali ke Posyandu bulan depan untuk memantau grafik perkembangan di Buku KIA/KMS.');
+    }
+
+    return lines.join('\n\n');
   }
 }
+

@@ -104,12 +104,16 @@ export default function ImportDataScreen() {
     }
   };
 
-  const handleDownloadTemplate = async () => {
+  const handleDownloadTemplate = async (variant: 'identitas' | 'ukur' = 'identitas') => {
     try {
       setLoading(true);
-      await ImportService.downloadTemplate(type);
+      if (type === 'balita') {
+        await ImportService.downloadTemplate(variant === 'ukur' ? 'balita_ukur' : 'balita_identitas');
+      } else {
+        await ImportService.downloadTemplate('lansia');
+      }
     } catch (error: any) {
-      Alert.alert('Error', 'Gagal mengunduh template');
+      Alert.alert('Error', 'Gagal mengunduh template: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -155,11 +159,11 @@ export default function ImportDataScreen() {
   const renderPreviewItem = ({ item }: { item: any }) => (
     <View style={styles.previewItem}>
       <View style={styles.previewHeader}>
-        <Text style={styles.previewName}>{item.nama || 'Tanpa Nama'}</Text>
-        <Text style={styles.previewNik}>{item.nik || 'No NIK'}</Text>
+        <Text style={styles.previewName}>{item.nama || item.nama_anak || 'Tanpa Nama'}</Text>
+        <Text style={styles.previewNik}>{item.nik || item.NIK || 'No NIK'}</Text>
       </View>
       <View style={styles.previewFooter}>
-        <Badge label={type === 'balita' ? item.jenis_kelamin : item.penyakit_bawaan || 'Sehat'} variant="info" />
+        <Badge label={type === 'balita' ? (item.jenis_kelamin || 'Balita') : item.penyakit_bawaan || 'Sehat'} variant="info" />
       </View>
     </View>
   );
@@ -218,17 +222,38 @@ export default function ImportDataScreen() {
 
         {/* Step 2: Template */}
         <Text style={styles.v2SectionTitle}>2. Persiapkan Data</Text>
-        <Card style={styles.v2InfoCard}>
-           <View style={{ flex: 1 }}>
-             <Text style={styles.v2InfoTitle}>Gunakan Template Resmi</Text>
+        <Card style={[styles.v2InfoCard, { flexDirection: 'column', alignItems: 'stretch' }]}>
+           <View style={{ marginBottom: 12 }}>
+             <Text style={styles.v2InfoTitle}>Template Resmi e-PPGBM (.xls)</Text>
              <Text style={styles.v2InfoText}>
-               Pastikan format kolom sesuai agar proses sinkronisasi database berjalan lancar.
+               {type === 'balita' 
+                 ? 'Gunakan template Identitas untuk sasaran baru, atau template Pengukuran untuk data timbang bulanan.'
+                 : 'Format Excel 97-2003 sesuai standar data lansia.'}
              </Text>
            </View>
-           <TouchableOpacity style={styles.v2DownloadBtn} onPress={handleDownloadTemplate}>
-              <FileDown size={18} color="#FFF" />
-              <Text style={styles.v2DownloadBtnText}>Unduh</Text>
-           </TouchableOpacity>
+           {type === 'balita' ? (
+             <View style={{ flexDirection: 'row', gap: 8 }}>
+               <TouchableOpacity 
+                 style={[styles.v2DownloadBtn, { flex: 1, justifyContent: 'center', marginLeft: 0 }]} 
+                 onPress={() => handleDownloadTemplate('identitas')}
+               >
+                  <FileDown size={16} color="#FFF" />
+                  <Text style={styles.v2DownloadBtnText}>Template Identitas</Text>
+               </TouchableOpacity>
+               <TouchableOpacity 
+                 style={[styles.v2DownloadBtn, { flex: 1, justifyContent: 'center', backgroundColor: '#0F766E', marginLeft: 0 }]} 
+                 onPress={() => handleDownloadTemplate('ukur')}
+               >
+                  <FileDown size={16} color="#FFF" />
+                  <Text style={styles.v2DownloadBtnText}>Template Ukur</Text>
+               </TouchableOpacity>
+             </View>
+           ) : (
+             <TouchableOpacity style={[styles.v2DownloadBtn, { alignSelf: 'flex-start', marginLeft: 0 }]} onPress={() => handleDownloadTemplate('identitas')}>
+                <FileDown size={18} color="#FFF" />
+                <Text style={styles.v2DownloadBtnText}>Unduh Template Lansia</Text>
+             </TouchableOpacity>
+           )}
         </Card>
 
         {/* Step 3: Pick & Preview */}

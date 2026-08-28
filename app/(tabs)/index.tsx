@@ -11,7 +11,8 @@ import {
   Dimensions,
   Modal,
   Image,
-  FlatList
+  FlatList,
+  Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -156,36 +157,22 @@ export default function DashboardScreen() {
     try {
       setIsDownloadingUpdate(true);
       const result = await Updates.fetchUpdateAsync();
-      setIsDownloadingUpdate(false);
 
-      if (!result.isNew) {
+      if (result.isNew) {
+        // Update downloaded successfully — reload immediately
+        await Updates.reloadAsync();
+      } else {
+        // No new update (already on latest)
+        setUpdateAvailable(false);
         setUpdateDismissed(true);
-        Alert.alert('Informasi', 'Pembaruan sudah diterapkan atau Anda sudah di versi terbaru. Silakan muat ulang aplikasi (tutup dan buka kembali).');
-        return;
+        Alert.alert('Informasi', 'Anda sudah menggunakan versi terbaru.');
       }
-
-      Alert.alert(
-        'Pembaruan Siap!',
-        'Pembaruan aplikasi telah selesai diunduh. Klik Mulai Ulang untuk menerapkan pembaruan.',
-        [
-          { text: 'Nanti', style: 'cancel', onPress: () => setUpdateDismissed(true) },
-          {
-            text: 'Mulai Ulang',
-            onPress: async () => {
-              try {
-                await Updates.reloadAsync();
-              } catch (err) {
-                console.error('[OTA Reload] Error:', err);
-              }
-            },
-          },
-        ]
-      );
     } catch (e) {
       console.error('[OTA Fetch] Gagal mengunduh update:', e);
-      setIsDownloadingUpdate(false);
       setUpdateDismissed(true);
-      Alert.alert('Informasi', 'Gagal mengunduh pembaruan. Anda masih menggunakan versi stabil saat ini.');
+      Alert.alert('Gagal Memperbarui', 'Tidak dapat mengunduh pembaruan saat ini. Silakan coba lagi nanti.');
+    } finally {
+      setIsDownloadingUpdate(false);
     }
   };
 
