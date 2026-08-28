@@ -318,8 +318,132 @@ export default function LaporanPage() {
   const endIndex = Math.min(startIndex + itemsPerPage, filteredData.length);
   const paginatedData = filteredData.slice(startIndex, endIndex);
 
-  // Export to Excel standard Kemenkes
-  const handleExportExcel = () => {
+  const makeTextCell = (val: any) => {
+    if (val === null || val === undefined || val === '') return { t: 's', v: '' };
+    return { t: 's', v: String(val).trim(), z: '@' };
+  };
+
+  // Export e-PPGBM Pengukuran (20 kolom exact, Data Pengukuran, format 2003 .xls)
+  const handleExportPengukuranExcel = () => {
+    if (filteredData.length === 0) return;
+    setExporting(true);
+
+    try {
+      const activePosyandu = posyanduList.find(p => p.id === selectedPosyanduId);
+      const posyanduName = activePosyandu?.nama_posyandu || 'Semua_Posyandu';
+      const monthLabel = monthsList.find(m => m.value === selectedMonth)?.label || '';
+      const mNum = parseInt(selectedMonth, 10);
+      const yNum = parseInt(selectedYear, 10);
+
+      const headers = [
+        'No', 'NIK', 'nama_anak', 'TANGGALUKUR', 'BERAT', 'TINGGI', 'LILA',
+        'lingkar_kepala', 'Pitting_edema', 'CARAUKUR', 'vita', 'asi_bulan_0',
+        'asi_bulan_1', 'asi_bulan_2', 'asi_bulan_3', 'asi_bulan_4', 'asi_bulan_5',
+        'asi_bulan_6', 'kelas_ibu_balita', 'mbg'
+      ];
+
+      const rows = filteredData.map((row, index) => {
+        const caraUkur = row.tinggi_badan ? (row.tinggi_badan < 85 ? 'terlentang' : 'berdiri') : '';
+        const ageInMonths = calculateAgeMonths(row.tanggal_lahir, new Date(yNum, mNum - 1, 15));
+
+        return [
+          index + 1,
+          makeTextCell(row.nik),
+          row.nama || '',
+          row.tanggal_pengukuran || '',
+          row.berat_badan ?? '',
+          row.tinggi_badan ?? '',
+          row.lingkar_lengan ?? '',
+          row.lingkar_kepala ?? '',
+          0,
+          caraUkur,
+          ((mNum === 2 || mNum === 8) && ageInMonths >= 6) ? 'ya' : 'tidak',
+          ageInMonths >= 0 ? 'ya' : 'tidak',
+          ageInMonths >= 1 ? 'ya' : 'tidak',
+          ageInMonths >= 2 ? 'ya' : 'tidak',
+          ageInMonths >= 3 ? 'ya' : 'tidak',
+          ageInMonths >= 4 ? 'ya' : 'tidak',
+          ageInMonths >= 5 ? 'ya' : 'tidak',
+          ageInMonths >= 6 ? 'ya' : 'tidak',
+          'ya',
+          'tidak'
+        ];
+      });
+
+      const dataRows = [headers, ...rows];
+      const ws = XLSX.utils.aoa_to_sheet(dataRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Data Pengukuran');
+
+      const filename = `ePPGBM_Pengukuran_${posyanduName.replace(/\s+/g, '_')}_${monthLabel}_${selectedYear}.xls`;
+      XLSX.writeFile(wb, filename, { bookType: 'biff8' });
+    } catch (err: any) {
+      alert('Gagal mengekspor data pengukuran: ' + err.message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  // Export e-PPGBM Identitas (22 kolom exact, Sheet1, format 2003 .xls)
+  const handleExportIdentitasExcel = () => {
+    if (filteredData.length === 0) return;
+    setExporting(true);
+
+    try {
+      const activePosyandu = posyanduList.find(p => p.id === selectedPosyanduId);
+      const posyanduName = activePosyandu?.nama_posyandu || 'Semua_Posyandu';
+
+      const headers = [
+        'No', 'anak_ke', 'tgl_lahir', 'jenis_kelamin', 'nomor_KK', 'NIK',
+        'nama_anak', 'usia_hamil', 'berat_lahir', 'panjang_lahir', 'lingkar_kepala_lahir',
+        'kia', 'kia_bayi_kecil', 'imd', 'nama_ortu', 'nik_ortu', 'hp_ortu',
+        'alamat', 'rt', 'rw', 'hapus', 'pindah'
+      ];
+
+      const rows = filteredData.map((row, index) => {
+        const jk = row.jenis_kelamin === 'L' ? 'Laki-laki' : (row.jenis_kelamin === 'P' ? 'Perempuan' : row.jenis_kelamin);
+        return [
+          index + 1,
+          row.anak_ke || 1,
+          row.tanggal_lahir || '',
+          jk,
+          makeTextCell(row.no_kk || ''),
+          makeTextCell(row.nik),
+          row.nama || '',
+          row.usia_kehamilan_lahir || 37,
+          row.bb_lahir ?? '',
+          row.tb_lahir ?? '',
+          row.lk_lahir ?? '',
+          row.buku_kia ? 'Ya' : 'Tidak',
+          row.buku_kia_bayi_kecil ? 'Ya' : 'Tidak',
+          row.imd ? 'Ya' : 'Tidak',
+          row.nama_ortu || '',
+          makeTextCell(row.nik_ortu || ''),
+          makeTextCell(row.no_hp_ortu || ''),
+          row.alamat || '',
+          row.rt ?? '',
+          row.rw || '1',
+          '',
+          ''
+        ];
+      });
+
+      const dataRows = [headers, ...rows];
+      const ws = XLSX.utils.aoa_to_sheet(dataRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+
+      const filename = `ePPGBM_Identitas_${posyanduName.replace(/\s+/g, '_')}_${selectedYear}.xls`;
+      XLSX.writeFile(wb, filename, { bookType: 'biff8' });
+    } catch (err: any) {
+      alert('Gagal mengekspor data identitas: ' + err.message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  // Export Laporan Lansia (.xls 2003)
+  const handleExportLansiaExcel = () => {
     if (filteredData.length === 0) return;
     setExporting(true);
 
@@ -328,89 +452,38 @@ export default function LaporanPage() {
       const posyanduName = activePosyandu?.nama_posyandu || 'Semua_Posyandu';
       const monthLabel = monthsList.find(m => m.value === selectedMonth)?.label || '';
 
-      let exportData: any[] = [];
+      const headers = [
+        'No', 'Posyandu', 'NIK Lansia', 'Nama Lansia', 'Tanggal Lahir', 'Jenis Kelamin (L/P)',
+        'Alamat', 'RT', 'Tanggal Pemeriksaan', 'Tekanan Darah (mmHg)', 'Gula Darah (mg/dL)',
+        'Kolesterol (mg/dL)', 'Asam Urat (mg/dL)', 'Status Sasaran'
+      ];
 
-      if (activeCategory === 'balita') {
-        // Map rows to final e-PPGBM structure columns
-        exportData = filteredData.map((row) => ({
-          'No': row.no,
-          'Posyandu': row.nama_posyandu,
-          // Request 5: Add single quote prefix to prevent automatic scientific notation or formatting change
-          'NIK Balita': `'${row.nik}`,
-          'Nama Balita': row.nama,
-          'Tanggal Lahir': `'${row.tanggal_lahir}`,
-          'Jenis Kelamin (L/P)': row.jenis_kelamin,
-          'Anak Ke': row.anak_ke,
-          'No KK': row.no_kk ? `'${row.no_kk}` : '',
-          'NIK Orang Tua': row.nik_ortu ? `'${row.nik_ortu}` : '',
-          'Usia Kehamilan Lahir (minggu)': row.usia_kehamilan_lahir || '',
-          'Berat Lahir (kg)': row.bb_lahir || '',
-          'Tinggi/Panjang Lahir (cm)': row.tb_lahir || '',
-          'Lingkar Kepala Lahir (cm)': row.lk_lahir || '',
-          'Buku KIA': row.buku_kia ? 'Ya' : 'Tidak',
-          'Buku KIA Bayi Kecil': row.buku_kia_bayi_kecil ? 'Ya' : 'Tidak',
-          'Mendapat Tatalaksana BBLR': row.tatalaksana_bblr ? 'Ya' : 'Tidak',
-          'IMD': row.imd ? 'Ya' : 'Tidak',
-          'Nama Orang Tua / Wali': row.nama_ortu || '',
-          'No HP Orang Tua': row.no_hp_ortu || '',
-          'Alamat': row.alamat,
-          'RT': row.rt || '',
-          'RW': row.rw || '1',
-          'Tanggal Pengukuran': row.tanggal_pengukuran || '',
-          'Berat Badan (kg)': row.berat_badan || '',
-          'Tinggi Badan (cm)': row.tinggi_badan || '',
-          'Cara Pengukuran': row.tinggi_badan ? (row.tinggi_badan < 85 ? 'Telentang' : 'Berdiri') : '',
-          'LILA (cm)': row.lingkar_lengan || '',
-          'Lingkar Kepala (cm)': row.lingkar_kepala || '',
-          'Status Gizi': row.status_bb_u || '',
-          // Request 6: Show new toddler label
-          'Status Sasaran': row.is_baru ? 'Baru' : 'Lama'
-        }));
-      } else {
-        // Map rows to Lansia structure columns
-        exportData = filteredData.map((row) => ({
-          'No': row.no,
-          'Posyandu': row.nama_posyandu,
-          // Request 5: Add single quote prefix
-          'NIK Lansia': `'${row.nik}`,
-          'Nama Lansia': row.nama,
-          'Tanggal Lahir': `'${row.tanggal_lahir}`,
-          'Jenis Kelamin (L/P)': row.jenis_kelamin,
-          'Alamat': row.alamat,
-          'RT': row.rt || '',
-          'Tanggal Pemeriksaan': row.tanggal_periksa || '',
-          'Tekanan Darah (mmHg)': row.tekanan_darah || '',
-          'Gula Darah (mg/dL)': row.gula_darah || '',
-          'Kolesterol (mg/dL)': row.kolesterol || '',
-          'Asam Urat (mg/dL)': row.asam_urat || '',
-          // Request 6: Show new lansia label
-          'Status Sasaran': row.is_baru ? 'Baru' : 'Lama'
-        }));
-      }
+      const rows = filteredData.map((row, index) => [
+        index + 1,
+        row.nama_posyandu || '',
+        makeTextCell(row.nik),
+        row.nama || '',
+        row.tanggal_lahir || '',
+        row.jenis_kelamin || '',
+        row.alamat || '',
+        row.rt ?? '',
+        row.tanggal_periksa || '',
+        row.tekanan_darah || '',
+        row.gula_darah ?? '',
+        row.kolesterol ?? '',
+        row.asam_urat ?? '',
+        row.is_baru ? 'Baru' : 'Lama'
+      ]);
 
-      // Generate worksheet & workbook
-      const worksheet = XLSX.utils.json_to_sheet(exportData);
-      
-      // Auto-fit column widths
-      const maxLens = Object.keys(exportData[0]).map(key => {
-        return Math.max(
-          key.length,
-          ...exportData.map(row => String((row as any)[key] || '').length)
-        );
-      });
-      worksheet['!cols'] = maxLens.map(len => ({ wch: len + 3 }));
+      const dataRows = [headers, ...rows];
+      const ws = XLSX.utils.aoa_to_sheet(dataRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Laporan Lansia');
 
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, activeCategory === 'balita' ? 'Laporan e-PPGBM' : 'Laporan Lansia');
-
-      // Trigger download
-      const filename = activeCategory === 'balita' 
-        ? `Laporan_ePPGBM_${posyanduName.replace(/\s+/g, '_')}_${monthLabel}_${selectedYear}.xlsx`
-        : `Laporan_Lansia_${posyanduName.replace(/\s+/g, '_')}_${monthLabel}_${selectedYear}.xlsx`;
-      
-      XLSX.writeFile(workbook, filename);
+      const filename = `Laporan_Lansia_${posyanduName.replace(/\s+/g, '_')}_${monthLabel}_${selectedYear}.xls`;
+      XLSX.writeFile(wb, filename, { bookType: 'biff8' });
     } catch (err: any) {
-      alert('Gagal mengekspor laporan: ' + err.message);
+      alert('Gagal mengekspor laporan lansia: ' + err.message);
     } finally {
       setExporting(false);
     }
@@ -452,15 +525,39 @@ export default function LaporanPage() {
             )}
           </div>
 
-          <div>
-            <button 
-              onClick={handleExportExcel}
-              disabled={exporting || filteredData.length === 0}
-              className="btn btn-primary"
-            >
-              <FileSpreadsheet size={14} />
-              <span>{exporting ? 'Mengekspor...' : `Ekspor Laporan ${activeCategory === 'balita' ? 'e-PPGBM' : 'Lansia'}`}</span>
-            </button>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {activeCategory === 'balita' ? (
+              <>
+                <button 
+                  onClick={handleExportPengukuranExcel}
+                  disabled={exporting || filteredData.length === 0}
+                  className="btn btn-primary"
+                  title="Ekspor Data Pengukuran Bulanan e-PPGBM (20 Kolom)"
+                >
+                  <FileSpreadsheet size={14} />
+                  <span>{exporting ? 'Mengekspor...' : 'Ekspor e-PPGBM Pengukuran (.xls)'}</span>
+                </button>
+                <button 
+                  onClick={handleExportIdentitasExcel}
+                  disabled={exporting || filteredData.length === 0}
+                  className="btn btn-secondary"
+                  style={{ borderColor: '#0d9488', color: '#0f766e' }}
+                  title="Ekspor Data Identitas Sasaran e-PPGBM (22 Kolom)"
+                >
+                  <FileSpreadsheet size={14} />
+                  <span>{exporting ? 'Mengekspor...' : 'Ekspor e-PPGBM Identitas (.xls)'}</span>
+                </button>
+              </>
+            ) : (
+              <button 
+                onClick={handleExportLansiaExcel}
+                disabled={exporting || filteredData.length === 0}
+                className="btn btn-primary"
+              >
+                <FileSpreadsheet size={14} />
+                <span>{exporting ? 'Mengekspor...' : 'Ekspor Laporan Lansia (.xls)'}</span>
+              </button>
+            )}
           </div>
         </div>
 

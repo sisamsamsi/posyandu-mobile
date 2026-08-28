@@ -100,6 +100,54 @@ export default function ImportDataPage() {
     return null;
   };
 
+  const handleDownloadTemplate = (variant: 'identitas' | 'ukur' | 'lansia') => {
+    const makeTextCell = (val: any) => ({ t: 's', v: String(val || '').trim(), z: '@' });
+
+    if (variant === 'identitas') {
+      const headers = [
+        'No', 'anak_ke', 'tgl_lahir', 'jenis_kelamin', 'nomor_KK', 'NIK',
+        'nama_anak', 'usia_hamil', 'berat_lahir', 'panjang_lahir', 'lingkar_kepala_lahir',
+        'kia', 'kia_bayi_kecil', 'imd', 'nama_ortu', 'nik_ortu', 'hp_ortu',
+        'alamat', 'rt', 'rw', 'hapus', 'pindah'
+      ];
+      const exampleRow = [
+        1, 1, '2023-01-15', 'Laki-laki',
+        makeTextCell('3402081234560001'),
+        makeTextCell('3402081501230001'),
+        'Contoh Nama Balita', 38, 3.2, 50, 34.0, 'Ya', 'Tidak', 'Ya',
+        'Nama Orang Tua', makeTextCell('3402081010850001'), makeTextCell('081234567890'),
+        'Jl. Contoh Alamat No. 1', 1, 1, '', ''
+      ];
+      const ws = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+      XLSX.writeFile(wb, 'Template_ePPGBM_Identitas_Kemenkes.xls', { bookType: 'biff8' });
+    } else if (variant === 'ukur') {
+      const headers = [
+        'No', 'NIK', 'nama_anak', 'TANGGALUKUR', 'BERAT', 'TINGGI', 'LILA',
+        'lingkar_kepala', 'Pitting_edema', 'CARAUKUR', 'vita', 'asi_bulan_0',
+        'asi_bulan_1', 'asi_bulan_2', 'asi_bulan_3', 'asi_bulan_4', 'asi_bulan_5',
+        'asi_bulan_6', 'kelas_ibu_balita', 'mbg'
+      ];
+      const exampleRow = [
+        1, makeTextCell('3402081501230001'), 'Contoh Nama Balita',
+        '2024-02-15', 8.5, 72.0, 14.2, 44.5, 0, 'berdiri',
+        'ya', 'ya', 'ya', 'ya', 'ya', 'ya', 'ya', 'tidak', 'ya', 'tidak'
+      ];
+      const ws = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Data Pengukuran');
+      XLSX.writeFile(wb, 'Template_ePPGBM_Pengukuran_Kemenkes.xls', { bookType: 'biff8' });
+    } else {
+      const headers = ['No', 'NIK', 'Nama', 'Tanggal Lahir', 'Jenis Kelamin', 'Alamat', 'RT', 'Penyakit Bawaan'];
+      const exampleRow = [1, makeTextCell('3402080101500001'), 'Contoh Nama Lansia', '1955-06-12', 'Laki-laki', 'Jl. Contoh RT 01', 1, 'Hipertensi'];
+      const ws = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Data Lansia');
+      XLSX.writeFile(wb, 'Template_Lansia.xls', { bookType: 'biff8' });
+    }
+  };
+
   // 1. Handle File Select & Load Headers
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -467,6 +515,40 @@ export default function ImportDataPage() {
                 );
                 return null;
               })()}
+            </div>
+
+            {/* Download Template Buttons */}
+            <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '11px', color: '#64748b' }}>Belum punya format file e-PPGBM resmi?</span>
+              {importType === 'balita' ? (
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadTemplate('identitas')}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '11px', padding: '6px 12px', borderRadius: '8px', borderColor: '#0d9488', color: '#0f766e' }}
+                  >
+                    📥 Template Identitas (.xls)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadTemplate('ukur')}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '11px', padding: '6px 12px', borderRadius: '8px', borderColor: '#0d9488', color: '#0f766e' }}
+                  >
+                    📥 Template Ukur (.xls)
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleDownloadTemplate('lansia')}
+                  className="btn btn-secondary"
+                  style={{ fontSize: '11px', padding: '6px 12px', borderRadius: '8px' }}
+                >
+                  📥 Template Lansia (.xls)
+                </button>
+              )}
             </div>
 
             {/* Input file button */}
