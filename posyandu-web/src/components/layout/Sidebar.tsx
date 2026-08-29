@@ -147,6 +147,7 @@ export default function Sidebar({
         { name: 'Imunisasi', path: '/balita/imunisasi' },
         { name: 'Rekomendasi Penyuluhan', path: '/balita/penyuluhan' },
         { name: 'Risiko Tinggi', path: '/balita/risiko-tinggi' },
+        { name: 'Riwayat Perubahan', path: '/balita/riwayat-perubahan' },
         { name: 'Import Data Balita', path: '/import-data?type=balita' }
       ]
     },
