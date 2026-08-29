@@ -124,13 +124,13 @@ export default function ImportDataPage() {
       XLSX.writeFile(wb, 'Template_ePPGBM_Identitas_Kemenkes.xls', { bookType: 'biff8' });
     } else if (variant === 'ukur') {
       const headers = [
-        'No', 'NIK', 'nama_anak', 'alamat', 'nama_posyandu', 'TANGGALUKUR', 'BERAT', 'TINGGI', 'LILA',
+        'No', 'NIK', 'nama_anak', 'alamat', 'tgl_lahir', 'nama_posyandu', 'TANGGALUKUR', 'BERAT', 'TINGGI', 'LILA',
         'lingkar_kepala', 'Pitting_edema', 'CARAUKUR', 'vita', 'asi_bulan_0',
         'asi_bulan_1', 'asi_bulan_2', 'asi_bulan_3', 'asi_bulan_4', 'asi_bulan_5',
         'asi_bulan_6', 'kelas_ibu_balita', 'mbg'
       ];
       const exampleRow = [
-        1, makeTextCell('3402081501230001'), 'Contoh Nama Balita', 'Jl. Contoh Alamat No. 1', 'Posyandu Mawar',
+        1, makeTextCell('3402081501230001'), 'Contoh Nama Balita', 'Jl. Contoh Alamat No. 1', '2023-01-15', 'Posyandu Mawar',
         '2024-02-15', 8.5, 72.0, 14.2, 44.5, '', 'terlentang',
         '', '', '', '', '', '', '', '', '', ''
       ];

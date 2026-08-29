@@ -336,7 +336,7 @@ export default function LaporanPage() {
       const yNum = parseInt(selectedYear, 10);
 
       const headers = [
-        'No', 'NIK', 'nama_anak', 'alamat', 'nama_posyandu', 'TANGGALUKUR', 'BERAT', 'TINGGI', 'LILA',
+        'No', 'NIK', 'nama_anak', 'alamat', 'tgl_lahir', 'nama_posyandu', 'TANGGALUKUR', 'BERAT', 'TINGGI', 'LILA',
         'lingkar_kepala', 'Pitting_edema', 'CARAUKUR', 'vita', 'asi_bulan_0',
         'asi_bulan_1', 'asi_bulan_2', 'asi_bulan_3', 'asi_bulan_4', 'asi_bulan_5',
         'asi_bulan_6', 'kelas_ibu_balita', 'mbg'
@@ -355,6 +355,7 @@ export default function LaporanPage() {
           makeTextCell(row.nik),
           row.nama || '',
           row.alamat || '',
+          row.tanggal_lahir || '',
           row.nama_posyandu || '',
           row.tanggal_pengukuran || '',
           row.berat_badan ?? '',
