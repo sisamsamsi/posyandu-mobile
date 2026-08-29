@@ -336,7 +336,7 @@ export default function LaporanPage() {
       const yNum = parseInt(selectedYear, 10);
 
       const headers = [
-        'No', 'NIK', 'nama_anak', 'TANGGALUKUR', 'BERAT', 'TINGGI', 'LILA',
+        'No', 'NIK', 'nama_anak', 'alamat', 'nama_posyandu', 'TANGGALUKUR', 'BERAT', 'TINGGI', 'LILA',
         'lingkar_kepala', 'Pitting_edema', 'CARAUKUR', 'vita', 'asi_bulan_0',
         'asi_bulan_1', 'asi_bulan_2', 'asi_bulan_3', 'asi_bulan_4', 'asi_bulan_5',
         'asi_bulan_6', 'kelas_ibu_balita', 'mbg'
@@ -354,6 +354,8 @@ export default function LaporanPage() {
           index + 1,
           makeTextCell(row.nik),
           row.nama || '',
+          row.alamat || '',
+          row.nama_posyandu || '',
           row.tanggal_pengukuran || '',
           row.berat_badan ?? '',
           row.tinggi_badan ?? '',
@@ -388,7 +390,7 @@ export default function LaporanPage() {
     }
   };
 
-  // Export e-PPGBM Identitas (22 kolom exact, Sheet1, format 2003 .xls)
+  // Export e-PPGBM Identitas (Sheet1, format 2003 .xls)
   const handleExportIdentitasExcel = () => {
     if (filteredData.length === 0) return;
     setExporting(true);
@@ -401,7 +403,7 @@ export default function LaporanPage() {
         'No', 'anak_ke', 'tgl_lahir', 'jenis_kelamin', 'nomor_KK', 'NIK',
         'nama_anak', 'usia_hamil', 'berat_lahir', 'panjang_lahir', 'lingkar_kepala_lahir',
         'kia', 'kia_bayi_kecil', 'imd', 'nama_ortu', 'nik_ortu', 'hp_ortu',
-        'alamat', 'rt', 'rw', 'hapus', 'pindah'
+        'alamat', 'nama_posyandu', 'rt', 'rw', 'hapus', 'pindah'
       ];
 
       const rows = filteredData.map((row, index) => {
@@ -425,6 +427,7 @@ export default function LaporanPage() {
           makeTextCell(row.nik_ortu || ''),
           makeTextCell(row.no_hp_ortu || ''),
           row.alamat || '',
+          row.nama_posyandu || '',
           row.rt ?? '',
           row.rw || '1',
           '',

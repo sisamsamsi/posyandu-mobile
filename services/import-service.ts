@@ -46,12 +46,12 @@ export class ImportService {
       const wb = XLSX.utils.book_new();
       let filename = `template_${type}_${Date.now()}.xls`;
 
-      if (type === 'balita_identitas' || type === 'balita') {
+      if (type === 'balita_identitas') {
         const headers = [
           'No', 'anak_ke', 'tgl_lahir', 'jenis_kelamin', 'nomor_KK', 'NIK',
           'nama_anak', 'usia_hamil', 'berat_lahir', 'panjang_lahir', 'lingkar_kepala_lahir',
           'kia', 'kia_bayi_kecil', 'imd', 'nama_ortu', 'nik_ortu', 'hp_ortu',
-          'alamat', 'rt', 'rw', 'hapus', 'pindah'
+          'alamat', 'nama_posyandu', 'rt', 'rw', 'hapus', 'pindah'
         ];
 
         const rows: any[][] = [
@@ -75,6 +75,7 @@ export class ImportService {
             this.makeTextCell('3402081010850001'),
             this.makeTextCell('081234567890'),
             'Jl. Merdeka No. 10',
+            'Posyandu Mawar',
             1,
             3,
             '',
@@ -88,19 +89,20 @@ export class ImportService {
             this.makeTextCell('3402081234560002'),
             this.makeTextCell('3402086005230002'),
             'Citra Lestari',
-            37,
-            2.9,
-            48,
+            39,
+            3.0,
+            49,
             33.5,
             'Ya',
             'Tidak',
-            'Tidak',
-            'Budi Santoso',
-            this.makeTextCell('3402081111860002'),
-            this.makeTextCell('089876543210'),
-            'Jl. Mawar No. 5',
+            'Ya',
+            'Siti Rahma',
+            this.makeTextCell('3402085505880002'),
+            this.makeTextCell('081298765432'),
+            'Jl. Kenanga No. 4',
+            'Posyandu Mawar',
             2,
-            1,
+            3,
             '',
             ''
           ]
@@ -111,7 +113,7 @@ export class ImportService {
         filename = `Template_ePPGBM_Identitas_Balita_${Date.now()}.xls`;
       } else if (type === 'balita_ukur') {
         const headers = [
-          'No', 'NIK', 'nama_anak', 'TANGGALUKUR', 'BERAT', 'TINGGI', 'LILA',
+          'No', 'NIK', 'nama_anak', 'alamat', 'nama_posyandu', 'TANGGALUKUR', 'BERAT', 'TINGGI', 'LILA',
           'lingkar_kepala', 'Pitting_edema', 'CARAUKUR', 'vita', 'asi_bulan_0',
           'asi_bulan_1', 'asi_bulan_2', 'asi_bulan_3', 'asi_bulan_4', 'asi_bulan_5',
           'asi_bulan_6', 'kelas_ibu_balita', 'mbg'
@@ -412,7 +414,7 @@ export class ImportService {
         'No', 'anak_ke', 'tgl_lahir', 'jenis_kelamin', 'nomor_KK', 'NIK',
         'nama_anak', 'usia_hamil', 'berat_lahir', 'panjang_lahir', 'lingkar_kepala_lahir',
         'kia', 'kia_bayi_kecil', 'imd', 'nama_ortu', 'nik_ortu', 'hp_ortu',
-        'alamat', 'rt', 'rw', 'hapus', 'pindah'
+        'alamat', 'nama_posyandu', 'rt', 'rw', 'hapus', 'pindah'
       ];
 
       const dataRows: any[][] = [headers];
@@ -437,6 +439,7 @@ export class ImportService {
           this.makeTextCell(b.nik_ortu || ''),
           this.makeTextCell(b.no_hp_ortu || ''),
           b.alamat || '',
+          posyanduName || '',
           b.rt !== null && b.rt !== undefined ? b.rt : '',
           b.rw || '1',
           '',
@@ -458,7 +461,7 @@ export class ImportService {
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(file.uri, {
           mimeType: 'application/vnd.ms-excel',
-          dialogTitle: `Ekspor Identitas e-PPGBM (${posyanduName})`,
+          dialogTitle: `Ekspor Identitas e-PPGBM - ${posyanduName}`,
           UTI: 'com.microsoft.excel.xls'
         });
       } else {
@@ -520,7 +523,7 @@ export class ImportService {
       });
 
       const headers = [
-        'No', 'NIK', 'nama_anak', 'TANGGALUKUR', 'BERAT', 'TINGGI', 'LILA',
+        'No', 'NIK', 'nama_anak', 'alamat', 'nama_posyandu', 'TANGGALUKUR', 'BERAT', 'TINGGI', 'LILA',
         'lingkar_kepala', 'Pitting_edema', 'CARAUKUR', 'vita', 'asi_bulan_0',
         'asi_bulan_1', 'asi_bulan_2', 'asi_bulan_3', 'asi_bulan_4', 'asi_bulan_5',
         'asi_bulan_6', 'kelas_ibu_balita', 'mbg'
@@ -541,6 +544,8 @@ export class ImportService {
           index + 1,
           this.makeTextCell(b.nik),
           b.nama || '',
+          b.alamat || '',
+          posyanduName || '',
           w ? w.tanggal : '',
           w ? w.berat_badan : '',
           w ? w.tinggi_badan : '',

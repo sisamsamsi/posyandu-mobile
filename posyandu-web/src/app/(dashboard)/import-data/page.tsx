@@ -108,7 +108,7 @@ export default function ImportDataPage() {
         'No', 'anak_ke', 'tgl_lahir', 'jenis_kelamin', 'nomor_KK', 'NIK',
         'nama_anak', 'usia_hamil', 'berat_lahir', 'panjang_lahir', 'lingkar_kepala_lahir',
         'kia', 'kia_bayi_kecil', 'imd', 'nama_ortu', 'nik_ortu', 'hp_ortu',
-        'alamat', 'rt', 'rw', 'hapus', 'pindah'
+        'alamat', 'nama_posyandu', 'rt', 'rw', 'hapus', 'pindah'
       ];
       const exampleRow = [
         1, 1, '2023-01-15', 'Laki-laki',
@@ -116,7 +116,7 @@ export default function ImportDataPage() {
         makeTextCell('3402081501230001'),
         'Contoh Nama Balita', 38, 3.2, 50, 34.0, 'Ya', 'Tidak', 'Ya',
         'Nama Orang Tua', makeTextCell('3402081010850001'), makeTextCell('081234567890'),
-        'Jl. Contoh Alamat No. 1', 1, 1, '', ''
+        'Jl. Contoh Alamat No. 1', 'Posyandu Mawar', 1, 1, '', ''
       ];
       const ws = XLSX.utils.aoa_to_sheet([headers, exampleRow]);
       const wb = XLSX.utils.book_new();
@@ -124,13 +124,13 @@ export default function ImportDataPage() {
       XLSX.writeFile(wb, 'Template_ePPGBM_Identitas_Kemenkes.xls', { bookType: 'biff8' });
     } else if (variant === 'ukur') {
       const headers = [
-        'No', 'NIK', 'nama_anak', 'TANGGALUKUR', 'BERAT', 'TINGGI', 'LILA',
+        'No', 'NIK', 'nama_anak', 'alamat', 'nama_posyandu', 'TANGGALUKUR', 'BERAT', 'TINGGI', 'LILA',
         'lingkar_kepala', 'Pitting_edema', 'CARAUKUR', 'vita', 'asi_bulan_0',
         'asi_bulan_1', 'asi_bulan_2', 'asi_bulan_3', 'asi_bulan_4', 'asi_bulan_5',
         'asi_bulan_6', 'kelas_ibu_balita', 'mbg'
       ];
       const exampleRow = [
-        1, makeTextCell('3402081501230001'), 'Contoh Nama Balita',
+        1, makeTextCell('3402081501230001'), 'Contoh Nama Balita', 'Jl. Contoh Alamat No. 1', 'Posyandu Mawar',
         '2024-02-15', 8.5, 72.0, 14.2, 44.5, '', 'terlentang',
         '', '', '', '', '', '', '', '', '', ''
       ];

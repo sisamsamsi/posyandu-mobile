@@ -11,6 +11,7 @@ export const EPPGBM_HEADERS = {
   nik_ortu: ['nikortu', 'nikibu', 'nikayah', 'nikorangtua'],
   no_hp_ortu: ['nohp', 'notelepon', 'nohportu', 'notelportu', 'hp', 'hportu', 'noteleponortu'],
   alamat: ['alamat', 'alamatdomisili', 'jalan'],
+  nama_posyandu: ['namaposyandu', 'posyandu', 'unitposyandu'],
   rt: ['rt'],
   rw: ['rw'],
   anak_ke: ['anakke', 'anakke-'],
